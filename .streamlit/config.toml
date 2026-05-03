@@ -1,0 +1,12 @@
+[theme]
+base = "light"
+primaryColor = "#1B2A4A"
+# Main content area: medium light grey (cards pop white against this)
+backgroundColor = "#DADDE3"
+# Sidebar + widget cards: white, so they stand out against the grey main area
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1B2A4A"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
