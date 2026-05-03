@@ -51,4 +51,4 @@ This is the flagship portfolio piece for a decision-framework consulting practic
 
 ---
 
-*"A CEO who repeatedly asks for the same report but can't articulate what decisions it drives is almost never asking for the report. He's asking for certainty."*
+*"The report isn't the point. The point is knowing what to do next."*
