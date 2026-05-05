@@ -33,7 +33,7 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 
 ```bash
 git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
-cd velocity-tool
+cd retail-velocity-decision-tool
 pip install -r app/requirements.txt
 streamlit run app/velocity_tool.py
 ```
