@@ -115,7 +115,15 @@ THRESHOLDS = {
     "roi_strong":               1.0,    # ROI > 100% (>1.0) → Strong; 0–100% → Marginal; <0% → Negative
 }
 
+# The Story tab lives at the top of the navigation as the entry point — a
+# scroll-driven narrative explaining why this tool exists, told through one
+# protagonist SKU. It precedes the eight decision-mode questions below so a
+# first-time visitor lands on the "why" before the "how".
+STORY_KEY = "Why this tool exists (start here)"
+PROTAGONIST_SKU = "CHP-0044"
+
 DECISIONS = [
+    STORY_KEY,
     "Is this SKU at risk of being delisted?",
     "How much should I produce over the next 4 weeks?",
     "Did my last promotion pay off?",
@@ -126,14 +134,15 @@ DECISIONS = [
     "Do I have pricing power on this SKU?",
 ]
 DECISION_TITLES = {
-    DECISIONS[0]: "Shelf Defense",
-    DECISIONS[1]: "Production Planning — Next 4 Weeks",
-    DECISIONS[2]: "Promo ROI",
-    DECISIONS[3]: "Distribution Expansion",
-    DECISIONS[4]: "Distribution Pruning",
-    DECISIONS[5]: "SKU Rationalization",
-    DECISIONS[6]: "Launch Health",
-    DECISIONS[7]: "Pricing Power",
+    DECISIONS[0]: "The Story",
+    DECISIONS[1]: "Shelf Defense",
+    DECISIONS[2]: "Production Planning — Next 4 Weeks",
+    DECISIONS[3]: "Promo ROI",
+    DECISIONS[4]: "Distribution Expansion",
+    DECISIONS[5]: "Distribution Pruning",
+    DECISIONS[6]: "SKU Rationalization",
+    DECISIONS[7]: "Launch Health",
+    DECISIONS[8]: "Pricing Power",
 }
 
 PHYSICAL_RETAILERS = ["Walmart", "Costco", "Whole Foods", "Regional"]
@@ -564,6 +573,1186 @@ def excel_button(df: pd.DataFrame, sheet_name: str, file_stem: str) -> None:
         file_name=f"{file_stem}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+# ============================================================
+# THE STORY — narrative entry tab
+# ============================================================
+# Five scrolling sections that take the reader through the protagonist SKU
+# (CHP-0044, Charred Scallion Relish): a SKU that posts +15% YoY units in
+# the Monday morning report while its baseline velocity quietly drops 25%
+# under the cover of escalating promotional spend. The arc is:
+#   1. The Monday Morning Report — show the report that hides the problem
+#   2. The Volume Trap — split total vs baseline, reveal the masking
+#   3. What $18,701 Bought — promo-by-promo hangover analysis
+#   4. The Shelf Is Watching — project the trajectory to the delisting line
+#   5. The Total Cost of Not Knowing — sum the dollars
+# Then a "What the rest of the portfolio looks like" coda so the reader
+# leaves understanding which decision tab to open next.
+
+# Saturday-aligned helper: scan_data uses week-ending-Saturday, promotions
+# table uses Monday week-start. Shifting promo dates by +5 days lines them up
+# with the corresponding scan week.
+def _promo_to_scan_weeks(start_week: str, end_week: str) -> list[str]:
+    s = pd.to_datetime(start_week) + pd.Timedelta(days=5)
+    e = pd.to_datetime(end_week) + pd.Timedelta(days=5)
+    out = []
+    cur = s
+    while cur <= e:
+        out.append(cur.date().isoformat())
+        cur += pd.Timedelta(days=7)
+    return out
+
+
+@st.cache_data(show_spinner="Loading Monday-morning summary...")
+def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFrame:
+    """52wk vs prior-52wk units & dollars per SKU.
+
+    Builds a CEO-style pivot summary: a mix of the highest-volume SKUs (the
+    ones that show up in any executive report) and a few weak performers
+    so the YoY range looks like a real list — not just a green-arrows
+    cherry-pick. Sorted by YoY unit change descending (best on top), with
+    the protagonist guaranteed to land in the top half so its +15% reads as
+    "yet another healthy SKU" rather than a standout.
+    """
+    con = get_connection()
+    latest = get_latest_week()
+    sql = """
+        SELECT pm.sku, pm.product_name, pm.product_line,
+               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) < 364
+                        THEN d.units_sold ELSE 0 END) AS units_cur,
+               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) >= 364
+                         AND julianday(?) - julianday(d.week_ending) < 728
+                        THEN d.units_sold ELSE 0 END) AS units_prior,
+               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) < 364
+                        THEN d.dollars_sold ELSE 0 END) AS dollars_cur,
+               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) >= 364
+                         AND julianday(?) - julianday(d.week_ending) < 728
+                        THEN d.dollars_sold ELSE 0 END) AS dollars_prior
+        FROM scan_data d JOIN product_master pm ON d.sku = pm.sku
+        GROUP BY pm.sku, pm.product_name, pm.product_line
+        HAVING units_prior > 0
+    """
+    df = pd.read_sql(sql, con, params=[latest] * 6)
+    df["units_yoy_pct"] = (df["units_cur"] - df["units_prior"]) / df["units_prior"] * 100
+    df["dollars_yoy_pct"] = (df["dollars_cur"] - df["dollars_prior"]) / df["dollars_prior"] * 100
+
+    # Stratified sample so the YoY column shows a realistic spread: take the
+    # top half of n_show from biggest-volume winners (YoY > 0) and the bottom
+    # half from the laggards (YoY <= 0). The protagonist is forced into the
+    # winner pool so its +15% sits naturally among the "growing" SKUs.
+    n_winners = (n_show + 1) // 2
+    n_losers = n_show - n_winners
+    winners_pool = df[df["units_yoy_pct"] > 0].nlargest(n_winners * 2, "units_cur")
+    winners = winners_pool.nlargest(n_winners, "units_cur").copy()
+    if protagonist not in set(winners["sku"]):
+        prot = df[df["sku"] == protagonist]
+        if not prot.empty:
+            winners = pd.concat([winners.iloc[:n_winners - 1], prot], ignore_index=True)
+    losers = df[df["units_yoy_pct"] <= 0].nlargest(n_losers, "units_cur")
+    out = pd.concat([winners, losers], ignore_index=True)
+    return out.sort_values("units_yoy_pct", ascending=False).reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
+    """Per-week total + baseline velocity (units / store-week). Promo flag set
+    from the union of all promo windows on this SKU regardless of retailer."""
+    con = get_connection()
+    promos = pd.read_sql(
+        "SELECT start_week, end_week FROM promotions WHERE sku=?",
+        con, params=[sku],
+    )
+    promo_set: set[str] = set()
+    for _, r in promos.iterrows():
+        promo_set.update(_promo_to_scan_weeks(r["start_week"], r["end_week"]))
+
+    df = pd.read_sql(
+        """
+        SELECT week_ending,
+               AVG(units_sold) AS velocity,
+               COUNT(*) AS doors,
+               SUM(units_sold) AS units_total,
+               SUM(dollars_sold) AS dollars_total
+        FROM scan_data WHERE sku=?
+        GROUP BY week_ending ORDER BY week_ending
+        """,
+        con, params=[sku],
+    )
+    df["week_ending"] = pd.to_datetime(df["week_ending"])
+    df["on_promo"] = df["week_ending"].dt.date.astype(str).isin(promo_set)
+    # baseline_v: velocity in non-promo weeks only (NaN on promo weeks so the
+    # plotted line breaks rather than connecting through the spike)
+    df["baseline_v"] = df["velocity"].where(~df["on_promo"])
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def get_promo_hangover_data(sku: str) -> pd.DataFrame:
+    """For each promo on the SKU, compute pre / during / post velocity at the
+    promo's retailer. Pre = 4 weeks before start. Post = 4 weeks after end."""
+    con = get_connection()
+    promos = pd.read_sql(
+        """
+        SELECT promo_id, retailer, start_week, end_week, duration_weeks,
+               discount_depth_pct, promo_type
+        FROM promotions WHERE sku=? ORDER BY start_week
+        """,
+        con, params=[sku],
+    )
+    rows = []
+    for _, p in promos.iterrows():
+        ret = p["retailer"]
+        ret_clause, ret_params = retailer_clause(ret)
+        is_agg = 1 if ret in ("UNFI", "DTC") else 0
+        # Saturday-align the promo dates
+        start_we = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5)).date().isoformat()
+        end_we   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5)).date().isoformat()
+        pre_start  = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(weeks=4)).date().isoformat()
+        pre_end    = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(days=1)).date().isoformat()
+        post_start = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(days=7)).date().isoformat()
+        post_end   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(weeks=4)).date().isoformat()
+
+        def _avg_vel(start: str, end: str) -> float | None:
+            sql = f"""
+                SELECT AVG(d.units_sold)
+                FROM scan_data d
+                JOIN stores s ON d.store_id = s.store_id
+                WHERE d.sku = ? AND {ret_clause} AND s.is_aggregated_channel = ?
+                  AND d.week_ending BETWEEN ? AND ?
+            """
+            cur = con.execute(sql, [sku] + ret_params + [is_agg, start, end])
+            r = cur.fetchone()[0]
+            return float(r) if r is not None else None
+
+        pre_v   = _avg_vel(pre_start, pre_end)
+        promo_v = _avg_vel(start_we, end_we)
+        post_v  = _avg_vel(post_start, post_end)
+
+        # Doors and incremental dollars
+        doors_sql = f"""
+            SELECT COUNT(DISTINCT d.store_id)
+            FROM scan_data d JOIN stores s ON d.store_id = s.store_id
+            WHERE d.sku = ? AND {ret_clause} AND s.is_aggregated_channel = ?
+              AND d.week_ending BETWEEN ? AND ?
+        """
+        doors = con.execute(doors_sql, [sku] + ret_params + [is_agg, start_we, end_we]).fetchone()[0] or 0
+
+        rows.append({
+            "promo_id": p["promo_id"], "retailer": ret,
+            "start_week": p["start_week"], "end_week": p["end_week"],
+            "duration_weeks": p["duration_weeks"],
+            "discount_depth_pct": p["discount_depth_pct"],
+            "promo_type": p["promo_type"],
+            "pre_v": pre_v, "promo_v": promo_v, "post_v": post_v,
+            "doors": doors,
+        })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    # Lift, dip, and per-promo hangover (post minus pre, the residual damage)
+    df["lift_pct"] = (df["promo_v"] - df["pre_v"]) / df["pre_v"] * 100
+    df["dip_pct"]  = (df["post_v"] - df["pre_v"]) / df["pre_v"] * 100
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def get_sku_trade_spend(sku: str) -> float:
+    """Total trade spend on a SKU summed over all promo (sku, week, retailer)
+    triples. Trade $ = scan dollars in that promo week × retailer trade %."""
+    con = get_connection()
+    costs = con.execute(
+        """SELECT trade_spend_pct_walmart, trade_spend_pct_costco,
+                  trade_spend_pct_whole_foods, trade_spend_pct_regional,
+                  trade_spend_pct_unfi, trade_spend_pct_dtc
+           FROM sku_costs WHERE sku=?""",
+        [sku],
+    ).fetchone()
+    if costs is None:
+        return 0.0
+    pct = {
+        "Walmart":     costs[0] or 0.0,
+        "Costco":      costs[1] or 0.0,
+        "Whole Foods": costs[2] or 0.0,
+        "UNFI":        costs[4] or 0.0,
+        "DTC":         costs[5] or 0.0,
+    }
+    regional_pct = costs[3] or 0.0
+
+    # Promo (week, retailer) set
+    promo_rows = con.execute(
+        "SELECT retailer, start_week, end_week FROM promotions WHERE sku=?",
+        [sku],
+    ).fetchall()
+    promo_index: dict[str, set[str]] = {}  # retailer -> set of week_ending
+    for ret, sw, ew in promo_rows:
+        for wk in _promo_to_scan_weeks(sw, ew):
+            promo_index.setdefault(ret, set()).add(wk)
+
+    # Total scan dollars by (week, retailer) for this SKU
+    scan_rows = con.execute(
+        """
+        SELECT d.week_ending, s.retailer, SUM(d.dollars_sold)
+        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
+        WHERE d.sku = ?
+        GROUP BY d.week_ending, s.retailer
+        """,
+        [sku],
+    ).fetchall()
+    total = 0.0
+    for wk, ret, dollars in scan_rows:
+        if ret not in promo_index or wk not in promo_index[ret]:
+            continue
+        if ret in REGIONAL_CHAINS:
+            tp = regional_pct
+        else:
+            tp = pct.get(ret, 0.0)
+        total += (dollars or 0.0) * tp
+    return total
+
+
+@st.cache_data(show_spinner=False)
+def get_walmart_trajectory(sku: str) -> pd.DataFrame:
+    """Trailing 13-week rolling avg of Walmart-only weekly velocity."""
+    con = get_connection()
+    df = pd.read_sql(
+        """
+        SELECT d.week_ending, AVG(d.units_sold) AS velocity
+        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
+        WHERE d.sku = ? AND s.retailer = 'Walmart'
+        GROUP BY d.week_ending ORDER BY d.week_ending
+        """,
+        con, params=[sku],
+    )
+    df["week_ending"] = pd.to_datetime(df["week_ending"])
+    df["t13"] = df["velocity"].rolling(window=13, min_periods=4).mean()
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def get_sku_revenue_at_risk(sku: str) -> dict:
+    """Annual revenue at the protagonist's current Walmart distribution
+    (doors × current velocity × wholesale × 52). What's "at risk" if the SKU
+    crosses the delisting threshold and Walmart drops it in the next review."""
+    con = get_connection()
+    row = con.execute(
+        """
+        SELECT COUNT(DISTINCT d.store_id),
+               AVG(d.units_sold),
+               SUM(d.dollars_sold)
+        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
+        WHERE d.sku = ? AND s.retailer = 'Walmart'
+          AND julianday((SELECT MAX(week_ending) FROM scan_data))
+              - julianday(d.week_ending) < 91
+        """,
+        [sku],
+    ).fetchone()
+    walmart_doors = row[0] or 0
+    walmart_v     = row[1] or 0.0
+    walmart_q     = row[2] or 0.0  # last 13wk dollars at walmart
+
+    # Annualize: take the trailing 13wk avg velocity and project a year forward
+    annual_units_walmart = walmart_v * walmart_doors * 52
+    # SKU wholesale at walmart for revenue conversion
+    cost_row = con.execute(
+        """SELECT wholesale_walmart, cogs_per_unit FROM sku_costs WHERE sku=?""",
+        [sku],
+    ).fetchone()
+    wholesale_walmart = cost_row[0] or 0
+    cogs              = cost_row[1] or 0
+    annual_rev_walmart = annual_units_walmart * wholesale_walmart
+    annual_margin_walmart = annual_units_walmart * (wholesale_walmart - cogs)
+
+    return {
+        "walmart_doors": walmart_doors,
+        "walmart_v_t13": walmart_v,
+        "walmart_dollars_t13": walmart_q,
+        "annual_rev_walmart": annual_rev_walmart,
+        "annual_margin_walmart": annual_margin_walmart,
+        "wholesale_walmart": wholesale_walmart,
+        "cogs": cogs,
+    }
+
+
+@st.cache_data(show_spinner=False)
+def get_category_avg_velocity(product_line: str) -> float:
+    """Recent 13wk units/store-week for the product line — used as the
+    'replacement SKU could earn this much' benchmark."""
+    con = get_connection()
+    row = con.execute(
+        """
+        SELECT AVG(d.units_sold)
+        FROM scan_data d JOIN product_master pm ON d.sku = pm.sku
+        WHERE pm.product_line = ?
+          AND julianday((SELECT MAX(week_ending) FROM scan_data))
+              - julianday(d.week_ending) < 91
+        """,
+        [product_line],
+    ).fetchone()
+    return row[0] or 0.0
+
+
+# ----------------------------------------------------------------
+# Bottom subsection: "What the rest of the portfolio looks like"
+# ----------------------------------------------------------------
+
+@st.cache_data(show_spinner=False)
+def get_top_demand_4wk() -> pd.DataFrame:
+    """Top 10 SKUs by projected next-4-week case demand."""
+    con = get_connection()
+    df = pd.read_sql(
+        """
+        SELECT pm.sku, pm.product_name,
+               SUM(d.units_sold) * 1.0 / NULLIF(pm.case_pack_qty, 0) AS cases_4wk
+        FROM scan_data d JOIN product_master pm ON d.sku = pm.sku
+        WHERE julianday((SELECT MAX(week_ending) FROM scan_data))
+              - julianday(d.week_ending) < 28
+        GROUP BY pm.sku, pm.product_name, pm.case_pack_qty
+        ORDER BY cases_4wk DESC LIMIT 10
+        """,
+        con,
+    )
+    return df.dropna(subset=["cases_4wk"]).reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def get_top_velocity_per_door() -> pd.DataFrame:
+    """Top 10 retailer chains by avg units/door/week over the trailing 13 weeks."""
+    con = get_connection()
+    df = pd.read_sql(
+        """
+        SELECT s.retailer AS chain,
+               AVG(d.units_sold) AS vel_per_door,
+               COUNT(DISTINCT d.store_id) AS active_doors
+        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
+        WHERE julianday((SELECT MAX(week_ending) FROM scan_data))
+              - julianday(d.week_ending) < 91
+          AND s.is_aggregated_channel = 0
+        GROUP BY s.retailer
+        ORDER BY vel_per_door DESC LIMIT 10
+        """,
+        con,
+    )
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
+    """Bottom 10 Walmart stores by per-SKU avg velocity, with their gap below
+    the threshold. Returns the worst stores even if all are above threshold —
+    the chart still shows the tail of the distribution. The 'gap' column is
+    threshold − velocity (positive = below the line, negative = above)."""
+    con = get_connection()
+    df = pd.read_sql(
+        """
+        SELECT d.store_id, AVG(d.units_sold) AS vel
+        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
+        WHERE s.retailer = 'Walmart'
+          AND julianday((SELECT MAX(week_ending) FROM scan_data))
+              - julianday(d.week_ending) < 91
+        GROUP BY d.store_id
+        ORDER BY vel ASC LIMIT 10
+        """,
+        con,
+    )
+    df["gap"] = threshold - df["vel"]
+    df["threshold"] = threshold
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def get_top_elasticity_skus() -> pd.DataFrame:
+    """Top 10 SKUs by avg promo lift / discount-depth ratio (elasticity)."""
+    con = get_connection()
+    df = pd.read_sql(
+        """
+        WITH promo_pairs AS (
+            SELECT p.sku, p.start_week, p.end_week, p.discount_depth_pct,
+                   AVG(CASE WHEN sd.week_ending BETWEEN p.start_week AND p.end_week
+                            THEN sd.units_sold END) AS promo_v,
+                   AVG(CASE WHEN sd.week_ending BETWEEN DATE(p.start_week, '-28 days')
+                                              AND DATE(p.start_week, '-1 days')
+                            THEN sd.units_sold END) AS pre_v
+            FROM promotions p JOIN scan_data sd ON sd.sku = p.sku
+            WHERE sd.week_ending BETWEEN DATE(p.start_week, '-28 days')
+                                     AND DATE(p.end_week, '+1 days')
+            GROUP BY p.promo_id, p.sku, p.start_week, p.end_week, p.discount_depth_pct
+        )
+        SELECT pm.sku, pm.product_name,
+               AVG((pp.promo_v - pp.pre_v) / NULLIF(pp.pre_v, 0)
+                   / NULLIF(pp.discount_depth_pct, 0)) AS elasticity,
+               COUNT(*) AS n_promos
+        FROM promo_pairs pp JOIN product_master pm ON pp.sku = pm.sku
+        WHERE pp.pre_v > 0 AND pp.discount_depth_pct > 0
+        GROUP BY pm.sku, pm.product_name
+        HAVING n_promos >= 1 AND elasticity IS NOT NULL
+        ORDER BY elasticity DESC LIMIT 10
+        """,
+        con,
+    )
+    return df
+
+
+# ----------------------------------------------------------------
+# Render: The Story
+# ----------------------------------------------------------------
+
+def _h2(text: str) -> None:
+    st.markdown(
+        f"<h2 style='color:{NAVY}; margin-top: 1.2rem; margin-bottom: 0.3rem;'>"
+        f"{text}</h2>",
+        unsafe_allow_html=True,
+    )
+
+
+def _eyebrow(text: str) -> None:
+    st.markdown(
+        f"<div style='color:{ORANGE}; font-size: 0.8rem; "
+        f"font-weight: 700; letter-spacing: 0.18rem; "
+        f"text-transform: uppercase; margin-top: 1.5rem;'>{text}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _narration(text: str, *, color: str = NAVY) -> None:
+    """Pull-quote narration block. The story-teller voice."""
+    st.markdown(
+        f"<div style='font-size: 1.08rem; line-height: 1.6; color: {color}; "
+        f"margin: 0.6rem 0 0.8rem 0; padding: 0.9rem 1.2rem; "
+        f"background-color: {WHITE}; border-left: 4px solid {ORANGE}; "
+        f"border-radius: 4px; box-shadow: 0 1px 2px rgba(27, 42, 74, 0.05);'>"
+        f"{text}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _switch_decision(target: str) -> None:
+    """Set the sidebar selectbox to a target decision and rerun the app."""
+    st.session_state["decision_picker"] = target
+    st.rerun()
+
+
+def render_story() -> None:
+    # Title
+    st.markdown(
+        f"""
+        <div style='margin-bottom: 0.6rem;'>
+          <div style='color:{ORANGE}; font-size: 0.75rem;
+                      font-weight: 700; letter-spacing: 0.22rem;
+                      text-transform: uppercase;'>
+            Why this tool exists
+          </div>
+          <h1 style='color:{NAVY}; margin: 0.05rem 0 0 0;
+                     font-family: Georgia, serif;'>
+            The Charred Scallion Relish Problem
+          </h1>
+          <div style='color:{NAVY_MED}; font-size: 1.05rem;
+                      margin-top: 0.4rem; max-width: 820px;'>
+            One SKU. Eight months. $18,701 in trade spend. A +15% YoY headline
+            that hides a 25% baseline collapse. Read the story, then use the tool.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    # ---- Section 1: The Monday Morning Report ----
+    _eyebrow("Section 1 of 5")
+    _h2("The Monday Morning Report")
+
+    st.markdown(
+        f"<div style='color:{NAVY_MED}; font-size: 1rem; max-width: 820px; "
+        f"margin-bottom: 0.7rem;'>"
+        f"This is probably what your Monday morning report looks like. Total "
+        f"units across the portfolio: up. Revenue: up. Charred Scallion "
+        f"Relish at +15% year-over-year. Green arrow. Moving on to the next "
+        f"meeting."
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    summary = get_monday_morning_summary(PROTAGONIST_SKU)
+    if not summary.empty:
+        disp = pd.DataFrame({
+            "SKU":                summary["sku"],
+            "Product Name":       summary["product_name"],
+            "Product Line":       summary["product_line"],
+            "Units (Current 52w)":  summary["units_cur"].round(0),
+            "Units (Prior 52w)":    summary["units_prior"].round(0),
+            "Units YoY %":         summary["units_yoy_pct"].round(1),
+            "Revenue (Current 52w)": summary["dollars_cur"].round(0),
+            "Revenue (Prior 52w)":   summary["dollars_prior"].round(0),
+            "Revenue YoY %":       summary["dollars_yoy_pct"].round(1),
+        })
+
+        def _highlight_row(row: pd.Series) -> list[str]:
+            n = len(row)
+            # Hero row always teal-tinted so it pops out of the list
+            if row["SKU"] == PROTAGONIST_SKU:
+                return [f"background-color: {GREEN_FAINT}; color: {NAVY}; "
+                        f"font-weight: 600;"] * n
+            return [""] * n
+
+        def _color_yoy(v: float) -> str:
+            if pd.isna(v):
+                return ""
+            if v >= 0:
+                return f"color: {TEAL}; font-weight: 600;"
+            return f"color: {RED}; font-weight: 600;"
+
+        styled = (
+            disp.style
+            .apply(_highlight_row, axis=1)
+            .map(_color_yoy, subset=["Units YoY %", "Revenue YoY %"])
+            .format({
+                "Units (Current 52w)":   "{:,.0f}",
+                "Units (Prior 52w)":     "{:,.0f}",
+                "Units YoY %":           "{:+.1f}%",
+                "Revenue (Current 52w)": "${:,.0f}",
+                "Revenue (Prior 52w)":   "${:,.0f}",
+                "Revenue YoY %":         "{:+.1f}%",
+            })
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True,
+                     height=min(640, 38 * len(disp) + 50))
+
+    _narration(
+        "Everything in this table is accurate. None of it is useful. "
+        "Here's what it can't show you."
+    )
+
+    st.divider()
+
+    # ---- Section 2: The Volume Trap ----
+    _eyebrow("Section 2 of 5")
+    _h2("The Volume Trap — Charred Scallion Relish")
+
+    weekly = get_sku_weekly_velocity(PROTAGONIST_SKU)
+    trade_spend = get_sku_trade_spend(PROTAGONIST_SKU)
+
+    # Compute the headline numbers from the raw weekly series
+    def _wk_in(d: pd.Series, lo: str, hi: str) -> pd.Series:
+        return (d["week_ending"] >= pd.Timestamp(lo)) & (d["week_ending"] <= pd.Timestamp(hi))
+
+    last52  = weekly[_wk_in(weekly, "2025-05-04", "2026-05-02")]
+    prior52 = weekly[_wk_in(weekly, "2024-05-04", "2025-05-03")]
+    yoy_units_pct = ((last52["units_total"].sum() - prior52["units_total"].sum())
+                     / max(prior52["units_total"].sum(), 1) * 100)
+
+    recent_baseline = weekly[_wk_in(weekly, "2025-11-03", "2026-05-02") & ~weekly["on_promo"]]["velocity"].mean()
+    prior_baseline  = weekly[_wk_in(weekly, "2025-05-04", "2025-11-02") & ~weekly["on_promo"]]["velocity"].mean()
+    baseline_pct = (recent_baseline - prior_baseline) / prior_baseline * 100 if prior_baseline else 0
+
+    promo_pct_recent = weekly[_wk_in(weekly, "2025-11-03", "2026-05-02")]["on_promo"].mean() * 100
+    promo_pct_prior  = weekly[_wk_in(weekly, "2025-05-04", "2025-11-02")]["on_promo"].mean() * 100
+
+    # Callout cards
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("YoY total volume", f"{yoy_units_pct:+.1f}%", delta="Looks healthy",
+              delta_color="normal")
+    c2.metric("Baseline velocity", f"{baseline_pct:+.1f}%", delta="Real trend",
+              delta_color="inverse")
+    c3.metric("Promo weeks (recent)",
+              f"{promo_pct_recent:.0f}%", delta=f"was {promo_pct_prior:.0f}%",
+              delta_color="off")
+    c4.metric("Trade spend (life)", f"${trade_spend:,.0f}",
+              delta="Burned to mask the decline", delta_color="off")
+
+    # Chart 1: Total vs baseline weekly velocity, with promo-week shading
+    st.markdown(
+        f"<h4 style='color:{NAVY}; margin-top: 1rem;'>"
+        f"Charred Scallion Relish: +{yoy_units_pct:.0f}% growth — "
+        f"or {baseline_pct:.0f}% decline?</h4>",
+        unsafe_allow_html=True,
+    )
+    render_chart_legend([
+        (NAVY_MED, "Total weekly velocity (what the report sees)"),
+        (RED,      "Baseline only (non-promo weeks — the real trend)"),
+        (ORANGE,   "Promo weeks"),
+    ])
+
+    fig = go.Figure()
+    # Promo-week vertical shading so the reader sees how much of the upside is paid for
+    for _, row in weekly[weekly["on_promo"]].iterrows():
+        fig.add_vrect(
+            x0=row["week_ending"] - pd.Timedelta(days=3),
+            x1=row["week_ending"] + pd.Timedelta(days=4),
+            fillcolor=ORANGE, opacity=0.18, line_width=0, layer="below",
+        )
+    # Line 1: total velocity
+    fig.add_trace(go.Scatter(
+        x=weekly["week_ending"], y=weekly["velocity"],
+        mode="lines+markers",
+        line=dict(color=NAVY_MED, width=2),
+        marker=dict(size=4, color=NAVY_MED),
+        name="Total velocity",
+        hovertemplate="<b>%{x|%b %d, %Y}</b><br>Total: %{y:.2f} u/store/wk<extra></extra>",
+    ))
+    # Line 2: baseline (non-promo) velocity. NaNs on promo weeks so the line breaks
+    fig.add_trace(go.Scatter(
+        x=weekly["week_ending"], y=weekly["baseline_v"],
+        mode="lines+markers", connectgaps=False,
+        line=dict(color=RED, width=2.5, dash="dot"),
+        marker=dict(size=5, color=RED),
+        name="Baseline velocity (non-promo only)",
+        hovertemplate="<b>%{x|%b %d, %Y}</b><br>Baseline: %{y:.2f} u/store/wk<extra></extra>",
+    ))
+    # Trend annotation: where the baseline is heading
+    if not weekly.empty:
+        bl = weekly.dropna(subset=["baseline_v"])
+        if len(bl) >= 8:
+            x_first = bl.iloc[len(bl)//2:].head(8)["baseline_v"].mean()
+            x_last = bl.tail(8)["baseline_v"].mean()
+            fig.add_annotation(
+                x=bl["week_ending"].iloc[-1], y=x_last,
+                text=f"<b>{x_last:.1f}</b><br>baseline<br>now",
+                showarrow=False, xanchor="left", xshift=8,
+                font=dict(size=12, color=RED),
+            )
+
+    fig.update_layout(
+        template="simple_white",
+        paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+        height=420, margin=dict(l=60, r=120, t=20, b=50),
+        showlegend=False,
+        xaxis=dict(title="Week ending", title_font=dict(size=13, color=NAVY_MED),
+                   tickfont=dict(size=12, color=NAVY), gridcolor=GREY_LIGHT,
+                   linecolor=GREY_LIGHT),
+        yaxis=dict(title="Units per store per week",
+                   title_font=dict(size=13, color=NAVY_MED),
+                   tickfont=dict(size=12, color=NAVY), gridcolor=GREY_LIGHT,
+                   linecolor=GREY_LIGHT, rangemode="tozero"),
+        font=dict(family="sans-serif", size=13, color=NAVY),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    _narration(
+        f"Charred Scallion Relish moved <b>{yoy_units_pct:.1f}% more units</b> "
+        f"this year than last. But strip out the promotional weeks and the "
+        f"real velocity — the rate at which consumers pick this product off "
+        f"the shelf without a discount — dropped <b style='color:{RED}'>"
+        f"{baseline_pct:.1f}%</b>. The brand spent "
+        f"<b style='color:{RED}'>${trade_spend:,.0f}</b> in trade to make a "
+        f"shrinking SKU look like a growing one."
+    )
+
+    st.divider()
+
+    # ---- Section 3: What $18,701 Bought ----
+    _eyebrow("Section 3 of 5")
+    _h2(f"What ${trade_spend:,.0f} Bought — Promo ROI")
+
+    hangover = get_promo_hangover_data(PROTAGONIST_SKU)
+    hangover = hangover.dropna(subset=["pre_v", "promo_v", "post_v"]).reset_index(drop=True)
+
+    if hangover.empty:
+        st.info("No comparable pre/during/post promo windows yet for this SKU.")
+    else:
+        st.markdown(
+            f"<h4 style='color:{NAVY}; margin-top: 0.4rem;'>"
+            f"Every promotion left the baseline lower than before</h4>",
+            unsafe_allow_html=True,
+        )
+        render_chart_legend([
+            (NAVY_MED, "Pre-promo baseline (4 weeks before)"),
+            (TEAL,     "During promo"),
+            (RED,      "Post-promo (4 weeks after)"),
+        ])
+
+        # Grouped bar: one cluster per promo, three bars (pre/promo/post)
+        labels = [f"{r['retailer']}<br><span style='color:{GREY}; font-size:10px'>"
+                  f"{r['promo_type']} · {r['discount_depth_pct']*100:.0f}% off · "
+                  f"{r['start_week'][:7]}</span>"
+                  for _, r in hangover.iterrows()]
+
+        fig3 = go.Figure()
+        fig3.add_trace(go.Bar(
+            x=labels, y=hangover["pre_v"], name="Pre",
+            marker_color=NAVY_MED,
+            text=hangover["pre_v"].map(lambda v: f"{v:.1f}"),
+            textposition="outside", textfont=dict(size=11, color=NAVY),
+            cliponaxis=False,
+            hovertemplate="<b>%{x}</b><br>Pre-promo: %{y:.2f} u/sw<extra></extra>",
+        ))
+        fig3.add_trace(go.Bar(
+            x=labels, y=hangover["promo_v"], name="During",
+            marker_color=TEAL,
+            text=hangover["promo_v"].map(lambda v: f"{v:.1f}"),
+            textposition="outside", textfont=dict(size=11, color=NAVY),
+            cliponaxis=False,
+            hovertemplate="<b>%{x}</b><br>During promo: %{y:.2f} u/sw<extra></extra>",
+        ))
+        fig3.add_trace(go.Bar(
+            x=labels, y=hangover["post_v"], name="Post",
+            marker_color=RED,
+            text=hangover["post_v"].map(lambda v: f"{v:.1f}"),
+            textposition="outside", textfont=dict(size=11, color=NAVY),
+            cliponaxis=False,
+            hovertemplate="<b>%{x}</b><br>Post-promo: %{y:.2f} u/sw<extra></extra>",
+        ))
+        fig3.update_layout(
+            template="simple_white", paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=440, margin=dict(l=60, r=30, t=20, b=80),
+            barmode="group", bargap=0.25, bargroupgap=0.05,
+            showlegend=False,
+            xaxis=dict(tickfont=dict(size=11, color=NAVY), linecolor=GREY_LIGHT),
+            yaxis=dict(title="Units per store per week",
+                       title_font=dict(size=13, color=NAVY_MED),
+                       tickfont=dict(size=12, color=NAVY),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT, rangemode="tozero"),
+            font=dict(family="sans-serif", size=13, color=NAVY),
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
+        # Compute net effect: incremental units gained vs. baseline erosion cost
+        # Use wholesale margin per unit so the dollar number is honest.
+        cost_row = get_connection().execute(
+            "SELECT wholesale_walmart, cogs_per_unit FROM sku_costs WHERE sku=?",
+            [PROTAGONIST_SKU],
+        ).fetchone()
+        ws = (cost_row[0] or 0)
+        cogs = (cost_row[1] or 0)
+        margin_per_unit = max(ws - cogs, 0.0)
+
+        incr_units_total = ((hangover["promo_v"] - hangover["pre_v"])
+                            * hangover["doors"] * hangover["duration_weeks"]).clip(lower=0).sum()
+        # Hangover units lost = (pre - post) * doors * 4 weeks (post window)
+        hangover_units_total = ((hangover["pre_v"] - hangover["post_v"])
+                                * hangover["doors"] * 4).clip(lower=0).sum()
+        net_units = incr_units_total - hangover_units_total
+        net_dollars = net_units * margin_per_unit
+
+        n_backfired = int((hangover["post_v"] < hangover["pre_v"]).sum())
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Incremental units (during promo)", f"{incr_units_total:,.0f}")
+        c2.metric("Units lost in post-promo dip", f"{hangover_units_total:,.0f}",
+                  delta_color="off")
+        c3.metric("Net effect (margin terms)",
+                  f"${net_dollars:,.0f}",
+                  delta=("Backfired" if net_dollars < 0 else "Net positive"),
+                  delta_color=("inverse" if net_dollars < 0 else "normal"))
+
+        n_promos = len(hangover)
+        _narration(
+            f"The {n_promos} measurable promotions on Charred Scallion Relish "
+            f"each followed the same pattern: a short spike in volume, "
+            f"followed by a post-promo dip that settled "
+            f"<b>{'below where it started' if n_backfired >= n_promos / 2 else 'near or below where it started'}</b>"
+            f" in {n_backfired} of {n_promos} cases. The brand didn't just "
+            f"spend <b style='color:{RED}'>${trade_spend:,.0f}</b> to stand still — "
+            f"after netting promo lift against post-promo erosion, the cumulative "
+            f"effect on margin is "
+            f"<b style='color:{RED if net_dollars < 0 else TEAL}'>"
+            f"${net_dollars:,.0f}</b>."
+        )
+
+    st.divider()
+
+    # ---- Section 4: The Shelf Is Watching ----
+    _eyebrow("Section 4 of 5")
+    _h2("The Shelf Is Watching — Velocity Trajectory vs Threshold")
+
+    walmart_threshold = RETAILER_THRESHOLDS["Walmart"]
+    traj = get_walmart_trajectory(PROTAGONIST_SKU)
+    traj = traj.dropna(subset=["t13"]).reset_index(drop=True)
+
+    if traj.empty or len(traj) < 4:
+        st.info("Not enough Walmart trajectory data to project a delisting date.")
+    else:
+        # Linear projection from the trailing 13wk avg curve over the last 26
+        # weeks (recent rate-of-change is what predicts the next quarter, not
+        # the full multi-year history).
+        proj_window = traj.tail(26)
+        x_num = (proj_window["week_ending"] - proj_window["week_ending"].iloc[0]).dt.days.values
+        y_num = proj_window["t13"].values
+        slope_per_day = ((x_num * y_num).mean() - x_num.mean() * y_num.mean()) / max(((x_num**2).mean() - x_num.mean()**2), 1e-9)
+        intercept = y_num.mean() - slope_per_day * x_num.mean()
+
+        last_date = traj["week_ending"].iloc[-1]
+        last_t13  = traj["t13"].iloc[-1]
+
+        # When does the projection cross the threshold?
+        # y(t) = last_t13 + slope_per_day * (t - last_date_in_days)
+        if slope_per_day < 0 and last_t13 > walmart_threshold:
+            days_to_cross = (walmart_threshold - last_t13) / slope_per_day
+            cross_date = last_date + pd.Timedelta(days=days_to_cross)
+        else:
+            cross_date = None
+            days_to_cross = None
+
+        # Build a forward projection 78 weeks out (or until threshold)
+        horizon_days = min(int(days_to_cross) + 28, 78 * 7) if days_to_cross else 78 * 7
+        proj_dates = pd.date_range(last_date, last_date + pd.Timedelta(days=horizon_days), freq="W-SAT")
+        proj_days = (proj_dates - last_date).days
+        proj_y = last_t13 + slope_per_day * proj_days
+
+        cross_quarter_str = ""
+        if cross_date is not None:
+            q = (cross_date.month - 1) // 3 + 1
+            cross_quarter_str = f"Q{q} {cross_date.year}"
+
+        title_phrase = (f"hits the Walmart delisting threshold in "
+                        f"<b style='color:{RED}'>{cross_quarter_str}</b>"
+                        if cross_quarter_str else
+                        "stays above the Walmart delisting threshold for now")
+        st.markdown(
+            f"<h4 style='color:{NAVY}; margin-top: 0.4rem;'>"
+            f"At current trajectory, Charred Scallion Relish "
+            f"{title_phrase}</h4>",
+            unsafe_allow_html=True,
+        )
+        render_chart_legend([
+            (NAVY_MED, "Trailing 13-week avg velocity (Walmart)"),
+            (ORANGE,   "Projected at current decline rate"),
+            (RED,      f"Walmart delisting threshold ({walmart_threshold:.1f} u/sw)"),
+        ])
+
+        fig4 = go.Figure()
+        # historical
+        fig4.add_trace(go.Scatter(
+            x=traj["week_ending"], y=traj["t13"],
+            mode="lines", line=dict(color=NAVY_MED, width=2.5),
+            hovertemplate="<b>%{x|%b %Y}</b><br>T13 vel: %{y:.2f} u/sw<extra></extra>",
+        ))
+        # projection
+        fig4.add_trace(go.Scatter(
+            x=proj_dates, y=proj_y,
+            mode="lines", line=dict(color=ORANGE, width=2.5, dash="dash"),
+            hovertemplate="<b>%{x|%b %Y}</b><br>Projected: %{y:.2f} u/sw<extra></extra>",
+        ))
+        # threshold line
+        fig4.add_hline(y=walmart_threshold, line_dash="solid",
+                       line_color=RED, line_width=2)
+        fig4.add_annotation(
+            x=traj["week_ending"].iloc[0], y=walmart_threshold,
+            text=f"Walmart delisting threshold ({walmart_threshold:.1f})",
+            showarrow=False, xanchor="left", yanchor="bottom",
+            font=dict(size=11, color=RED),
+            bgcolor="rgba(255,255,255,0.92)", borderpad=2,
+        )
+        if cross_date is not None:
+            add_vline_at_date(fig4, cross_date,
+                              f"Crosses threshold<br>{cross_quarter_str}",
+                              color=RED, dash="dash",
+                              annotation_position="top right")
+
+        fig4.update_layout(
+            template="simple_white", paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=420, margin=dict(l=60, r=120, t=20, b=50),
+            showlegend=False,
+            xaxis=dict(title="Week ending",
+                       title_font=dict(size=13, color=NAVY_MED),
+                       tickfont=dict(size=12, color=NAVY),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT),
+            yaxis=dict(title="Units per store per week (Walmart)",
+                       title_font=dict(size=13, color=NAVY_MED),
+                       tickfont=dict(size=12, color=NAVY),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
+                       rangemode="tozero"),
+            font=dict(family="sans-serif", size=13, color=NAVY),
+        )
+        st.plotly_chart(fig4, use_container_width=True)
+
+        rev = get_sku_revenue_at_risk(PROTAGONIST_SKU)
+        decline_per_quarter = abs(slope_per_day) * 91
+        if cross_date is not None:
+            timeframe = f"by {cross_quarter_str}"
+        else:
+            timeframe = "in the near term"
+
+        _narration(
+            f"Walmart reviews velocity quarterly. The category threshold is "
+            f"<b>{walmart_threshold:.1f} units/store/week</b>. Charred Scallion "
+            f"Relish is currently at <b>{last_t13:.2f}</b>, declining at "
+            f"<b>{decline_per_quarter:.2f}</b> units/store/week per quarter. "
+            f"If nothing changes, it crosses the threshold "
+            f"<b>{timeframe}</b>. That's "
+            f"<b>{rev['walmart_doors']:,}</b> doors and "
+            f"<b>${rev['annual_rev_walmart']:,.0f}</b> in annual revenue at risk."
+        )
+
+        st.session_state["_story_walmart_rev"] = rev
+        st.session_state["_story_cross_date"]  = cross_date
+
+    st.divider()
+
+    # ---- Section 5: The Total Cost of Not Knowing ----
+    _eyebrow("Section 5 of 5")
+    _h2("The Total Cost of Not Knowing")
+
+    rev = st.session_state.get("_story_walmart_rev") or get_sku_revenue_at_risk(PROTAGONIST_SKU)
+    cat_avg = get_category_avg_velocity("Specialty Condiments")
+    walmart_v = rev["walmart_v_t13"]
+    walmart_doors = rev["walmart_doors"]
+    margin_per_unit = max(rev["wholesale_walmart"] - rev["cogs"], 0.0)
+
+    # Margin destroyed = annualized baseline erosion. Compare what the SKU
+    # earned in the prior 26-week baseline window vs what it would have
+    # earned at recent baseline, and pull that gap forward over a year.
+    annual_erosion_units = max(prior_baseline - recent_baseline, 0) * walmart_doors * 52
+    margin_destroyed = annual_erosion_units * margin_per_unit
+
+    revenue_at_risk = rev["annual_rev_walmart"]
+
+    total_cost = trade_spend + margin_destroyed + revenue_at_risk
+
+    st.markdown(
+        f"""
+        <div style='background-color: {WHITE}; border: 1px solid {GREY_LIGHT};
+                    border-left: 8px solid {RED}; border-radius: 6px;
+                    padding: 1.4rem 1.8rem; margin: 1rem 0;
+                    box-shadow: 0 2px 6px rgba(192, 34, 31, 0.08);'>
+          <div style='color: {NAVY_MED}; font-size: 0.85rem;
+                      font-weight: 600; letter-spacing: 0.18rem;
+                      text-transform: uppercase;'>
+            Total Cost of Not Knowing
+          </div>
+          <div style='color: {RED}; font-family: Georgia, serif;
+                      font-size: 3.4rem; font-weight: 700;
+                      margin: 0.3rem 0 0.6rem 0; line-height: 1;'>
+            ${total_cost:,.0f}
+          </div>
+          <div style='color: {NAVY_MED}; font-size: 0.95rem;
+                      max-width: 720px;'>
+            One SKU. One year. Three buckets that never appear in the
+            Monday morning report.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cc1, cc2, cc3 = st.columns(3)
+    cc1.metric("Trade spend burned",
+               f"${trade_spend:,.0f}",
+               delta="On a SKU with declining baseline", delta_color="off")
+    cc2.metric("Annualized margin destroyed",
+               f"${margin_destroyed:,.0f}",
+               delta=f"vs. holding baseline at {prior_baseline:.1f} u/sw",
+               delta_color="off")
+    cc3.metric("Walmart revenue at risk",
+               f"${revenue_at_risk:,.0f}",
+               delta=f"{walmart_doors:,} doors below threshold trajectory",
+               delta_color="off")
+
+    _narration(
+        f"Every number in the Monday morning report was accurate. The "
+        f"portfolio was up. Revenue was up. Charred Scallion Relish was "
+        f"up {yoy_units_pct:.0f}%. And underneath those green arrows, "
+        f"<b style='color:{RED}'>${total_cost:,.0f}</b> in value was being "
+        f"destroyed — invisible to every pivot table in the building."
+    )
+
+    st.markdown(
+        f"<div style='font-size: 1.08rem; color: {NAVY}; "
+        f"margin: 1.2rem 0 0.7rem 0;'>"
+        f"This is one SKU. The Velocity Decision Tool runs this analysis "
+        f"across all 90. Pick a decision from the sidebar — or jump "
+        f"straight into the relevant view below."
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Jump-to-decision buttons
+    b1, b2, b3, b4 = st.columns(4)
+    if b1.button("→ Shelf Defense", use_container_width=True,
+                 key="story_jump_shelf"):
+        _switch_decision(DECISIONS[1])
+    if b2.button("→ Promo ROI", use_container_width=True,
+                 key="story_jump_promo"):
+        _switch_decision(DECISIONS[3])
+    if b3.button("→ Pricing Power", use_container_width=True,
+                 key="story_jump_pricing"):
+        _switch_decision(DECISIONS[8])
+    if b4.button("→ SKU Rationalization", use_container_width=True,
+                 key="story_jump_rat"):
+        _switch_decision(DECISIONS[6])
+
+    st.divider()
+
+    # ---- "What the rest of the portfolio looks like" coda ----
+    _eyebrow("Coda")
+    _h2("What the rest of the portfolio looks like")
+    st.markdown(
+        f"<div style='color: {NAVY_MED}; font-size: 1rem; max-width: 820px;'>"
+        f"Not every SKU is Charred Scallion Relish. Most of the portfolio is "
+        f"healthy, with normal demand signals and clear opportunities. The "
+        f"four panels below are tactical pulls from the rest of the tool — "
+        f"the day-to-day decisions you'll come back for once the protagonist "
+        f"is dealt with."
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # 1. Production Planning
+    st.markdown(f"<h4 style='color:{NAVY}; margin-top:1.2rem;'>1. Production Planning</h4>",
+                unsafe_allow_html=True)
+    demand = get_top_demand_4wk()
+    if not demand.empty:
+        top1 = demand.iloc[0]
+        st.markdown(
+            f"<div style='color:{NAVY_MED}; font-size:0.98rem;'>"
+            f"Demand signals align with current production cadence. Over the "
+            f"trailing 4 weeks, "
+            f"<b>{top1['product_name']}</b> ({top1['sku']}) led "
+            f"the portfolio at <b>{top1['cases_4wk']:,.0f} cases</b>. The top "
+            f"10 SKUs by projected case demand are listed below — set "
+            f"production to match the next 4 weeks. "
+            f"<i>Explore this in the Production Planning tab →</i>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        figp = go.Figure(go.Bar(
+            x=demand["cases_4wk"], y=demand["sku"],
+            orientation="h", marker_color=NAVY_MED,
+            text=demand["cases_4wk"].map(lambda v: f"{v:,.0f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
+            cliponaxis=False,
+            customdata=demand[["product_name"]].values,
+            hovertemplate="<b>%{y}</b> %{customdata[0]}<br>%{x:,.0f} cases<extra></extra>",
+        ))
+        figp.update_layout(
+            template="simple_white", paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=380, margin=dict(l=110, r=80, t=10, b=40), showlegend=False,
+            xaxis=dict(title="Projected 4-week case demand",
+                       title_font=dict(size=12, color=NAVY_MED),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT),
+            yaxis=dict(autorange="reversed", tickfont=dict(size=12, color=NAVY)),
+            font=dict(family="sans-serif", size=12, color=NAVY),
+        )
+        st.plotly_chart(figp, use_container_width=True)
+
+    # 2. Distribution Expansion
+    st.markdown(f"<h4 style='color:{NAVY}; margin-top:1.2rem;'>2. Distribution Expansion</h4>",
+                unsafe_allow_html=True)
+    chains = get_top_velocity_per_door()
+    if not chains.empty:
+        top1 = chains.iloc[0]
+        st.markdown(
+            f"<div style='color:{NAVY_MED}; font-size:0.98rem;'>"
+            f"<b>{top1['chain']}</b> leads on per-door productivity at "
+            f"<b>{top1['vel_per_door']:.2f} units/store/week</b>, well above "
+            f"the chain average. The chains below earn their shelf — start "
+            f"there before opening new ones. "
+            f"<i>Explore this in the Distribution Expansion tab →</i>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        fige = go.Figure(go.Bar(
+            x=chains["vel_per_door"], y=chains["chain"],
+            orientation="h", marker_color=TEAL,
+            text=chains["vel_per_door"].map(lambda v: f"{v:.2f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
+            cliponaxis=False,
+            customdata=chains[["active_doors"]].values,
+            hovertemplate="<b>%{y}</b><br>%{x:.2f} u/sw · %{customdata[0]:,} doors<extra></extra>",
+        ))
+        fige.update_layout(
+            template="simple_white", paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=380, margin=dict(l=160, r=80, t=10, b=40), showlegend=False,
+            xaxis=dict(title="Avg units per door per week (last 13 weeks)",
+                       title_font=dict(size=12, color=NAVY_MED),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT),
+            yaxis=dict(autorange="reversed", tickfont=dict(size=12, color=NAVY)),
+            font=dict(family="sans-serif", size=12, color=NAVY),
+        )
+        st.plotly_chart(fige, use_container_width=True)
+
+    # 3. Distribution Pruning
+    st.markdown(f"<h4 style='color:{NAVY}; margin-top:1.2rem;'>3. Distribution Pruning</h4>",
+                unsafe_allow_html=True)
+    weak = get_bottom_stores_below_threshold(threshold=2.0)
+    if weak.empty:
+        st.markdown(
+            f"<div style='color:{NAVY_MED}; font-size:0.98rem;'>"
+            f"No Walmart velocity data in the last 13 weeks. "
+            f"<i>Explore this in the Distribution Pruning tab →</i>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        n_below = int((weak["gap"] > 0).sum())
+        if n_below > 0:
+            lede = (f"<b>{n_below}</b> of the 10 weakest Walmart stores fall "
+                    f"below the 2.0 u/sw threshold over the last 13 weeks.")
+        else:
+            lede = ("All Walmart stores currently sit above the 2.0 u/sw "
+                    "threshold, but the bottom of the distribution is "
+                    "tracking close.")
+        st.markdown(
+            f"<div style='color:{NAVY_MED}; font-size:0.98rem;'>"
+            f"{lede} Pruning underperformers frees up working capital and "
+            f"reduces chargeback exposure. "
+            f"<i>Explore this in the Distribution Pruning tab →</i>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        # Bar color is RED when below the threshold, ORANGE when above but in
+        # the bottom-10 — gives the chart a green/red read without lying about
+        # the underlying state.
+        bar_colors = [RED if g > 0 else ORANGE for g in weak["gap"]]
+        figpr = go.Figure(go.Bar(
+            x=weak["vel"], y=weak["store_id"],
+            orientation="h", marker_color=bar_colors,
+            text=weak["vel"].map(lambda v: f"{v:.2f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
+            cliponaxis=False,
+            customdata=weak[["gap"]].values,
+            hovertemplate="<b>%{y}</b><br>Velocity %{x:.2f} u/sw "
+                          "(gap to 2.0: %{customdata[0]:+.2f})<extra></extra>",
+        ))
+        figpr.add_vline(x=2.0, line_dash="dash", line_color=GREY, line_width=2)
+        figpr.update_layout(
+            template="simple_white", paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=380, margin=dict(l=110, r=80, t=10, b=40), showlegend=False,
+            xaxis=dict(title="Velocity (u/sw, last 13 weeks) — dashed line = 2.0 threshold",
+                       title_font=dict(size=12, color=NAVY_MED),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT),
+            yaxis=dict(autorange="reversed", tickfont=dict(size=12, color=NAVY)),
+            font=dict(family="sans-serif", size=12, color=NAVY),
+        )
+        st.plotly_chart(figpr, use_container_width=True)
+
+    # 4. Pricing Power
+    st.markdown(f"<h4 style='color:{NAVY}; margin-top:1.2rem;'>4. Pricing Power</h4>",
+                unsafe_allow_html=True)
+    elasticity = get_top_elasticity_skus()
+    if not elasticity.empty:
+        top1 = elasticity.iloc[0]
+        st.markdown(
+            f"<div style='color:{NAVY_MED}; font-size:0.98rem;'>"
+            f"<b>{top1['product_name']}</b> ({top1['sku']}) is the most "
+            f"elastic SKU in the portfolio — every 1% of discount yielded "
+            f"<b>{top1['elasticity']:.2f}%</b> of unit lift. Highly elastic "
+            f"SKUs respond well to promotion; inelastic ones are giving up "
+            f"margin without earning incremental volume. "
+            f"<i>Explore this in the Pricing Power tab →</i>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        figel = go.Figure(go.Bar(
+            x=elasticity["elasticity"], y=elasticity["sku"],
+            orientation="h", marker_color=ORANGE,
+            text=elasticity["elasticity"].map(lambda v: f"{v:.2f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
+            cliponaxis=False,
+            customdata=elasticity[["product_name", "n_promos"]].values,
+            hovertemplate="<b>%{y}</b> %{customdata[0]}<br>"
+                          "Elasticity %{x:.2f} · %{customdata[1]} promos<extra></extra>",
+        ))
+        figel.update_layout(
+            template="simple_white", paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=380, margin=dict(l=110, r=80, t=10, b=40), showlegend=False,
+            xaxis=dict(title="Avg lift % per 1% discount",
+                       title_font=dict(size=12, color=NAVY_MED),
+                       gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT),
+            yaxis=dict(autorange="reversed", tickfont=dict(size=12, color=NAVY)),
+            font=dict(family="sans-serif", size=12, color=NAVY),
+        )
+        st.plotly_chart(figel, use_container_width=True)
 
 
 # ============================================================
@@ -3132,7 +4321,14 @@ def render_sidebar() -> dict:
         # label like "Retailer" or "Product Line" collide on switch, leaving
         # stale values cached. Explicit keys give each widget its own slot
         # in session_state.
-        if decision == DECISIONS[0]:  # Shelf Defense
+        if decision == STORY_KEY:  # The Story — narrative, no filters
+            st.caption(
+                "Scroll-driven narrative. No filters — this tab is the same "
+                "for every visitor. Pick a decision from the dropdown above "
+                "to start using the tool."
+            )
+
+        elif decision == DECISIONS[1]:  # Shelf Defense
             state["retailer"] = st.selectbox(
                 "Retailer", PHYSICAL_RETAILERS, index=0,
                 key="shelf_retailer",
@@ -3156,7 +4352,7 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[1]:  # Production Planning
+        elif decision == DECISIONS[2]:  # Production Planning
             state["retailer"] = st.selectbox(
                 "Retailer", ["All Retailers"] + PHYSICAL_RETAILERS, index=0,
                 key="prod_retailer",
@@ -3167,7 +4363,7 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[2]:  # Promo ROI
+        elif decision == DECISIONS[3]:  # Promo ROI
             state["retailer"] = st.selectbox(
                 "Retailer", ALL_PHYSICAL_OR_AGG, index=0,
                 key="promo_retailer",
@@ -3182,7 +4378,7 @@ def render_sidebar() -> dict:
             )
             state["sku_filter"] = None if sku_pick == "All SKUs" else sku_pick
 
-        elif decision == DECISIONS[3]:  # Distribution Expansion
+        elif decision == DECISIONS[4]:  # Distribution Expansion
             pl = st.selectbox(
                 "Product Line", get_product_lines(), index=0,
                 key="expansion_product_line",
@@ -3203,7 +4399,7 @@ def render_sidebar() -> dict:
             )
             state["retailer"] = None if ret_pick == "All Retailers" else ret_pick
 
-        elif decision == DECISIONS[4]:  # Distribution Pruning
+        elif decision == DECISIONS[5]:  # Distribution Pruning
             state["retailer"] = st.selectbox(
                 "Retailer", PHYSICAL_RETAILERS, index=0,
                 key="pruning_retailer",
@@ -3224,7 +4420,7 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[5]:  # SKU Rationalization
+        elif decision == DECISIONS[6]:  # SKU Rationalization
             state["retailer"] = st.selectbox(
                 "Retailer", ["All Retailers"] + PHYSICAL_RETAILERS, index=0,
                 key="rat_retailer",
@@ -3235,10 +4431,10 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[6]:  # Launch Health
+        elif decision == DECISIONS[7]:  # Launch Health
             st.caption("Auto-detects SKUs launched in the last 52 weeks. No filters needed.")
 
-        elif decision == DECISIONS[7]:  # Pricing Power
+        elif decision == DECISIONS[8]:  # Pricing Power
             state["retailer"] = st.selectbox(
                 "Retailer", ALL_PHYSICAL_OR_AGG, index=0,
                 key="pricing_retailer",
@@ -3275,6 +4471,13 @@ def main() -> None:
     state = render_sidebar()
     decision = state["decision"]
 
+    # The Story renders its own headline and subhead inside render_story();
+    # the standard "decision name" H1 is suppressed because the narrative
+    # opens with its own framing copy.
+    if decision == STORY_KEY:
+        render_story()
+        return
+
     st.markdown(
         f"<h1 style='color:{NAVY}; margin-bottom: 0.2rem;'>"
         f"{DECISION_TITLES[decision]}</h1>",
@@ -3286,21 +4489,21 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    if decision == DECISIONS[0]:
+    if decision == DECISIONS[1]:
         render_shelf_defense(state["retailer"], state["product_line"], state["threshold"])
-    elif decision == DECISIONS[1]:
-        render_production_planning(state["retailer"], state["product_line"])
     elif decision == DECISIONS[2]:
-        render_promo_roi(state["retailer"], state["sku_filter"])
+        render_production_planning(state["retailer"], state["product_line"])
     elif decision == DECISIONS[3]:
-        render_expansion_targeting(state["focus_sku"], state["retailer"])
+        render_promo_roi(state["retailer"], state["sku_filter"])
     elif decision == DECISIONS[4]:
-        render_distribution_pruning(state["retailer"], state["product_line"], state["threshold"])
+        render_expansion_targeting(state["focus_sku"], state["retailer"])
     elif decision == DECISIONS[5]:
-        render_sku_rationalization(state["retailer"], state["product_line"])
+        render_distribution_pruning(state["retailer"], state["product_line"], state["threshold"])
     elif decision == DECISIONS[6]:
-        render_launch_health()
+        render_sku_rationalization(state["retailer"], state["product_line"])
     elif decision == DECISIONS[7]:
+        render_launch_health()
+    elif decision == DECISIONS[8]:
         render_pricing_power(
             state["retailer"], state["sku_filter"], state["product_line"]
         )

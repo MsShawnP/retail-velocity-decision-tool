@@ -1,6 +1,7 @@
 # SQLite databases — too large for GitHub, regenerated on deploy by
 # scripts/build_db.py from the seed file plus the generation pipeline.
 data/*.db
+data/*.db.bak*
 
 # SQLite transient files — regenerated automatically when the DB is opened
 *.db-wal

@@ -89,23 +89,40 @@ def main() -> None:
 
     rows: list[tuple[str, str, str, float]] = []
 
+    # Cap effective_date at the end of the scan-data window. Prices effective
+    # past that date are speculative future data we don't model elsewhere.
+    DATA_WINDOW_END = date(2026, 5, 2)
+
+    def emit_retailers_for(cat: str) -> list[str]:
+        # "Regional" is a category aggregating 5 chains; expand to 5 chain
+        # rows so joins to stores work without special-case logic. All chains
+        # share the same wholesale_regional price.
+        if cat == "Regional":
+            return sorted(REGIONAL_CHAINS)
+        return [cat]
+
     for (sku, cat), launch_d in sku_channel_launch.items():
         base_price = sku_prices[sku][cat]
-        rows.append((sku, cat, launch_d.isoformat(), base_price))
+        emit_rs = emit_retailers_for(cat)
+        for r in emit_rs:
+            rows.append((sku, r, launch_d.isoformat(), base_price))
 
         roll = rng.random()
+        change_d = None
+        new_price = None
         if roll < 0.20:
             # Price increase 6-15 months after launch, +2-6%
             delay_months = rng.randint(6, 15)
             change_d = launch_d + timedelta(days=delay_months * 30)
             new_price = round(base_price * rng.uniform(1.02, 1.06), 2)
-            rows.append((sku, cat, change_d.isoformat(), new_price))
         elif roll < 0.30:
             # Price decrease 8-18 months after launch, -2 to -5%
             delay_months = rng.randint(8, 18)
             change_d = launch_d + timedelta(days=delay_months * 30)
             new_price = round(base_price * rng.uniform(0.95, 0.98), 2)
-            rows.append((sku, cat, change_d.isoformat(), new_price))
+        if change_d is not None and change_d <= DATA_WINDOW_END:
+            for r in emit_rs:
+                rows.append((sku, r, change_d.isoformat(), new_price))
 
     cur.execute("DROP TABLE IF EXISTS price_history")
     cur.execute("""

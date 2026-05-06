@@ -29,6 +29,8 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 - Data-quality-driven chargebacks traceable to product master defects
 - Seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
 
+> **Database source:** the dataset, generators, and build pipeline now live in the standalone [`cinderhaven-data`](../cinderhaven-data) repo. The scripts in `scripts/` here are kept temporarily for backward compatibility; new work on the schema or generators should happen in `cinderhaven-data`.
+
 ## Running locally
 
 ```bash
