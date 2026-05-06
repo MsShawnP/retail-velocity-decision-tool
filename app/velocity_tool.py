@@ -4305,7 +4305,7 @@ def _on_decision_change() -> None:
 
 def render_sidebar() -> dict:
     with st.sidebar:
-        # Brand-orange pill for the Story entry button. Targets the in-sidebar
+        # Navy pill for the Story entry button. Targets the in-sidebar
         # primary button only, so the Section-5 jump buttons (rendered in the
         # main pane as default-style buttons) keep their neutral look.
         st.markdown(
@@ -4313,20 +4313,20 @@ def render_sidebar() -> dict:
             <style>
               [data-testid="stSidebar"] [data-testid="stBaseButton-primary"],
               [data-testid="stSidebar"] button[kind="primary"] {{
-                  background-color: {ORANGE} !important;
-                  border-color: {ORANGE} !important;
+                  background-color: {NAVY_MED} !important;
+                  border-color: {NAVY_MED} !important;
                   color: {WHITE} !important;
                   font-weight: 600 !important;
                   text-align: left !important;
                   padding: 0.7rem 0.9rem !important;
                   line-height: 1.3 !important;
-                  box-shadow: 0 2px 6px rgba(211, 88, 48, 0.22);
+                  box-shadow: 0 2px 6px rgba(61, 90, 128, 0.22);
               }}
               [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover,
               [data-testid="stSidebar"] button[kind="primary"]:hover {{
-                  background-color: #B84826 !important;
-                  border-color: #B84826 !important;
-                  box-shadow: 0 3px 8px rgba(211, 88, 48, 0.32);
+                  background-color: {NAVY} !important;
+                  border-color: {NAVY} !important;
+                  box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
               }}
             </style>
             """,
@@ -4353,39 +4353,6 @@ def render_sidebar() -> dict:
                 </div>
             </div>
             """,
-            unsafe_allow_html=True,
-        )
-
-        # Story entry — a separate, visually distinct callout above the
-        # decision dropdown. The label hints at the reveal so a first-time
-        # visitor is curious enough to click. Caption underneath delivers
-        # the second-half punch without giving away the full story.
-        st.markdown(
-            f"<div style='font-size: 0.68rem; color: {ORANGE}; "
-            f"font-weight: 700; letter-spacing: 0.18rem; "
-            f"text-transform: uppercase; margin: 0 0 0.35rem 0;'>"
-            f"Read this first &middot; 2 min</div>",
-            unsafe_allow_html=True,
-        )
-        if st.button(
-            "The Charred Scallion Relish problem",
-            key="story_entry_button",
-            type="primary",
-            use_container_width=True,
-        ):
-            st.session_state["show_story"] = True
-            st.rerun()
-        st.markdown(
-            f"<div style='font-size: 0.78rem; color: {NAVY_MED}; "
-            f"line-height: 1.4; margin: 0.4rem 0 1rem 0;'>"
-            f"How a +15% growth SKU was actually losing money &mdash; "
-            f"and what the Monday morning report couldn&rsquo;t see."
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"<div style='border-top: 1px solid {GREY_LIGHT}; "
-            f"margin: 0 0 0.9rem 0;'></div>",
             unsafe_allow_html=True,
         )
 
@@ -4542,6 +4509,40 @@ def render_sidebar() -> dict:
 
         else:
             st.caption("Filters will populate once this decision is built out.")
+
+        # Story entry — placed at the bottom of the sidebar so users see
+        # the decision modes and filters first and discover the narrative
+        # callout after exploring. The label hints at the reveal; the
+        # caption underneath delivers the second-half punch without giving
+        # away the full story.
+        st.markdown(
+            f"<div style='border-top: 1px solid {GREY_LIGHT}; "
+            f"margin: 1.2rem 0 0.9rem 0;'></div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"<div style='font-size: 0.68rem; color: {NAVY_MED}; "
+            f"font-weight: 700; letter-spacing: 0.18rem; "
+            f"text-transform: uppercase; margin: 0 0 0.35rem 0;'>"
+            f"Read this first &middot; 2 min</div>",
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "The Charred Scallion Relish problem",
+            key="story_entry_button",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state["show_story"] = True
+            st.rerun()
+        st.markdown(
+            f"<div style='font-size: 0.78rem; color: {NAVY_MED}; "
+            f"line-height: 1.4; margin: 0.4rem 0 0 0;'>"
+            f"How a +15% growth SKU was actually losing money &mdash; "
+            f"and what the Monday morning report couldn&rsquo;t see."
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
     return state
 
