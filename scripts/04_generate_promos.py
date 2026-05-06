@@ -231,11 +231,19 @@ def main():
             skus_for_promo = [random.choice(candidates)]
 
         promo_id = f"PROMO-{i:04d}"
+        # "Regional" is a category aggregating 5 independent chains. Each
+        # Regional trade event is executed at all 5 chains simultaneously
+        # under one negotiated discount, so we expand to 5 chain-level rows
+        # at write time (sharing promo_id/sku/dates/discount). All other
+        # retailers emit a single row.
+        emit_retailers = (sorted(REGIONAL_CHAIN_NAMES)
+                          if retailer == "Regional" else [retailer])
         for sku in skus_for_promo:
-            promo_rows.append((
-                promo_id, sku, retailer, scope, start, end,
-                duration, discount, promo_type,
-            ))
+            for emit_r in emit_retailers:
+                promo_rows.append((
+                    promo_id, sku, emit_r, scope, start, end,
+                    duration, discount, promo_type,
+                ))
 
     # --- Write to DB ---
     cur.execute("DROP TABLE IF EXISTS promotions")
@@ -250,7 +258,7 @@ def main():
             duration_weeks      INTEGER NOT NULL,
             discount_depth_pct  REAL NOT NULL,
             promo_type          TEXT NOT NULL,
-            PRIMARY KEY (promo_id, sku)
+            PRIMARY KEY (promo_id, sku, retailer)
         )
     """)
     cur.execute("CREATE INDEX idx_promo_sku ON promotions(sku)")

@@ -63,43 +63,51 @@ def upc_missing(upc: str | None) -> bool:
 
 # Each defect type lists: (reason text, retailers that bill it, monthly probability,
 # (amount min, amount max)). Probabilities tuned so totals land at ~$55-75K/yr.
+#
+# Calibration note: monthly_p values were scaled up 2.5× from the original
+# tuning after the authorization filter was added. The original values
+# assumed every SKU rolled against every retailer in the rule (regardless
+# of authorization), which inflated dollar volume by ~2.7× via rolls on
+# pairs that should never have been sampled. With the filter in place,
+# the per-SKU surface area is smaller, so per-pair monthly_p has to rise
+# to keep the targeted dollar range.
 DEFECT_RULES = {
     "invalid_gtin": {
         "reason": "Invalid GTIN/UPC",
         "retailers": [
-            ("Walmart",     0.35, (250, 500)),
-            ("Costco",      0.28, (200, 400)),
-            ("UNFI",        0.25, (100, 220)),
-            ("Whole Foods", 0.25, (150, 300)),
+            ("Walmart",     0.875, (250, 500)),
+            ("Costco",      0.700, (200, 400)),
+            ("UNFI",        0.625, (100, 220)),
+            ("Whole Foods", 0.625, (150, 300)),
         ],
     },
     "missing_upc": {
         "reason": "Missing product data",
         "retailers": [
-            ("Walmart",     0.28, (200, 400)),
-            ("UNFI",        0.22, (100, 200)),
-            ("Whole Foods", 0.18, (120, 240)),
+            ("Walmart",     0.700, (200, 400)),
+            ("UNFI",        0.550, (100, 200)),
+            ("Whole Foods", 0.450, (120, 240)),
         ],
     },
     "missing_case_dims": {
         "reason": "Dimension mismatch",
         "retailers": [
-            ("Walmart", 0.060, (180, 350)),
-            ("Costco",  0.060, (200, 400)),
-            ("UNFI",    0.040, (100, 200)),
+            ("Walmart", 0.150, (180, 350)),
+            ("Costco",  0.150, (200, 400)),
+            ("UNFI",    0.100, (100, 200)),
         ],
     },
     "missing_brand": {
         "reason": "Missing product data",
         "retailers": [
-            ("Walmart", 0.040, (150, 280)),
-            ("UNFI",    0.030, (80, 180)),
+            ("Walmart", 0.100, (150, 280)),
+            ("UNFI",    0.075, (80, 180)),
         ],
     },
     "missing_country": {
         "reason": "Missing product data",
         "retailers": [
-            ("Walmart", 0.045, (180, 320)),
+            ("Walmart", 0.1125, (180, 320)),
         ],
     },
 }
@@ -110,7 +118,7 @@ OPERATIONAL_REASONS = [
     ("Late delivery",  (150, 320)),
 ]
 OPERATIONAL_RETAILERS = ["Walmart", "Costco", "UNFI", "Whole Foods"]
-OPERATIONAL_MONTHLY_PROB = 0.008
+OPERATIONAL_MONTHLY_PROB = 0.020
 
 
 def main() -> None:
@@ -120,6 +128,31 @@ def main() -> None:
 
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
+
+    # Authorized (sku, retailer) pairs from distribution_log joined to stores.
+    # Includes any historical authorization (whether currently active or
+    # since deauthorized) — a retailer that ever carried a SKU can still bill
+    # against past shipments, but a retailer that never carried it cannot.
+    auth_rows = cur.execute("""
+        SELECT DISTINCT d.sku, s.retailer
+        FROM distribution_log d
+        JOIN stores s ON s.store_id = d.store_id
+    """).fetchall()
+    authorized: dict[str, set[str]] = {}
+    for sku, retailer in auth_rows:
+        authorized.setdefault(sku, set()).add(retailer)
+
+    # Earliest authorization month per (sku, retailer) — used to suppress
+    # chargebacks dated before the SKU was first carried at that retailer.
+    first_auth_rows = cur.execute("""
+        SELECT d.sku, s.retailer, MIN(d.authorized_date)
+        FROM distribution_log d JOIN stores s ON s.store_id = d.store_id
+        GROUP BY d.sku, s.retailer
+    """).fetchall()
+    first_auth_month: dict[tuple[str, str], str] = {
+        (sku, retailer): ad[:7]  # YYYY-MM
+        for sku, retailer, ad in first_auth_rows if ad
+    }
 
     products = cur.execute("""
         SELECT sku, gtin14, upc, case_length_in, case_width_in, case_height_in,
@@ -146,22 +179,42 @@ def main() -> None:
     months = months_in_window()
     rows: list[tuple[str, str, str, float, str]] = []  # (month, retailer, reason, amount, sku)
 
-    # Defect-driven chargebacks
+    # Defect-driven chargebacks. A retailer can only chargeback a SKU it
+    # actually carries (or carried), so cfg["retailers"] is filtered against
+    # the SKU's authorization set before sampling. Months before the SKU's
+    # first authorization at that retailer are also skipped.
     for sku, flags in sku_defects.items():
+        sku_auth = authorized.get(sku, set())
+        if not sku_auth:
+            continue
         for defect in flags:
             cfg = DEFECT_RULES[defect]
             reason = cfg["reason"]
             for retailer, monthly_p, (lo, hi) in cfg["retailers"]:
+                if retailer not in sku_auth:
+                    continue
+                pair_first = first_auth_month.get((sku, retailer))
                 for m in months:
+                    if pair_first is not None and m < pair_first:
+                        continue
                     if rng.random() < monthly_p:
                         amount = round(rng.uniform(lo, hi), 2)
                         rows.append((m, retailer, reason, amount, sku))
 
-    # Operational chargebacks for clean SKUs (no defects)
+    # Operational chargebacks for clean SKUs (no defects). Same authorization
+    # and temporal filter — only retailers that actually carry the SKU can
+    # issue a short-shipment / late-delivery deduction, and only after the
+    # SKU is first authorized there.
     clean_skus = [s for s, f in sku_defects.items() if not f]
     for sku in clean_skus:
+        sku_auth = authorized.get(sku, set())
         for retailer in OPERATIONAL_RETAILERS:
+            if retailer not in sku_auth:
+                continue
+            pair_first = first_auth_month.get((sku, retailer))
             for m in months:
+                if pair_first is not None and m < pair_first:
+                    continue
                 if rng.random() < OPERATIONAL_MONTHLY_PROB:
                     reason, (lo, hi) = rng.choice(OPERATIONAL_REASONS)
                     amount = round(rng.uniform(lo, hi), 2)
