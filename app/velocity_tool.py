@@ -1037,7 +1037,7 @@ def _switch_decision(target: str) -> None:
     selectbox has already locked its key for that render.
 
     Sets `came_from_story=True` so the destination decision view can show
-    a "Back to The Story" affordance — distinguishing arrived-from-narrative
+    a "Back to the Deep Dive" affordance — distinguishing arrived-from-narrative
     from arrived-from-dropdown.
     """
     st.session_state["decision_picker"] = target
@@ -1513,7 +1513,7 @@ def render_story() -> None:
     st.divider()
 
     # ---- Section 5: The Total Cost of Not Knowing ----
-    # Anchor target for the "Back to The Story" button. When the user
+    # Anchor target for the "Back to the Deep Dive" button. When the user
     # bounces from a decision mode back to the Story, the scroll script
     # at the end of this function targets this id so they land on the
     # section they jumped from instead of the top of the narrative.
@@ -4455,7 +4455,7 @@ def render_sidebar() -> dict:
               }}
 
               /* Same navy treatment for primary buttons in the main pane —
-                 Story Section-5 jump buttons and the "Back to The Story"
+                 Story Section-5 jump buttons and the "Back to the Deep Dive"
                  affordance both opt in via type="primary". */
               [data-testid="stMain"] [data-testid="stBaseButton-primary"],
               [data-testid="stMain"] button[kind="primary"] {{
@@ -4703,11 +4703,11 @@ def render_sidebar() -> dict:
 
 
 def main() -> None:
-    # First-time visitors land on the Story; once they pick a decision the
-    # flag flips to False and stays False until they click the Story button
-    # again.
+    # First-time visitors land on the first decision mode (Shelf Defense).
+    # The Story is opt-in: it appears only when the user clicks the
+    # "Charred Scallion Relish problem" pill in the sidebar.
     if "show_story" not in st.session_state:
-        st.session_state["show_story"] = True
+        st.session_state["show_story"] = False
 
     state = render_sidebar()
     decision = state["decision"]
@@ -4718,19 +4718,6 @@ def main() -> None:
     if st.session_state.get("show_story"):
         render_story()
         return
-
-    # Back-to-Story affordance — only when the user arrived here via a
-    # Section-5 jump button. Picking a decision from the dropdown clears
-    # the flag, so this won't appear on dropdown navigation.
-    if st.session_state.get("came_from_story"):
-        back_col, _ = st.columns([2, 8])
-        back_col.button(
-            "← Back to The Story",
-            key="back_to_story",
-            type="primary",
-            use_container_width=True,
-            on_click=_back_to_story,
-        )
 
     st.markdown(
         f"<h1 style='color:{NAVY}; margin-bottom: 0.2rem;'>"
@@ -4763,6 +4750,26 @@ def main() -> None:
         )
     else:
         render_placeholder(decision)
+
+    # Back-to-Deep-Dive affordance — only when the user arrived here via a
+    # Section-5 jump button. Rendered at the bottom of the page (after all
+    # charts, tables, and the Export to Excel button) so it reads as a
+    # return path after the user has finished with the decision view, not
+    # a banner that distracts from the analysis.
+    if st.session_state.get("came_from_story"):
+        st.markdown(
+            f"<div style='border-top: 1px solid {GREY_LIGHT}; "
+            f"margin: 1.6rem 0 0.9rem 0;'></div>",
+            unsafe_allow_html=True,
+        )
+        back_col, _ = st.columns([2, 8])
+        back_col.button(
+            "← Back to the Deep Dive",
+            key="back_to_story",
+            type="primary",
+            use_container_width=True,
+            on_click=_back_to_story,
+        )
 
 
 if __name__ == "__main__":
