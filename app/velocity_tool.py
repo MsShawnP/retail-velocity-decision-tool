@@ -115,15 +115,15 @@ THRESHOLDS = {
     "roi_strong":               1.0,    # ROI > 100% (>1.0) → Strong; 0–100% → Marginal; <0% → Negative
 }
 
-# The Story tab lives at the top of the navigation as the entry point — a
-# scroll-driven narrative explaining why this tool exists, told through one
-# protagonist SKU. It precedes the eight decision-mode questions below so a
-# first-time visitor lands on the "why" before the "how".
-STORY_KEY = "Why this tool exists (start here)"
+# The Story is a scroll-driven narrative entry point that lives ABOVE the
+# decision dropdown as a standalone sidebar callout — not as one of the
+# selectable decisions. The dropdown stays focused on the eight day-to-day
+# decision modes; the Story is the "read this once" callout for first-time
+# visitors. State lives in `st.session_state["show_story"]` (default True
+# so a fresh load always lands on the story).
 PROTAGONIST_SKU = "CHP-0044"
 
 DECISIONS = [
-    STORY_KEY,
     "Is this SKU at risk of being delisted?",
     "How much should I produce over the next 4 weeks?",
     "Did my last promotion pay off?",
@@ -134,15 +134,14 @@ DECISIONS = [
     "Do I have pricing power on this SKU?",
 ]
 DECISION_TITLES = {
-    DECISIONS[0]: "The Story",
-    DECISIONS[1]: "Shelf Defense",
-    DECISIONS[2]: "Production Planning — Next 4 Weeks",
-    DECISIONS[3]: "Promo ROI",
-    DECISIONS[4]: "Distribution Expansion",
-    DECISIONS[5]: "Distribution Pruning",
-    DECISIONS[6]: "SKU Rationalization",
-    DECISIONS[7]: "Launch Health",
-    DECISIONS[8]: "Pricing Power",
+    DECISIONS[0]: "Shelf Defense",
+    DECISIONS[1]: "Production Planning — Next 4 Weeks",
+    DECISIONS[2]: "Promo ROI",
+    DECISIONS[3]: "Distribution Expansion",
+    DECISIONS[4]: "Distribution Pruning",
+    DECISIONS[5]: "SKU Rationalization",
+    DECISIONS[6]: "Launch Health",
+    DECISIONS[7]: "Pricing Power",
 }
 
 PHYSICAL_RETAILERS = ["Walmart", "Costco", "Whole Foods", "Regional"]
@@ -1027,9 +1026,17 @@ def _narration(text: str, *, color: str = NAVY) -> None:
 
 
 def _switch_decision(target: str) -> None:
-    """Set the sidebar selectbox to a target decision and rerun the app."""
+    """Set the sidebar selectbox to a target decision and exit Story view.
+
+    Used as an `on_click` callback on the Section-5 jump buttons. Streamlit
+    runs `on_click` callbacks BEFORE widgets re-instantiate on the next run,
+    which is the only point at which we're allowed to write to a widget's
+    own session-state key (`decision_picker`). Doing the same write inline
+    after `if st.button(...)` raises StreamlitAPIException because the
+    selectbox has already locked its key for that render.
+    """
     st.session_state["decision_picker"] = target
-    st.rerun()
+    st.session_state["show_story"] = False
 
 
 def render_story() -> None:
@@ -1065,10 +1072,10 @@ def render_story() -> None:
     st.markdown(
         f"<div style='color:{NAVY_MED}; font-size: 1rem; max-width: 820px; "
         f"margin-bottom: 0.7rem;'>"
-        f"This is probably what your Monday morning report looks like. Total "
-        f"units across the portfolio: up. Revenue: up. Charred Scallion "
-        f"Relish at +15% year-over-year. Green arrow. Moving on to the next "
-        f"meeting."
+        f"This is the report a $25 million specialty foods brand built on. "
+        f"Total units across the portfolio: up. Revenue: up. Charred Scallion "
+        f"Relish at +15% year-over-year. Green arrow. Most of the SKUs in "
+        f"the portfolio look exactly like this — and most of them are fine."
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -1119,8 +1126,12 @@ def render_story() -> None:
                      height=min(640, 38 * len(disp) + 50))
 
     _narration(
-        "Everything in this table is accurate. None of it is useful. "
-        "Here's what it can't show you."
+        "Every number in this table is correct. This is the view that "
+        "built a $25 million brand, and most of the time it tells you "
+        "exactly what you need to know. But underneath these green arrows, "
+        "there&rsquo;s a layer this summary can&rsquo;t reach &mdash; the "
+        "place where margin leaks and shelf risk actually live. Watch what "
+        "happens when you zoom in on one of the green ones."
     )
 
     st.divider()
@@ -1556,20 +1567,22 @@ def render_story() -> None:
         unsafe_allow_html=True,
     )
 
-    # Jump-to-decision buttons
+    # Jump-to-decision buttons. Indices match the (Story-free) DECISIONS list.
+    # Use `on_click` instead of inline state writes — Streamlit blocks writes
+    # to a widget's own key after the widget has instantiated.
     b1, b2, b3, b4 = st.columns(4)
-    if b1.button("→ Shelf Defense", use_container_width=True,
-                 key="story_jump_shelf"):
-        _switch_decision(DECISIONS[1])
-    if b2.button("→ Promo ROI", use_container_width=True,
-                 key="story_jump_promo"):
-        _switch_decision(DECISIONS[3])
-    if b3.button("→ Pricing Power", use_container_width=True,
-                 key="story_jump_pricing"):
-        _switch_decision(DECISIONS[8])
-    if b4.button("→ SKU Rationalization", use_container_width=True,
-                 key="story_jump_rat"):
-        _switch_decision(DECISIONS[6])
+    b1.button("→ Shelf Defense", use_container_width=True,
+              key="story_jump_shelf",
+              on_click=_switch_decision, args=(DECISIONS[0],))
+    b2.button("→ Promo ROI", use_container_width=True,
+              key="story_jump_promo",
+              on_click=_switch_decision, args=(DECISIONS[2],))
+    b3.button("→ Pricing Power", use_container_width=True,
+              key="story_jump_pricing",
+              on_click=_switch_decision, args=(DECISIONS[7],))
+    b4.button("→ SKU Rationalization", use_container_width=True,
+              key="story_jump_rat",
+              on_click=_switch_decision, args=(DECISIONS[5],))
 
     st.divider()
 
@@ -4281,8 +4294,45 @@ def render_placeholder(decision: str) -> None:
     )
 
 
+def _on_decision_change() -> None:
+    """Selectbox on_change handler — picking a decision exits Story view.
+
+    Without this, switching from the Story to a decision via the dropdown
+    would leave `show_story=True` and the user would still see the narrative.
+    """
+    st.session_state["show_story"] = False
+
+
 def render_sidebar() -> dict:
     with st.sidebar:
+        # Brand-orange pill for the Story entry button. Targets the in-sidebar
+        # primary button only, so the Section-5 jump buttons (rendered in the
+        # main pane as default-style buttons) keep their neutral look.
+        st.markdown(
+            f"""
+            <style>
+              [data-testid="stSidebar"] [data-testid="stBaseButton-primary"],
+              [data-testid="stSidebar"] button[kind="primary"] {{
+                  background-color: {ORANGE} !important;
+                  border-color: {ORANGE} !important;
+                  color: {WHITE} !important;
+                  font-weight: 600 !important;
+                  text-align: left !important;
+                  padding: 0.7rem 0.9rem !important;
+                  line-height: 1.3 !important;
+                  box-shadow: 0 2px 6px rgba(211, 88, 48, 0.22);
+              }}
+              [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover,
+              [data-testid="stSidebar"] button[kind="primary"]:hover {{
+                  background-color: #B84826 !important;
+                  border-color: #B84826 !important;
+                  box-shadow: 0 3px 8px rgba(211, 88, 48, 0.32);
+              }}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
         st.markdown(
             f"""
             <div style='padding: 0.5rem 0 1rem 0;
@@ -4306,11 +4356,47 @@ def render_sidebar() -> dict:
             unsafe_allow_html=True,
         )
 
+        # Story entry — a separate, visually distinct callout above the
+        # decision dropdown. The label hints at the reveal so a first-time
+        # visitor is curious enough to click. Caption underneath delivers
+        # the second-half punch without giving away the full story.
+        st.markdown(
+            f"<div style='font-size: 0.68rem; color: {ORANGE}; "
+            f"font-weight: 700; letter-spacing: 0.18rem; "
+            f"text-transform: uppercase; margin: 0 0 0.35rem 0;'>"
+            f"Read this first &middot; 2 min</div>",
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "The Charred Scallion Relish problem",
+            key="story_entry_button",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state["show_story"] = True
+            st.rerun()
+        st.markdown(
+            f"<div style='font-size: 0.78rem; color: {NAVY_MED}; "
+            f"line-height: 1.4; margin: 0.4rem 0 1rem 0;'>"
+            f"How a +15% growth SKU was actually losing money &mdash; "
+            f"and what the Monday morning report couldn&rsquo;t see."
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"<div style='border-top: 1px solid {GREY_LIGHT}; "
+            f"margin: 0 0 0.9rem 0;'></div>",
+            unsafe_allow_html=True,
+        )
+
         # Stable, explicit key on the decision picker itself so Streamlit
         # never tries to re-bind it to one of the per-mode widgets below.
+        # The on_change handler exits Story view as soon as the user picks
+        # a different decision.
         decision = st.selectbox(
             "What decision are you making?", DECISIONS, index=0,
             key="decision_picker",
+            on_change=_on_decision_change,
         )
         st.markdown("**Filters**")
         state: dict = {"decision": decision}
@@ -4321,14 +4407,7 @@ def render_sidebar() -> dict:
         # label like "Retailer" or "Product Line" collide on switch, leaving
         # stale values cached. Explicit keys give each widget its own slot
         # in session_state.
-        if decision == STORY_KEY:  # The Story — narrative, no filters
-            st.caption(
-                "Scroll-driven narrative. No filters — this tab is the same "
-                "for every visitor. Pick a decision from the dropdown above "
-                "to start using the tool."
-            )
-
-        elif decision == DECISIONS[1]:  # Shelf Defense
+        if decision == DECISIONS[0]:  # Shelf Defense
             state["retailer"] = st.selectbox(
                 "Retailer", PHYSICAL_RETAILERS, index=0,
                 key="shelf_retailer",
@@ -4352,7 +4431,7 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[2]:  # Production Planning
+        elif decision == DECISIONS[1]:  # Production Planning
             state["retailer"] = st.selectbox(
                 "Retailer", ["All Retailers"] + PHYSICAL_RETAILERS, index=0,
                 key="prod_retailer",
@@ -4363,7 +4442,7 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[3]:  # Promo ROI
+        elif decision == DECISIONS[2]:  # Promo ROI
             state["retailer"] = st.selectbox(
                 "Retailer", ALL_PHYSICAL_OR_AGG, index=0,
                 key="promo_retailer",
@@ -4378,7 +4457,7 @@ def render_sidebar() -> dict:
             )
             state["sku_filter"] = None if sku_pick == "All SKUs" else sku_pick
 
-        elif decision == DECISIONS[4]:  # Distribution Expansion
+        elif decision == DECISIONS[3]:  # Distribution Expansion
             pl = st.selectbox(
                 "Product Line", get_product_lines(), index=0,
                 key="expansion_product_line",
@@ -4399,7 +4478,7 @@ def render_sidebar() -> dict:
             )
             state["retailer"] = None if ret_pick == "All Retailers" else ret_pick
 
-        elif decision == DECISIONS[5]:  # Distribution Pruning
+        elif decision == DECISIONS[4]:  # Distribution Pruning
             state["retailer"] = st.selectbox(
                 "Retailer", PHYSICAL_RETAILERS, index=0,
                 key="pruning_retailer",
@@ -4420,7 +4499,7 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[6]:  # SKU Rationalization
+        elif decision == DECISIONS[5]:  # SKU Rationalization
             state["retailer"] = st.selectbox(
                 "Retailer", ["All Retailers"] + PHYSICAL_RETAILERS, index=0,
                 key="rat_retailer",
@@ -4431,10 +4510,10 @@ def render_sidebar() -> dict:
             )
             state["product_line"] = None if pl == "All" else pl
 
-        elif decision == DECISIONS[7]:  # Launch Health
+        elif decision == DECISIONS[6]:  # Launch Health
             st.caption("Auto-detects SKUs launched in the last 52 weeks. No filters needed.")
 
-        elif decision == DECISIONS[8]:  # Pricing Power
+        elif decision == DECISIONS[7]:  # Pricing Power
             state["retailer"] = st.selectbox(
                 "Retailer", ALL_PHYSICAL_OR_AGG, index=0,
                 key="pricing_retailer",
@@ -4468,13 +4547,19 @@ def render_sidebar() -> dict:
 
 
 def main() -> None:
+    # First-time visitors land on the Story; once they pick a decision the
+    # flag flips to False and stays False until they click the Story button
+    # again.
+    if "show_story" not in st.session_state:
+        st.session_state["show_story"] = True
+
     state = render_sidebar()
     decision = state["decision"]
 
     # The Story renders its own headline and subhead inside render_story();
     # the standard "decision name" H1 is suppressed because the narrative
     # opens with its own framing copy.
-    if decision == STORY_KEY:
+    if st.session_state.get("show_story"):
         render_story()
         return
 
@@ -4489,21 +4574,21 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    if decision == DECISIONS[1]:
+    if decision == DECISIONS[0]:
         render_shelf_defense(state["retailer"], state["product_line"], state["threshold"])
-    elif decision == DECISIONS[2]:
+    elif decision == DECISIONS[1]:
         render_production_planning(state["retailer"], state["product_line"])
-    elif decision == DECISIONS[3]:
+    elif decision == DECISIONS[2]:
         render_promo_roi(state["retailer"], state["sku_filter"])
-    elif decision == DECISIONS[4]:
+    elif decision == DECISIONS[3]:
         render_expansion_targeting(state["focus_sku"], state["retailer"])
-    elif decision == DECISIONS[5]:
+    elif decision == DECISIONS[4]:
         render_distribution_pruning(state["retailer"], state["product_line"], state["threshold"])
-    elif decision == DECISIONS[6]:
+    elif decision == DECISIONS[5]:
         render_sku_rationalization(state["retailer"], state["product_line"])
-    elif decision == DECISIONS[7]:
+    elif decision == DECISIONS[6]:
         render_launch_health()
-    elif decision == DECISIONS[8]:
+    elif decision == DECISIONS[7]:
         render_pricing_power(
             state["retailer"], state["sku_filter"], state["product_line"]
         )
