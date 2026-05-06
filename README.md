@@ -1,6 +1,6 @@
 # Cinderhaven Velocity Decision Tool
 
-**[Try it live → https://velocity-tool.streamlit.app/](https://velocity-tool.streamlit.app/)**
+**Try it live → [https://velocity-tool.streamlit.app/](https://velocity-tool.streamlit.app/)**
 
 A prescriptive decision tool for specialty food CEOs who get velocity reports every Monday but don't know what decisions they should drive.
 
