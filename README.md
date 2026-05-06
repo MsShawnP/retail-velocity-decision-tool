@@ -19,6 +19,10 @@ Most velocity reports tell you what happened. This tool tells you what to do nex
 7. **Launch Trajectory** — Is my new product on track?
 8. **Pricing Power** — Should I promote this SKU again?
 
+## The Deep Dive: The Charred Scallion Relish Problem
+
+The app includes a narrative case study that traces one SKU — Charred Scallion Relish (CHP-0044) — through four decision modes. What looks like a healthy +15% YoY growth story in the Monday morning report turns out to be a SKU buying revenue at a loss: baseline velocity declining 25%, promotional intensity tripled to mask it, $24,686 in trade spend burned, and $723,842 in total value being destroyed — invisible to every pivot table in the building. Click "The Charred Scallion Relish problem" in the sidebar to read it.
+
 ## The dataset
 
 Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 90 SKUs across three product lines (artisan sauces, specialty condiments, pantry staples). The dataset includes:
