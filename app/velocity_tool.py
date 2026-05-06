@@ -1034,9 +1034,22 @@ def _switch_decision(target: str) -> None:
     own session-state key (`decision_picker`). Doing the same write inline
     after `if st.button(...)` raises StreamlitAPIException because the
     selectbox has already locked its key for that render.
+
+    Sets `came_from_story=True` so the destination decision view can show
+    a "Back to The Story" affordance — distinguishing arrived-from-narrative
+    from arrived-from-dropdown.
     """
     st.session_state["decision_picker"] = target
     st.session_state["show_story"] = False
+    st.session_state["came_from_story"] = True
+
+
+def _back_to_story() -> None:
+    """Return to the Story view from a decision mode. Clears the
+    came-from-story flag so the Back affordance disappears on the next
+    arrival via dropdown."""
+    st.session_state["show_story"] = True
+    st.session_state["came_from_story"] = False
 
 
 def render_story() -> None:
@@ -1570,18 +1583,21 @@ def render_story() -> None:
     # Jump-to-decision buttons. Indices match the (Story-free) DECISIONS list.
     # Use `on_click` instead of inline state writes — Streamlit blocks writes
     # to a widget's own key after the widget has instantiated.
+    # `type="primary"` paints them navy via the main-pane CSS injected in
+    # render_sidebar — keeps the brand styling consistent with the sidebar
+    # Story entry pill.
     b1, b2, b3, b4 = st.columns(4)
     b1.button("→ Shelf Defense", use_container_width=True,
-              key="story_jump_shelf",
+              key="story_jump_shelf", type="primary",
               on_click=_switch_decision, args=(DECISIONS[0],))
     b2.button("→ Promo ROI", use_container_width=True,
-              key="story_jump_promo",
+              key="story_jump_promo", type="primary",
               on_click=_switch_decision, args=(DECISIONS[2],))
     b3.button("→ Pricing Power", use_container_width=True,
-              key="story_jump_pricing",
+              key="story_jump_pricing", type="primary",
               on_click=_switch_decision, args=(DECISIONS[7],))
     b4.button("→ SKU Rationalization", use_container_width=True,
-              key="story_jump_rat",
+              key="story_jump_rat", type="primary",
               on_click=_switch_decision, args=(DECISIONS[5],))
 
     st.divider()
@@ -1703,6 +1719,12 @@ def render_story() -> None:
             f"</div>",
             unsafe_allow_html=True,
         )
+        # Sort highest velocity → lowest, top to bottom. The SQL returns
+        # bottom 10 in ASC order (worst first); paired with autorange="reversed"
+        # below that would put the worst store at the top. Flip the frame so
+        # the visual reading order is strongest-of-the-bottom-10 at top, worst
+        # at bottom.
+        weak = weak.iloc[::-1].reset_index(drop=True)
         # Bar color is RED when below the threshold, ORANGE when above but in
         # the bottom-10 — gives the chart a green/red read without lying about
         # the underlying state.
@@ -3427,22 +3449,75 @@ def render_sku_rationalization(retailer: str, product_line: str | None) -> None:
                 "overview** to see the full matrix."
             )
         else:
-            total_cut_margin = int(cut_df["Total Weekly Margin"].sum())
+            total_cut_margin = float(cut_df["Total Weekly Margin"].sum())
+            cut_slots = int(cut_df["Doors"].sum())
+
+            # Replacement opportunity: if every cut-candidate slot were filled
+            # by a SKU performing at the median Winner level, what would the
+            # same shelf space generate? Net = projected - current is the real
+            # opportunity cost (or gain) of cutting.
+            winners_df = df[df["quadrant"] == "Winner"]
+            have_winners = not winners_df.empty
+            if have_winners:
+                winner_med_msw = float(winners_df["margin_per_sw"].median())
+                winner_med_vel = float(winners_df["velocity"].median())
+                winner_med_mpu = float(winners_df["margin_per_unit"].median())
+                projected_weekly = cut_slots * winner_med_msw
+                net_weekly = projected_weekly - total_cut_margin
+                net_annual = net_weekly * 52
+                gain_or_loss = "gain" if net_weekly >= 0 else "loss"
+                net_color = TEAL if net_weekly >= 0 else RED
+
             st.markdown(
                 f"### These SKUs have low velocity AND low margin — cut first"
             )
-            st.markdown(
-                f"<div style='color: {GREY}; font-size: 0.92em; "
-                f"margin: -0.4em 0 0.6em 0;'>"
-                f"<b>{len(cut_df)} SKUs are cut candidates</b>, generating a "
-                f"combined <b>${total_cut_margin:,.2f}/wk</b> in gross margin "
-                f"— the same dollars you'd recapture if you delisted them and "
-                f"redirected the shelf to a Winner. Below both the median "
-                f"velocity ({median_velocity:.2f}) and the median margin per "
-                f"store-week (${median_margin:.2f})."
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+
+            if have_winners:
+                # Lede: the comparison itself, with the net delta the eye
+                # should land on.
+                st.markdown(
+                    f"<div style='color: {NAVY}; font-size: 1rem; "
+                    f"line-height: 1.55; margin: -0.2em 0 0.4em 0;'>"
+                    f"These <b>{len(cut_df)} SKUs</b> currently earn "
+                    f"<b>${total_cut_margin:,.0f}/week</b> across "
+                    f"<b>{cut_slots:,}</b> shelf slots. At median Winner "
+                    f"performance, the same shelf space would earn "
+                    f"<b>${projected_weekly:,.0f}/week</b> — a net "
+                    f"<b style='color:{net_color}'>{gain_or_loss} of "
+                    f"${abs(net_weekly):,.0f}/week "
+                    f"(${abs(net_annual):,.0f}/year)</b> from replacement."
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                # Supporting math line — small, muted, for the reader who wants
+                # to verify the projection.
+                st.markdown(
+                    f"<div style='color: {GREY}; font-size: 0.86em; "
+                    f"margin: 0 0 0.6em 0;'>"
+                    f"Median Winner: <b>{winner_med_vel:.2f}</b> u/store/week × "
+                    f"<b>${winner_med_mpu:.2f}</b>/unit = "
+                    f"<b>${winner_med_msw:.2f}</b>/store/week. "
+                    f"Cut candidates fall below both the median velocity "
+                    f"({median_velocity:.2f}) and the median margin per "
+                    f"store-week (${median_margin:.2f})."
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                # Edge case: no Winners in scope — can't project replacement
+                # value, so just state what's at stake.
+                st.markdown(
+                    f"<div style='color: {GREY}; font-size: 0.92em; "
+                    f"margin: -0.4em 0 0.6em 0;'>"
+                    f"<b>{len(cut_df)} SKUs are cut candidates</b>, currently "
+                    f"earning <b>${total_cut_margin:,.0f}/wk</b> across "
+                    f"{cut_slots:,} shelf slots. Below both the median "
+                    f"velocity ({median_velocity:.2f}) and the median margin "
+                    f"per store-week (${median_margin:.2f}). No Winner SKUs "
+                    f"in scope to project a replacement comparison against."
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
             # --- Cut-candidate chart: all bars red, largest margin at TOP
             # so the SKU with the biggest dollars at risk reads first ---
@@ -4299,8 +4374,13 @@ def _on_decision_change() -> None:
 
     Without this, switching from the Story to a decision via the dropdown
     would leave `show_story=True` and the user would still see the narrative.
+
+    Also clears `came_from_story` — picking from the dropdown is an explicit
+    user choice, not a narrative-driven jump, so the Back affordance should
+    disappear.
     """
     st.session_state["show_story"] = False
+    st.session_state["came_from_story"] = False
 
 
 def render_sidebar() -> dict:
@@ -4324,6 +4404,24 @@ def render_sidebar() -> dict:
               }}
               [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover,
               [data-testid="stSidebar"] button[kind="primary"]:hover {{
+                  background-color: {NAVY} !important;
+                  border-color: {NAVY} !important;
+                  box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
+              }}
+
+              /* Same navy treatment for primary buttons in the main pane —
+                 Story Section-5 jump buttons and the "Back to The Story"
+                 affordance both opt in via type="primary". */
+              [data-testid="stMain"] [data-testid="stBaseButton-primary"],
+              [data-testid="stMain"] button[kind="primary"] {{
+                  background-color: {NAVY_MED} !important;
+                  border-color: {NAVY_MED} !important;
+                  color: {WHITE} !important;
+                  font-weight: 600 !important;
+                  box-shadow: 0 2px 6px rgba(61, 90, 128, 0.22);
+              }}
+              [data-testid="stMain"] [data-testid="stBaseButton-primary"]:hover,
+              [data-testid="stMain"] button[kind="primary"]:hover {{
                   background-color: {NAVY} !important;
                   border-color: {NAVY} !important;
                   box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
@@ -4353,6 +4451,17 @@ def render_sidebar() -> dict:
                 </div>
             </div>
             """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"<div style='font-size: 0.85rem; color: {NAVY_MED}; "
+            f"line-height: 1.5; margin: 0 0 1rem 0;'>"
+            f"Pick a decision you&rsquo;re trying to make. The tool surfaces "
+            f"the velocity view that answers it &mdash; not a dashboard, a "
+            f"diagnosis. Each mode isolates one question and tells you what "
+            f"the data says."
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -4524,7 +4633,7 @@ def render_sidebar() -> dict:
             f"<div style='font-size: 0.68rem; color: {NAVY_MED}; "
             f"font-weight: 700; letter-spacing: 0.18rem; "
             f"text-transform: uppercase; margin: 0 0 0.35rem 0;'>"
-            f"Read this first &middot; 2 min</div>",
+            f"Deep dive &middot; 2 min</div>",
             unsafe_allow_html=True,
         )
         if st.button(
@@ -4538,8 +4647,9 @@ def render_sidebar() -> dict:
         st.markdown(
             f"<div style='font-size: 0.78rem; color: {NAVY_MED}; "
             f"line-height: 1.4; margin: 0.4rem 0 0 0;'>"
-            f"How a +15% growth SKU was actually losing money &mdash; "
-            f"and what the Monday morning report couldn&rsquo;t see."
+            f"A worked case study: how a +15% growth SKU was actually "
+            f"losing money &mdash; and what the Monday morning report "
+            f"couldn&rsquo;t see."
             f"</div>",
             unsafe_allow_html=True,
         )
@@ -4563,6 +4673,19 @@ def main() -> None:
     if st.session_state.get("show_story"):
         render_story()
         return
+
+    # Back-to-Story affordance — only when the user arrived here via a
+    # Section-5 jump button. Picking a decision from the dropdown clears
+    # the flag, so this won't appear on dropdown navigation.
+    if st.session_state.get("came_from_story"):
+        back_col, _ = st.columns([2, 8])
+        back_col.button(
+            "← Back to The Story",
+            key="back_to_story",
+            type="primary",
+            use_container_width=True,
+            on_click=_back_to_story,
+        )
 
     st.markdown(
         f"<h1 style='color:{NAVY}; margin-bottom: 0.2rem;'>"
