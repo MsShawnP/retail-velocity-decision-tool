@@ -25,6 +25,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 # ============================================================
@@ -1047,9 +1048,17 @@ def _switch_decision(target: str) -> None:
 def _back_to_story() -> None:
     """Return to the Story view from a decision mode. Clears the
     came-from-story flag so the Back affordance disappears on the next
-    arrival via dropdown."""
+    arrival via dropdown.
+
+    The Section-5 jump buttons are the entry point into a decision view —
+    so when the user clicks Back, they want to return to where they
+    bounced off, not the top of the narrative. `scroll_to_section_5`
+    tells render_story to inject a one-shot scroll script on the next
+    render. The flag is consumed (popped) when the scroll fires, so it
+    only happens once per Back click."""
     st.session_state["show_story"] = True
     st.session_state["came_from_story"] = False
+    st.session_state["scroll_to_section_5"] = True
 
 
 def render_story() -> None:
@@ -1504,6 +1513,11 @@ def render_story() -> None:
     st.divider()
 
     # ---- Section 5: The Total Cost of Not Knowing ----
+    # Anchor target for the "Back to The Story" button. When the user
+    # bounces from a decision mode back to the Story, the scroll script
+    # at the end of this function targets this id so they land on the
+    # section they jumped from instead of the top of the narrative.
+    st.markdown("<div id='story-section-5'></div>", unsafe_allow_html=True)
     _eyebrow("Section 5 of 5")
     _h2("The Total Cost of Not Knowing")
 
@@ -1788,6 +1802,37 @@ def render_story() -> None:
             font=dict(family="sans-serif", size=12, color=NAVY),
         )
         st.plotly_chart(figel, use_container_width=True)
+
+    # One-shot scroll-to-Section-5. Set by _back_to_story() when the user
+    # bounces back from a decision view; popped here so it fires exactly
+    # once. components.html runs the script inside an iframe whose parent
+    # is the Streamlit main document — that's where the anchor lives.
+    # The retry loop guards against the parent DOM not being fully mounted
+    # by the time the iframe loads.
+    if st.session_state.pop("scroll_to_section_5", False):
+        components.html(
+            """
+            <script>
+              (function() {
+                  let attempts = 0;
+                  const tryScroll = () => {
+                      const target = window.parent.document
+                          .getElementById('story-section-5');
+                      if (target) {
+                          target.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                          });
+                      } else if (attempts++ < 20) {
+                          setTimeout(tryScroll, 100);
+                      }
+                  };
+                  tryScroll();
+              })();
+            </script>
+            """,
+            height=0,
+        )
 
 
 # ============================================================
