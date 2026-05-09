@@ -44,7 +44,7 @@ DB_PATH = Path(__file__).resolve().parent.parent / "data" / "cinderhaven_product
 # build in @st.cache_resource so concurrent first-time visitors don't all
 # kick off duplicate rebuilds on a cold start.
 
-_BUILD_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "build_db.py"
+_BUILD_SCRIPT = Path(__file__).resolve().parent.parent / "data" / "cinderhaven-data" / "scripts" / "build_db.py"
 
 
 @st.cache_resource(show_spinner="First-time setup: building the Cinderhaven dataset (one-time, ~1 min)...")
@@ -55,12 +55,10 @@ def _ensure_database() -> str:
     if not _BUILD_SCRIPT.exists():
         raise FileNotFoundError(
             f"Database missing and build script not found at {_BUILD_SCRIPT}. "
-            "Cannot bootstrap."
+            "Run setup.sh or clone with --recurse-submodules."
         )
-    # Use the same interpreter that's running Streamlit so we match the
-    # deployed virtualenv exactly. Streams stdout/stderr to the deploy logs.
     result = subprocess.run(
-        [sys.executable, str(_BUILD_SCRIPT)],
+        [sys.executable, str(_BUILD_SCRIPT), "--output", str(DB_PATH)],
         cwd=_BUILD_SCRIPT.parent.parent,
         check=False,
     )

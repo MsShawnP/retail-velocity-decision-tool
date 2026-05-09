@@ -33,18 +33,19 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 - Data-quality-driven chargebacks traceable to product master defects
 - Seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
 
-> **Database source:** the dataset, generators, and build pipeline now live in the standalone [`cinderhaven-data`](../cinderhaven-data) repo. The scripts in `scripts/` here are kept temporarily for backward compatibility; new work on the schema or generators should happen in `cinderhaven-data`.
+> **Database source:** the dataset, generators, and build pipeline live in [`cinderhaven-data`](https://github.com/MsShawnP/cinderhaven-data), included here as a git submodule at `data/cinderhaven-data/`.
 
 ## Running locally
 
 ```bash
-git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
+git clone --recurse-submodules https://github.com/MsShawnP/retail-velocity-decision-tool.git
 cd retail-velocity-decision-tool
+./setup.sh
 pip install -r app/requirements.txt
 streamlit run app/velocity_tool.py
 ```
 
-The database generates automatically on first run (~5-10 minutes). Subsequent starts are instant.
+`setup.sh` pulls the data generation submodule, creates a virtual environment, and builds the database (~5-10 minutes on first run). Subsequent starts are instant.
 
 ## Built with
 
