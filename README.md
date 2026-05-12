@@ -61,3 +61,7 @@ This is the flagship portfolio piece for a decision-framework consulting practic
 ---
 
 *"The report isn't the point. The point is knowing what to do next."*
+
+## License
+
+MIT — see [LICENSE](LICENSE).
