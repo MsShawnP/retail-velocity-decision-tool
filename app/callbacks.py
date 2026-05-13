@@ -22,6 +22,9 @@ from data import get_promo_skus, get_product_lines, get_skus_for_line
 from decisions.shelf_defense import layout as shelf_layout
 from decisions.production import layout as production_layout
 from decisions.promo_roi import layout as promo_layout
+from decisions.expansion import layout as expansion_layout
+from decisions.pruning import layout as pruning_layout
+from decisions.rationalization import layout as rationalization_layout
 
 
 # ============================================================
@@ -142,10 +145,18 @@ def register_callbacks(app) -> None:
         if idx == 2:
             return promo_layout(promo_ret, promo_sku)
 
-        # Placeholder for U4-U5: remaining decision modules
+        # Modes 3-5: real layouts (U4)
+        if idx == 3:
+            return expansion_layout(exp_pl, exp_sku, exp_ret)
+        if idx == 4:
+            return pruning_layout(prune_ret, prune_thr, prune_pl)
+        if idx == 5:
+            return rationalization_layout(rat_ret, rat_pl)
+
+        # Placeholder for U5: remaining decision modules
         title = DECISION_TITLES.get(decision, decision)
         return html.Div(
-            f"Decision mode: {title} — coming in U4–U5",
+            f"Decision mode: {title} — coming in U5",
             style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
         )
 
