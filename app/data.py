@@ -1165,3 +1165,44 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
     df["recovery_status"] = df["recovery_ratio"].apply(recovery_label)
     df = df.sort_values("elasticity", ascending=False).reset_index(drop=True)
     return df
+
+
+# ============================================================
+# Cache warming
+# ============================================================
+
+def warm_cache() -> None:
+    """Pre-call the primary data function for each decision mode so the
+    first tab switch doesn't hit a cold cache.  Runs in a background
+    thread on worker boot."""
+    import logging
+    log = logging.getLogger("warm_cache")
+
+    from constants import PROTAGONIST_SKU
+
+    calls: list[tuple[str, callable]] = [
+        ("get_product_lines",       lambda: get_product_lines()),
+        ("get_latest_week",         lambda: get_latest_week()),
+        ("shelf_defense(Walmart)",  lambda: get_shelf_defense_data("Walmart", None)),
+        ("production(Walmart)",     lambda: get_production_data("Walmart", None)),
+        ("promo_roi(Walmart)",      lambda: get_promo_roi_data("Walmart", None)),
+        ("expansion(CHP-0044)",     lambda: get_expansion_data(PROTAGONIST_SKU, None)),
+        ("pruning(Walmart)",        lambda: get_pruning_data("Walmart", None)),
+        ("rationalization(Walmart)", lambda: get_rationalization_data("Walmart", None)),
+        ("launch_data",             lambda: get_launch_data()),
+        ("pricing(Walmart)",        lambda: get_pricing_data("Walmart", None, None)),
+        # Story mode helpers
+        ("monday_summary",          lambda: get_monday_morning_summary(PROTAGONIST_SKU)),
+        ("sku_velocity",            lambda: get_sku_weekly_velocity(PROTAGONIST_SKU)),
+        ("walmart_trajectory",      lambda: get_walmart_trajectory(PROTAGONIST_SKU)),
+        ("top_demand_4wk",          lambda: get_top_demand_4wk()),
+        ("top_velocity_per_door",   lambda: get_top_velocity_per_door()),
+        ("top_elasticity_skus",     lambda: get_top_elasticity_skus()),
+    ]
+
+    for name, fn in calls:
+        try:
+            fn()
+            log.info("warmed %s", name)
+        except Exception:
+            log.warning("warm_cache: %s failed", name, exc_info=True)
