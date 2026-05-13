@@ -1,0 +1,464 @@
+"""Launch Health decision mode -- Dash layout and callbacks.
+
+Ported from velocity_tool.py render_launch_health() (lines 3824-4001).
+Business logic, SQL queries, chart construction, and metric calculations
+are IDENTICAL to the original Streamlit version.
+"""
+
+from __future__ import annotations
+
+import pandas as pd
+import plotly.graph_objects as go
+from dash import Input, Output, State, callback_context, dcc, html, no_update
+
+from charts import add_vline_at_date, apply_hbar_layout, text_annotation
+from components import (
+    chart_legend,
+    empty_state,
+    error_card,
+    excel_download_data,
+    make_grid,
+    metric_card,
+    row_count_line,
+    status_legend,
+)
+from constants import (
+    GREY,
+    GREY_LIGHT,
+    GREEN_FAINT,
+    NAVY,
+    NAVY_MED,
+    ORANGE,
+    ORANGE_FAINT,
+    PAGE_BG,
+    RED,
+    RED_FAINT,
+    TEAL,
+    THRESHOLDS,
+    WHITE,
+)
+from data import get_latest_week, get_launch_data, get_launch_weekly
+
+
+# ============================================================
+# Classifier (from velocity_tool.py classify_launch)
+# ============================================================
+
+def _classify_launch(row: pd.Series, threshold: float) -> str:
+    on_track_retention = THRESHOLDS["launch_on_track"]
+    failing_floor = THRESHOLDS["launch_failing"]
+    initial = row["v_w14"]
+    current = row["v_current"]
+    if pd.isna(current):
+        return "Needs Attention"
+    if pd.isna(initial):
+        return "On Track" if current >= threshold else "Needs Attention"
+    if current >= threshold:
+        return "Needs Attention" if current < initial * on_track_retention else "On Track"
+    if current < initial * on_track_retention:
+        return "Failing"
+    if current < threshold * failing_floor:
+        return "Failing"
+    return "Needs Attention"
+
+
+# ============================================================
+# Status colors and row tints
+# ============================================================
+
+LAUNCH_STATUS_COLORS = {
+    "On Track": TEAL,
+    "Needs Attention": ORANGE,
+    "Failing": RED,
+}
+
+
+# ============================================================
+# Layout
+# ============================================================
+
+def layout() -> html.Div:
+    """Return the full Dash component tree for Launch Health."""
+    threshold = 2.0  # Walmart benchmark used as a generic launch signal
+    latest = get_latest_week()
+
+    try:
+        df = get_launch_data()
+    except Exception as exc:
+        return error_card(
+            "Launch Health query failed",
+            f"Could not load launch data: {exc}",
+        )
+
+    if df.empty:
+        return empty_state("No SKUs have launched in the last 52 weeks.")
+
+    df["status"] = df.apply(lambda r: _classify_launch(r, threshold), axis=1)
+    n_total = len(df)
+    n_track = int((df["status"] == "On Track").sum())
+    n_attn = int((df["status"] == "Needs Attention").sum())
+    n_fail = int((df["status"] == "Failing").sum())
+
+    # Headline
+    if n_fail > 0:
+        headline = (
+            f"{n_total} SKUs launched in the last 52 weeks. "
+            f"{n_track} on track, {n_attn} need attention, {n_fail} failing."
+        )
+    else:
+        headline = (
+            f"{n_total} SKUs launched in the last 52 weeks. "
+            f"{n_track} on track, {n_attn} need attention, none currently failing."
+        )
+
+    # Caption
+    caption_text = (
+        f"All SKUs whose first authorization was within the last 52 weeks  |  "
+        f"Velocity benchmark: {threshold:.2f} units/store/week (Walmart standard)  |  "
+        f"Most recent week: {latest}"
+    )
+
+    # Status legend
+    on_track_pct = THRESHOLDS["launch_on_track"] * 100
+    failing_pct = THRESHOLDS["launch_failing"] * 100
+    legend_html = (
+        f"<b>Status definitions</b> (current vs first-4-weeks velocity, "
+        f"benchmark = {threshold:.2f} units/store/week):  "
+        f"<b style='color:{TEAL}'>On Track</b> = current ≥ benchmark and "
+        f"holding ≥ {on_track_pct:.2f}% of initial.  "
+        f"<b style='color:{ORANGE}'>Needs Attention</b> = above benchmark but "
+        f"trending down, or modestly below benchmark.  "
+        f"<b style='color:{RED}'>Failing</b> = current &lt; {failing_pct:.2f}% of "
+        f"benchmark, or current &lt; {on_track_pct:.2f}% of initial AND below "
+        f"benchmark."
+    )
+
+    # Build display DataFrame
+    display_df = pd.DataFrame({
+        "SKU":           df["sku"],
+        "Product Name":  df["product_name"],
+        "Product Line":  df["product_line"],
+        "Launch Date":   df["launch_date"],
+        "Weeks Since":   df["weeks_since_launch"].astype(int),
+        "Wks 1-4 Vel":   df["v_w14"].round(2),
+        "Wks 5-8 Vel":   df["v_w58"].round(2),
+        "Wks 9-13 Vel":  df["v_w913"].round(2),
+        "Wks 14+ Vel":   df["v_w14plus"].round(2),
+        "Current Vel":   df["v_current"].round(2),
+        "Status":        df["status"],
+    })
+    status_order = {"Failing": 0, "Needs Attention": 1, "On Track": 2}
+    display_df = (
+        display_df.assign(_o=display_df["Status"].map(status_order))
+        .sort_values(["_o", "Launch Date"], ascending=[True, False])
+        .drop(columns="_o")
+        .reset_index(drop=True)
+    )
+
+    # AG Grid column defs
+    column_defs = [
+        {"field": "SKU", "headerName": "SKU", "sortable": True, "filter": True, "width": 110},
+        {"field": "Product Name", "headerName": "Product Name", "sortable": True, "filter": True, "flex": 1},
+        {"field": "Product Line", "headerName": "Product Line", "sortable": True, "filter": True, "width": 130},
+        {"field": "Launch Date", "headerName": "Launch Date", "sortable": True, "filter": True, "width": 120},
+        {"field": "Weeks Since", "headerName": "Weeks Since", "sortable": True, "filter": "agNumberColumnFilter", "width": 110},
+        {"field": "Wks 1-4 Vel", "headerName": "Wks 1-4 Vel", "sortable": True, "filter": "agNumberColumnFilter",
+         "valueFormatter": {"function": "params.value == null ? '—' : d3.format('.2f')(params.value)"}},
+        {"field": "Wks 5-8 Vel", "headerName": "Wks 5-8 Vel", "sortable": True, "filter": "agNumberColumnFilter",
+         "valueFormatter": {"function": "params.value == null ? '—' : d3.format('.2f')(params.value)"}},
+        {"field": "Wks 9-13 Vel", "headerName": "Wks 9-13 Vel", "sortable": True, "filter": "agNumberColumnFilter",
+         "valueFormatter": {"function": "params.value == null ? '—' : d3.format('.2f')(params.value)"}},
+        {"field": "Wks 14+ Vel", "headerName": "Wks 14+ Vel", "sortable": True, "filter": "agNumberColumnFilter",
+         "valueFormatter": {"function": "params.value == null ? '—' : d3.format('.2f')(params.value)"}},
+        {"field": "Current Vel", "headerName": "Current Vel", "sortable": True, "filter": "agNumberColumnFilter",
+         "valueFormatter": {"function": "params.value == null ? '—' : d3.format('.2f')(params.value)"}},
+        {"field": "Status", "headerName": "Status", "sortable": True, "filter": True, "width": 130},
+    ]
+
+    # Row style conditions
+    row_style_conditions = [
+        {
+            "condition": "params.data.Status === 'Failing'",
+            "style": {"backgroundColor": RED_FAINT, "color": RED},
+        },
+        {
+            "condition": "params.data.Status === 'Needs Attention'",
+            "style": {"backgroundColor": ORANGE_FAINT, "color": ORANGE},
+        },
+        {
+            "condition": "params.data.Status === 'On Track'",
+            "style": {"backgroundColor": GREEN_FAINT, "color": TEAL},
+        },
+    ]
+
+    grid = make_grid(
+        display_df,
+        column_defs=column_defs,
+        row_style_conditions=row_style_conditions,
+        id="launch-health-grid",
+    )
+
+    # Chart: horizontal bar showing current velocity per launch
+    n_show = min(15, len(display_df))
+    chart_df = display_df.nsmallest(n_show, "Current Vel").copy()
+    chart_title = (
+        f"The {n_show} weakest launches by current velocity"
+        if n_fail > 0
+        else f"The {n_show} lowest-velocity launches (none currently failing)"
+    )
+    chart_caption = (
+        f"Sorted weakest to strongest. Bars to the left of the dashed line "
+        f"({threshold:.2f}) are below the Walmart benchmark."
+    )
+
+    fig = go.Figure()
+    for status_val in ("Failing", "Needs Attention", "On Track"):
+        sub = chart_df[chart_df["Status"] == status_val]
+        if sub.empty:
+            continue
+        fig.add_trace(go.Bar(
+            y=sub["SKU"], x=sub["Current Vel"], orientation="h",
+            marker_color=LAUNCH_STATUS_COLORS[status_val],
+            text=sub["Current Vel"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
+            textposition="outside", textfont=dict(size=14, color=NAVY),
+            cliponaxis=False,
+            customdata=sub[["Product Name", "Wks 1-4 Vel", "Weeks Since"]].values,
+            hovertemplate=(
+                "<b>%{y}</b><br>%{customdata[0]}<br>"
+                "Current: %{x:.2f} units/store/wk<br>"
+                "Wks 1-4 Vel: %{customdata[1]:.2f}<br>"
+                "Weeks since launch: %{customdata[2]}<br>"
+                f"Status: {status_val}<extra></extra>"
+            ),
+        ))
+    fig.add_vline(
+        x=threshold, line_dash="dash", line_color=GREY, line_width=2,
+        annotation=text_annotation(f"Velocity benchmark {threshold:.2f}"),
+        annotation_position="top",
+    )
+    apply_hbar_layout(
+        fig,
+        labels=chart_df["SKU"].tolist(),
+        height=max(380, 32 * n_show + 120),
+        x_title="Units per store per week (current 4-week average)",
+        label_pad_px=180,
+        left_margin=200,
+    )
+
+    # Build dropdown options for drilldown
+    drill_df = display_df.copy()
+    drill_df["label"] = (
+        drill_df["SKU"] + "  ·  " + drill_df["Product Name"]
+        + "  (" + drill_df["Status"] + ")"
+    )
+    drill_options = [
+        {"label": row["label"], "value": row["SKU"]}
+        for _, row in drill_df.iterrows()
+    ]
+
+    failing_drop_pct = (1 - THRESHOLDS["launch_on_track"]) * 100
+    failing_floor_val = THRESHOLDS["launch_failing"]
+    detail_legend = chart_legend([
+        (TEAL,   f"On Track (≥{threshold:.2f}, holding ≥{on_track_pct:.2f}% of initial)"),
+        (ORANGE, f"Needs Attention ({threshold * failing_floor_val:.2f}–{threshold:.2f}, or slipping)"),
+        (RED,    f"Failing (<{threshold * failing_floor_val:.2f} or down ≥{failing_drop_pct:.2f}% from start)"),
+    ])
+
+    # Assemble the full component tree
+    return html.Div([
+        html.H3(headline, style={"marginBottom": "0.5rem"}),
+        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
+        # Metric cards row
+        html.Div(
+            [
+                html.Div(metric_card("Launched in last 52 wk", str(n_total)), style={"flex": "1"}),
+                html.Div(metric_card("On Track", str(n_track)), style={"flex": "1"}),
+                html.Div(metric_card("Needs Attention", str(n_attn)), style={"flex": "1"}),
+                html.Div(metric_card("Failing", str(n_fail)), style={"flex": "1"}),
+            ],
+            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
+        ),
+        status_legend(legend_html),
+        row_count_line("launches", [
+            (n_track, "On Track"),
+            (n_attn, "Needs Attention"),
+            (n_fail, "Failing"),
+        ]),
+        grid,
+        # Chart section
+        html.H4(chart_title, style={"marginTop": "1.5rem"}),
+        html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
+        chart_legend([
+            (RED,    f"Failing"),
+            (ORANGE, f"Needs Attention"),
+            (TEAL,   f"On Track"),
+        ]),
+        dcc.Graph(figure=fig, id="launch-health-chart"),
+        # Drill-in: weekly velocity per launch
+        html.H4("Drill into one launch", style={"marginTop": "1.5rem"}),
+        html.P(
+            "Pick a launched SKU to see weekly velocity since launch:",
+            style={"color": GREY, "fontSize": "0.85rem"},
+        ),
+        dcc.Dropdown(
+            id="launch-detail-select",
+            options=drill_options,
+            value=drill_options[0]["value"] if drill_options else None,
+            clearable=False,
+            style={"marginBottom": "1rem"},
+        ),
+        detail_legend,
+        html.Div(id="launch-detail-content"),
+        # Excel export
+        html.Button(
+            "Export to Excel",
+            id="launch-health-export-btn",
+            n_clicks=0,
+            style={
+                "marginTop": "1rem",
+                "padding": "0.5rem 1.5rem",
+                "cursor": "pointer",
+            },
+        ),
+        dcc.Download(id="launch-health-download"),
+        # Store display_df as JSON for the download callback
+        dcc.Store(
+            id="launch-health-table-data",
+            data={
+                "records": display_df.to_dict("records"),
+                "filename": "launch_health_all",
+            },
+        ),
+        # Store the display_df for drilldown (sku -> status mapping)
+        dcc.Store(
+            id="launch-health-sku-status",
+            data=drill_df[["SKU", "Product Name", "Status", "Launch Date"]].to_dict("records"),
+        ),
+    ])
+
+
+# ============================================================
+# Callbacks
+# ============================================================
+
+def register_callbacks(app) -> None:
+    """Register Launch Health decision callbacks."""
+
+    @app.callback(
+        Output("launch-health-download", "data"),
+        Input("launch-health-export-btn", "n_clicks"),
+        Input("launch-health-table-data", "data"),
+        prevent_initial_call=True,
+    )
+    def download_launch_health(n_clicks, table_data):
+        triggered = callback_context.triggered_id
+        if triggered != "launch-health-export-btn" or not n_clicks:
+            return no_update
+        if not table_data:
+            return no_update
+        df = pd.DataFrame(table_data["records"])
+        info = excel_download_data(df, "Launch Health", table_data["filename"])
+        return dcc.send_bytes(info["content"], info["filename"])
+
+    @app.callback(
+        Output("launch-detail-content", "children"),
+        Input("launch-detail-select", "value"),
+        State("launch-health-sku-status", "data"),
+        prevent_initial_call=True,
+    )
+    def render_launch_detail(selected_sku, sku_status_data):
+        if not selected_sku or not sku_status_data:
+            return no_update
+
+        # Find the selected SKU's metadata
+        sku_info = None
+        for row in sku_status_data:
+            if row["SKU"] == selected_sku:
+                sku_info = row
+                break
+        if sku_info is None:
+            return html.P("SKU not found.", style={"color": GREY})
+
+        sku = sku_info["SKU"]
+        pname = sku_info["Product Name"]
+        status_val = sku_info["Status"]
+        color = LAUNCH_STATUS_COLORS[status_val]
+
+        try:
+            weekly = get_launch_weekly(sku)
+        except Exception as exc:
+            return error_card(
+                "Weekly data query failed",
+                f"Could not load weekly data for {sku}: {exc}",
+            )
+
+        if weekly.empty:
+            return html.P(
+                "No weekly scan data found yet for this SKU.",
+                style={"color": GREY, "padding": "1rem 0"},
+            )
+
+        launch_d = pd.to_datetime(weekly["launch_date"].iloc[0])
+        weekly["week_ending"] = pd.to_datetime(weekly["week_ending"])
+        weekly["weeks_since"] = ((weekly["week_ending"] - launch_d).dt.days // 7) + 1
+
+        threshold = 2.0
+
+        header_html = (
+            f"<b>{sku} — {pname}</b> launched on <b>{launch_d.date()}</b>, "
+            f"<span style='color:{color}; font-weight:600'>{status_val}</span>."
+        )
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=weekly["week_ending"], y=weekly["velocity"],
+            mode="lines+markers",
+            line=dict(color=color, width=3),
+            marker=dict(size=7, color=color),
+            hovertemplate="<b>%{x}</b><br>Velocity: %{y:.2f} units/store<extra></extra>",
+        ))
+        fig.add_hline(
+            y=threshold, line_dash="dot", line_color=GREY,
+            annotation=text_annotation(f"Velocity benchmark {threshold:.2f}"),
+            annotation_position="bottom right",
+        )
+
+        # Window boundary lines
+        for wk_end, label in [(4, "End of weeks 1-4"),
+                              (8, "End of weeks 5-8"),
+                              (13, "End of weeks 9-13")]:
+            boundary = launch_d + pd.Timedelta(days=wk_end * 7)
+            if boundary <= weekly["week_ending"].max():
+                add_vline_at_date(
+                    fig, boundary, label,
+                    color=GREY_LIGHT, dash="dash", width=1.5,
+                    annotation_position="top",
+                )
+
+        fig.update_layout(
+            template="simple_white",
+            paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            height=420,
+            margin=dict(l=10, r=10, t=40, b=40),
+            yaxis=dict(
+                title="Units per store per week",
+                title_font=dict(size=14, color=NAVY_MED),
+                tickfont=dict(size=13, color=NAVY),
+                gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
+            ),
+            xaxis=dict(
+                tickfont=dict(size=13, color=NAVY),
+                gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
+            ),
+            showlegend=False,
+            font=dict(family="sans-serif", size=14, color=NAVY),
+        )
+
+        return html.Div([
+            html.Div(
+                header_html,
+                style={"marginBottom": "0.5rem"},
+                dangerously_allow_html=True,
+            ),
+            dcc.Graph(figure=fig, id="launch-detail-chart"),
+        ])
