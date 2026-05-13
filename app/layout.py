@@ -300,6 +300,7 @@ def _main_content() -> html.Div:
     return html.Div([
         dcc.Store(id="view-store", data="decision"),
         dcc.Store(id="came-from-story", data=False),
+        dcc.Store(id="scroll-to-section-5", data=False),
         dcc.Loading(
             id="main-loading",
             type="default",

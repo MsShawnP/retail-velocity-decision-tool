@@ -438,6 +438,29 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
 
 
 @cache.memoize(timeout=3600)
+def get_sku_costs(sku: str) -> dict:
+    """Return wholesale_walmart and cogs_per_unit for a SKU.
+
+    Used by the Story narrative (Section 3) to compute margin per unit
+    without duplicating the raw SQL that already lives in
+    get_sku_revenue_at_risk.
+    """
+    conn = get_raw_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT wholesale_walmart, cogs_per_unit FROM stg_sku_costs WHERE sku=%s",
+            [sku],
+        )
+        row = cur.fetchone()
+    finally:
+        _return_conn(conn)
+    ws = (row[0] or 0) if row else 0
+    cogs = (row[1] or 0) if row else 0
+    return {"wholesale_walmart": ws, "cogs_per_unit": cogs}
+
+
+@cache.memoize(timeout=3600)
 def get_category_avg_velocity(product_line: str) -> float:
     """Recent 13wk units/store-week for the product line -- used as the
     'replacement SKU could earn this much' benchmark."""
