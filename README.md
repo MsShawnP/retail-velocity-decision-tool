@@ -33,26 +33,37 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 - Data-quality-driven chargebacks traceable to product master defects
 - Seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
 
-> **Database source:** the dataset, generators, and build pipeline live in [`cinderhaven-data`](https://github.com/MsShawnP/cinderhaven-data), included here as a git submodule at `data/cinderhaven-data/`.
+> **Data source:** the Cinderhaven Data Platform — a Postgres database
+> with dbt-managed staging, intermediate, and mart tables, hosted on
+> Fly.io with local Docker for development.
 
 ## Running locally
 
 ```bash
-git clone --recurse-submodules https://github.com/MsShawnP/retail-velocity-decision-tool.git
+git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
 cd retail-velocity-decision-tool
-./setup.sh
 pip install -r app/requirements.txt
+cp .env.example .env   # edit DATABASE_URL if not using local Docker
 streamlit run app/velocity_tool.py
 ```
 
-`setup.sh` pulls the data generation submodule, creates a virtual environment, and builds the database (~5-10 minutes on first run). Subsequent starts are instant.
+To run locally, start the shared Docker Postgres from
+[refactor-older-cinderhaven-projects](https://github.com/MsShawnP/refactor-older-cinderhaven-projects):
+
+```bash
+# In the refactor-older-cinderhaven-projects repo:
+docker compose up
+
+# Then in this repo:
+streamlit run app/velocity_tool.py
+```
 
 ## Built with
 
 - **Streamlit** — interactive decision tool
 - **Python + Pandas** — data generation and analysis
 - **Plotly** — CEO-readable visualizations
-- **SQLite** — lightweight data storage
+- **Postgres** — Cinderhaven Data Platform
 
 ## Context
 

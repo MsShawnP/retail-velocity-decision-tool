@@ -1,6 +1,6 @@
 """Cinderhaven Velocity Tool — decision-oriented retail analytics.
 
-Streamlit app. Reads from data/cinderhaven_product_master.db.
+Streamlit app. Reads from the Cinderhaven Data Platform (Postgres).
 Implemented decisions:
   1. Shelf Defense (delisting risk)
   2. Production Planning (replenishment demand + acceleration)
@@ -16,61 +16,19 @@ for rankings. All colors come from the Cinderhaven brand palette.
 
 from __future__ import annotations
 
-import sqlite3
-import subprocess
-import sys
 from io import BytesIO
-from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from db import ConnectionWrapper, get_database_url
+
 
 # ============================================================
 # Constants
 # ============================================================
-
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "cinderhaven_product_master.db"
-
-
-# ============================================================
-# First-boot bootstrap
-# ============================================================
-# The 164 MB synthetic dataset is too large to commit to GitHub, so we
-# regenerate it from scratch on the first boot of a fresh deploy. Subsequent
-# boots find the DB on disk and skip straight to serving requests. Wrap the
-# build in @st.cache_resource so concurrent first-time visitors don't all
-# kick off duplicate rebuilds on a cold start.
-
-_BUILD_SCRIPT = Path(__file__).resolve().parent.parent / "data" / "cinderhaven-data" / "scripts" / "build_db.py"
-
-
-@st.cache_resource(show_spinner="First-time setup: building the Cinderhaven dataset (one-time, ~1 min)...")
-def _ensure_database() -> str:
-    """Build the SQLite DB if it doesn't exist. Returns its path on success."""
-    if DB_PATH.exists():
-        return str(DB_PATH)
-    if not _BUILD_SCRIPT.exists():
-        raise FileNotFoundError(
-            f"Database missing and build script not found at {_BUILD_SCRIPT}. "
-            "Run setup.sh or clone with --recurse-submodules."
-        )
-    result = subprocess.run(
-        [sys.executable, str(_BUILD_SCRIPT), "--output", str(DB_PATH)],
-        cwd=_BUILD_SCRIPT.parent.parent,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"build_db.py exited with status {result.returncode}. "
-            "Check the deploy logs for the failing script."
-        )
-    return str(DB_PATH)
-
-
-_ensure_database()
 
 # Cinderhaven brand palette
 NAVY         = "#1B2A4A"   # primary headings, emphasis
@@ -281,15 +239,15 @@ st.markdown(
 # ============================================================
 
 @st.cache_resource
-def get_connection() -> sqlite3.Connection:
-    return sqlite3.connect(str(DB_PATH), check_same_thread=False)
+def get_connection() -> ConnectionWrapper:
+    return ConnectionWrapper(get_database_url())
 
 
 @st.cache_data(show_spinner=False)
 def get_product_lines() -> list[str]:
     con = get_connection()
     return [r[0] for r in con.execute(
-        "SELECT DISTINCT product_line FROM product_master ORDER BY product_line"
+        "SELECT DISTINCT product_line FROM dim_products ORDER BY product_line"
     ).fetchall()]
 
 
@@ -298,8 +256,8 @@ def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
     """Return [(sku, product_name), ...] for one product line."""
     con = get_connection()
     return con.execute(
-        "SELECT sku, product_name FROM product_master "
-        "WHERE product_line = ? ORDER BY sku",
+        "SELECT sku, product_name FROM dim_products "
+        "WHERE product_line = %s ORDER BY sku",
         (product_line,),
     ).fetchall()
 
@@ -307,14 +265,14 @@ def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
 @st.cache_data(show_spinner=False)
 def get_latest_week() -> str:
     con = get_connection()
-    return con.execute("SELECT MAX(week_ending) FROM scan_data").fetchone()[0]
+    return con.execute("SELECT MAX(week_ending) FROM fct_scan_data").fetchone()[0]
 
 
 @st.cache_data(show_spinner=False)
 def get_promo_skus(retailer: str) -> list[str]:
     con = get_connection()
     return [r[0] for r in con.execute(
-        "SELECT DISTINCT sku FROM promotions WHERE retailer = ? ORDER BY sku",
+        "SELECT DISTINCT sku FROM fct_promotions WHERE retailer_name = %s ORDER BY sku",
         (retailer,),
     ).fetchall()]
 
@@ -324,9 +282,9 @@ def retailer_clause(retailer: str) -> tuple[str, list]:
     if retailer == "All Retailers":
         return ("1=1", [])
     if retailer == "Regional":
-        ph = ",".join("?" for _ in REGIONAL_CHAINS)
-        return (f"s.retailer IN ({ph})", list(REGIONAL_CHAINS))
-    return ("s.retailer = ?", [retailer])
+        ph = ",".join("%s" for _ in REGIONAL_CHAINS)
+        return (f"s.retailer_name IN ({ph})", list(REGIONAL_CHAINS))
+    return ("s.retailer_name = %s", [retailer])
 
 
 # ============================================================
@@ -616,20 +574,21 @@ def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFra
     con = get_connection()
     latest = get_latest_week()
     sql = """
-        SELECT pm.sku, pm.product_name, pm.product_line,
-               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) < 364
-                        THEN d.units_sold ELSE 0 END) AS units_cur,
-               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) >= 364
-                         AND julianday(?) - julianday(d.week_ending) < 728
-                        THEN d.units_sold ELSE 0 END) AS units_prior,
-               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) < 364
-                        THEN d.dollars_sold ELSE 0 END) AS dollars_cur,
-               SUM(CASE WHEN julianday(?) - julianday(d.week_ending) >= 364
-                         AND julianday(?) - julianday(d.week_ending) < 728
-                        THEN d.dollars_sold ELSE 0 END) AS dollars_prior
-        FROM scan_data d JOIN product_master pm ON d.sku = pm.sku
-        GROUP BY pm.sku, pm.product_name, pm.product_line
-        HAVING units_prior > 0
+        SELECT * FROM (
+            SELECT pm.sku, pm.product_name, pm.product_line,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) < 364
+                            THEN d.units_sold ELSE 0 END) AS units_cur,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) >= 364
+                             AND (%s::date - d.week_ending::date) < 728
+                            THEN d.units_sold ELSE 0 END) AS units_prior,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) < 364
+                            THEN d.dollars_sold ELSE 0 END) AS dollars_cur,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) >= 364
+                             AND (%s::date - d.week_ending::date) < 728
+                            THEN d.dollars_sold ELSE 0 END) AS dollars_prior
+            FROM fct_scan_data d JOIN dim_products pm ON d.sku = pm.sku
+            GROUP BY pm.sku, pm.product_name, pm.product_line
+        ) sub WHERE units_prior > 0
     """
     df = pd.read_sql(sql, con, params=[latest] * 6)
     df["units_yoy_pct"] = (df["units_cur"] - df["units_prior"]) / df["units_prior"] * 100
@@ -658,7 +617,7 @@ def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
     from the union of all promo windows on this SKU regardless of retailer."""
     con = get_connection()
     promos = pd.read_sql(
-        "SELECT start_week, end_week FROM promotions WHERE sku=?",
+        "SELECT start_week, end_week FROM fct_promotions WHERE sku=%s",
         con, params=[sku],
     )
     promo_set: set[str] = set()
@@ -672,7 +631,7 @@ def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
                COUNT(*) AS doors,
                SUM(units_sold) AS units_total,
                SUM(dollars_sold) AS dollars_total
-        FROM scan_data WHERE sku=?
+        FROM fct_scan_data WHERE sku=%s
         GROUP BY week_ending ORDER BY week_ending
         """,
         con, params=[sku],
@@ -692,15 +651,15 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
     con = get_connection()
     promos = pd.read_sql(
         """
-        SELECT promo_id, retailer, start_week, end_week, duration_weeks,
+        SELECT promo_id, retailer_name, start_week, end_week, duration_weeks,
                discount_depth_pct, promo_type
-        FROM promotions WHERE sku=? ORDER BY start_week
+        FROM fct_promotions WHERE sku=%s ORDER BY start_week
         """,
         con, params=[sku],
     )
     rows = []
     for _, p in promos.iterrows():
-        ret = p["retailer"]
+        ret = p["retailer_name"]
         ret_clause, ret_params = retailer_clause(ret)
         is_agg = 1 if ret in ("UNFI", "DTC") else 0
         # Saturday-align the promo dates
@@ -714,10 +673,10 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
         def _avg_vel(start: str, end: str) -> float | None:
             sql = f"""
                 SELECT AVG(d.units_sold)
-                FROM scan_data d
-                JOIN stores s ON d.store_id = s.store_id
-                WHERE d.sku = ? AND {ret_clause} AND s.is_aggregated_channel = ?
-                  AND d.week_ending BETWEEN ? AND ?
+                FROM fct_scan_data d
+                JOIN dim_stores s ON d.store_id = s.store_id
+                WHERE d.sku = %s AND {ret_clause} AND s.is_aggregated_channel = %s
+                  AND d.week_ending BETWEEN %s AND %s
             """
             cur = con.execute(sql, [sku] + ret_params + [is_agg, start, end])
             r = cur.fetchone()[0]
@@ -730,9 +689,9 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
         # Doors and incremental dollars
         doors_sql = f"""
             SELECT COUNT(DISTINCT d.store_id)
-            FROM scan_data d JOIN stores s ON d.store_id = s.store_id
-            WHERE d.sku = ? AND {ret_clause} AND s.is_aggregated_channel = ?
-              AND d.week_ending BETWEEN ? AND ?
+            FROM fct_scan_data d JOIN dim_stores s ON d.store_id = s.store_id
+            WHERE d.sku = %s AND {ret_clause} AND s.is_aggregated_channel = %s
+              AND d.week_ending BETWEEN %s AND %s
         """
         doors = con.execute(doors_sql, [sku] + ret_params + [is_agg, start_we, end_we]).fetchone()[0] or 0
 
@@ -763,7 +722,7 @@ def get_sku_trade_spend(sku: str) -> float:
         """SELECT trade_spend_pct_walmart, trade_spend_pct_costco,
                   trade_spend_pct_whole_foods, trade_spend_pct_regional,
                   trade_spend_pct_unfi, trade_spend_pct_dtc
-           FROM sku_costs WHERE sku=?""",
+           FROM stg_sku_costs WHERE sku=%s""",
         [sku],
     ).fetchone()
     if costs is None:
@@ -779,7 +738,7 @@ def get_sku_trade_spend(sku: str) -> float:
 
     # Promo (week, retailer) set
     promo_rows = con.execute(
-        "SELECT retailer, start_week, end_week FROM promotions WHERE sku=?",
+        "SELECT retailer_name, start_week, end_week FROM fct_promotions WHERE sku=%s",
         [sku],
     ).fetchall()
     promo_index: dict[str, set[str]] = {}  # retailer -> set of week_ending
@@ -790,10 +749,10 @@ def get_sku_trade_spend(sku: str) -> float:
     # Total scan dollars by (week, retailer) for this SKU
     scan_rows = con.execute(
         """
-        SELECT d.week_ending, s.retailer, SUM(d.dollars_sold)
-        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
-        WHERE d.sku = ?
-        GROUP BY d.week_ending, s.retailer
+        SELECT d.week_ending, s.retailer_name, SUM(d.dollars_sold)
+        FROM fct_scan_data d JOIN dim_stores s ON d.store_id = s.store_id
+        WHERE d.sku = %s
+        GROUP BY d.week_ending, s.retailer_name
         """,
         [sku],
     ).fetchall()
@@ -816,8 +775,8 @@ def get_walmart_trajectory(sku: str) -> pd.DataFrame:
     df = pd.read_sql(
         """
         SELECT d.week_ending, AVG(d.units_sold) AS velocity
-        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
-        WHERE d.sku = ? AND s.retailer = 'Walmart'
+        FROM fct_scan_data d JOIN dim_stores s ON d.store_id = s.store_id
+        WHERE d.sku = %s AND s.retailer_name = 'Walmart'
         GROUP BY d.week_ending ORDER BY d.week_ending
         """,
         con, params=[sku],
@@ -838,10 +797,9 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
         SELECT COUNT(DISTINCT d.store_id),
                AVG(d.units_sold),
                SUM(d.dollars_sold)
-        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
-        WHERE d.sku = ? AND s.retailer = 'Walmart'
-          AND julianday((SELECT MAX(week_ending) FROM scan_data))
-              - julianday(d.week_ending) < 91
+        FROM fct_scan_data d JOIN dim_stores s ON d.store_id = s.store_id
+        WHERE d.sku = %s AND s.retailer_name = 'Walmart'
+          AND ((SELECT MAX(week_ending) FROM fct_scan_data)::date - d.week_ending::date) < 91
         """,
         [sku],
     ).fetchone()
@@ -853,7 +811,7 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
     annual_units_walmart = walmart_v * walmart_doors * 52
     # SKU wholesale at walmart for revenue conversion
     cost_row = con.execute(
-        """SELECT wholesale_walmart, cogs_per_unit FROM sku_costs WHERE sku=?""",
+        """SELECT wholesale_walmart, cogs_per_unit FROM stg_sku_costs WHERE sku=%s""",
         [sku],
     ).fetchone()
     wholesale_walmart = cost_row[0] or 0
@@ -880,10 +838,9 @@ def get_category_avg_velocity(product_line: str) -> float:
     row = con.execute(
         """
         SELECT AVG(d.units_sold)
-        FROM scan_data d JOIN product_master pm ON d.sku = pm.sku
-        WHERE pm.product_line = ?
-          AND julianday((SELECT MAX(week_ending) FROM scan_data))
-              - julianday(d.week_ending) < 91
+        FROM fct_scan_data d JOIN dim_products pm ON d.sku = pm.sku
+        WHERE pm.product_line = %s
+          AND ((SELECT MAX(week_ending) FROM fct_scan_data)::date - d.week_ending::date) < 91
         """,
         [product_line],
     ).fetchone()
@@ -902,9 +859,8 @@ def get_top_demand_4wk() -> pd.DataFrame:
         """
         SELECT pm.sku, pm.product_name,
                SUM(d.units_sold) * 1.0 / NULLIF(pm.case_pack_qty, 0) AS cases_4wk
-        FROM scan_data d JOIN product_master pm ON d.sku = pm.sku
-        WHERE julianday((SELECT MAX(week_ending) FROM scan_data))
-              - julianday(d.week_ending) < 28
+        FROM fct_scan_data d JOIN dim_products pm ON d.sku = pm.sku
+        WHERE ((SELECT MAX(week_ending) FROM fct_scan_data)::date - d.week_ending::date) < 28
         GROUP BY pm.sku, pm.product_name, pm.case_pack_qty
         ORDER BY cases_4wk DESC LIMIT 10
         """,
@@ -919,14 +875,13 @@ def get_top_velocity_per_door() -> pd.DataFrame:
     con = get_connection()
     df = pd.read_sql(
         """
-        SELECT s.retailer AS chain,
+        SELECT s.retailer_name AS chain,
                AVG(d.units_sold) AS vel_per_door,
                COUNT(DISTINCT d.store_id) AS active_doors
-        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
-        WHERE julianday((SELECT MAX(week_ending) FROM scan_data))
-              - julianday(d.week_ending) < 91
-          AND s.is_aggregated_channel = 0
-        GROUP BY s.retailer
+        FROM fct_scan_data d JOIN dim_stores s ON d.store_id = s.store_id
+        WHERE ((SELECT MAX(week_ending) FROM fct_scan_data)::date - d.week_ending::date) < 91
+          AND s.is_aggregated_channel = false
+        GROUP BY s.retailer_name_name
         ORDER BY vel_per_door DESC LIMIT 10
         """,
         con,
@@ -944,10 +899,9 @@ def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
     df = pd.read_sql(
         """
         SELECT d.store_id, AVG(d.units_sold) AS vel
-        FROM scan_data d JOIN stores s ON d.store_id = s.store_id
-        WHERE s.retailer = 'Walmart'
-          AND julianday((SELECT MAX(week_ending) FROM scan_data))
-              - julianday(d.week_ending) < 91
+        FROM fct_scan_data d JOIN dim_stores s ON d.store_id = s.store_id
+        WHERE s.retailer_name = 'Walmart'
+          AND ((SELECT MAX(week_ending) FROM fct_scan_data)::date - d.week_ending::date) < 91
         GROUP BY d.store_id
         ORDER BY vel ASC LIMIT 10
         """,
@@ -968,22 +922,23 @@ def get_top_elasticity_skus() -> pd.DataFrame:
             SELECT p.sku, p.start_week, p.end_week, p.discount_depth_pct,
                    AVG(CASE WHEN sd.week_ending BETWEEN p.start_week AND p.end_week
                             THEN sd.units_sold END) AS promo_v,
-                   AVG(CASE WHEN sd.week_ending BETWEEN DATE(p.start_week, '-28 days')
-                                              AND DATE(p.start_week, '-1 days')
+                   AVG(CASE WHEN sd.week_ending BETWEEN (p.start_week::date - interval '28 days')::date
+                                              AND (p.start_week::date - interval '1 days')::date
                             THEN sd.units_sold END) AS pre_v
-            FROM promotions p JOIN scan_data sd ON sd.sku = p.sku
-            WHERE sd.week_ending BETWEEN DATE(p.start_week, '-28 days')
-                                     AND DATE(p.end_week, '+1 days')
+            FROM fct_promotions p JOIN fct_scan_data sd ON sd.sku = p.sku
+            WHERE sd.week_ending BETWEEN (p.start_week::date - interval '28 days')::date
+                                     AND (p.end_week::date + interval '1 days')::date
             GROUP BY p.promo_id, p.sku, p.start_week, p.end_week, p.discount_depth_pct
         )
-        SELECT pm.sku, pm.product_name,
-               AVG((pp.promo_v - pp.pre_v) / NULLIF(pp.pre_v, 0)
-                   / NULLIF(pp.discount_depth_pct, 0)) AS elasticity,
-               COUNT(*) AS n_promos
-        FROM promo_pairs pp JOIN product_master pm ON pp.sku = pm.sku
-        WHERE pp.pre_v > 0 AND pp.discount_depth_pct > 0
-        GROUP BY pm.sku, pm.product_name
-        HAVING n_promos >= 1 AND elasticity IS NOT NULL
+        SELECT * FROM (
+            SELECT pm.sku, pm.product_name,
+                   AVG((pp.promo_v - pp.pre_v) / NULLIF(pp.pre_v, 0)
+                       / NULLIF(pp.discount_depth_pct, 0)) AS elasticity,
+                   COUNT(*) AS n_promos
+            FROM promo_pairs pp JOIN dim_products pm ON pp.sku = pm.sku
+            WHERE pp.pre_v > 0 AND pp.discount_depth_pct > 0
+            GROUP BY pm.sku, pm.product_name
+        ) sub WHERE n_promos >= 1 AND elasticity IS NOT NULL
         ORDER BY elasticity DESC LIMIT 10
         """,
         con,
@@ -1340,7 +1295,7 @@ def render_story() -> None:
         # Compute net effect: incremental units gained vs. baseline erosion cost
         # Use wholesale margin per unit so the dollar number is honest.
         cost_row = get_connection().execute(
-            "SELECT wholesale_walmart, cogs_per_unit FROM sku_costs WHERE sku=?",
+            "SELECT wholesale_walmart, cogs_per_unit FROM stg_sku_costs WHERE sku=%s",
             [PROTAGONIST_SKU],
         ).fetchone()
         ws = (cost_row[0] or 0)
@@ -1845,25 +1800,25 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stores s
-            WHERE {ret_sql} AND s.is_aggregated_channel = 0
+            SELECT s.store_id FROM dim_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = false
         ),
         agg AS (
             SELECT
               d.sku,
-              AVG(CASE WHEN julianday(?) - julianday(d.week_ending) < 56
+              AVG(CASE WHEN (%s::date - d.week_ending::date) < 56
                        THEN d.units_sold END) AS current_v,
-              AVG(CASE WHEN julianday(?) - julianday(d.week_ending) >= 56
-                        AND julianday(?) - julianday(d.week_ending) < 112
+              AVG(CASE WHEN (%s::date - d.week_ending::date) >= 56
+                        AND (%s::date - d.week_ending::date) < 112
                        THEN d.units_sold END) AS trailing_v
-            FROM scan_data d
+            FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
-            WHERE julianday(?) - julianday(d.week_ending) < 112
+            WHERE (%s::date - d.week_ending::date) < 112
             GROUP BY d.sku
         )
         SELECT pm.sku, pm.product_name, pm.product_line,
                agg.current_v, agg.trailing_v
-        FROM agg JOIN product_master pm ON agg.sku = pm.sku
+        FROM agg JOIN dim_products pm ON agg.sku = pm.sku
         ORDER BY pm.sku
     """
     df = pd.read_sql(sql, con, params=ret_params + [latest, latest, latest, latest])
@@ -2051,34 +2006,34 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id, s.is_aggregated_channel FROM stores s
+            SELECT s.store_id, s.is_aggregated_channel FROM dim_stores s
             WHERE {ret_sql}
         ),
         physical AS (
             SELECT d.sku,
-              AVG(CASE WHEN julianday(?) - julianday(d.week_ending) < 28
+              AVG(CASE WHEN (%s::date - d.week_ending::date) < 28
                        THEN d.units_sold END) AS phys_v_recent,
-              AVG(CASE WHEN julianday(?) - julianday(d.week_ending) >= 28
-                        AND julianday(?) - julianday(d.week_ending) < 56
+              AVG(CASE WHEN (%s::date - d.week_ending::date) >= 28
+                        AND (%s::date - d.week_ending::date) < 56
                        THEN d.units_sold END) AS phys_v_prior,
-              COUNT(DISTINCT CASE WHEN julianday(?) - julianday(d.week_ending) < 28
+              COUNT(DISTINCT CASE WHEN (%s::date - d.week_ending::date) < 28
                                    THEN d.store_id END) AS doors
-            FROM scan_data d
-            JOIN ret_stores rs ON d.store_id = rs.store_id AND rs.is_aggregated_channel = 0
-            WHERE julianday(?) - julianday(d.week_ending) < 56
+            FROM fct_scan_data d
+            JOIN ret_stores rs ON d.store_id = rs.store_id AND rs.is_aggregated_channel = false
+            WHERE (%s::date - d.week_ending::date) < 56
             GROUP BY d.sku
         ),
         all_chan AS (
             SELECT d.sku,
-              SUM(CASE WHEN julianday(?) - julianday(d.week_ending) < 28
+              SUM(CASE WHEN (%s::date - d.week_ending::date) < 28
                        THEN d.units_sold END) AS sum_recent,
-              SUM(CASE WHEN julianday(?) - julianday(d.week_ending) BETWEEN 364 AND 392
+              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 364 AND 392
                        THEN d.units_sold END) AS sum_ly_current,
-              SUM(CASE WHEN julianday(?) - julianday(d.week_ending) BETWEEN 336 AND 364
+              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 336 AND 364
                        THEN d.units_sold END) AS sum_ly_forward
-            FROM scan_data d
+            FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
-            WHERE julianday(?) - julianday(d.week_ending) < 393
+            WHERE (%s::date - d.week_ending::date) < 393
             GROUP BY d.sku
         )
         SELECT pm.sku, pm.product_name, pm.product_line, pm.case_pack_qty,
@@ -2086,7 +2041,7 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
                p.phys_v_recent, p.phys_v_prior,
                a.sum_recent, a.sum_ly_current, a.sum_ly_forward
         FROM all_chan a
-        JOIN product_master pm ON a.sku = pm.sku
+        JOIN dim_products pm ON a.sku = pm.sku
         LEFT JOIN physical p ON a.sku = p.sku
         WHERE a.sum_recent > 0
         ORDER BY a.sum_recent DESC
@@ -2274,12 +2229,12 @@ def render_production_planning(retailer: str, product_line: str | None) -> None:
 def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
-    is_agg = 1 if retailer in ("UNFI", "DTC") else 0
+    is_agg = retailer in ("UNFI", "DTC")
 
     sku_clause = ""
     sku_params: list = []
     if sku_filter:
-        sku_clause = "AND p.sku = ?"
+        sku_clause = "AND p.sku = %s"
         sku_params = [sku_filter]
 
     # Only include (SKU, store) pairs where the SKU was already scanning at the
@@ -2287,18 +2242,18 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     # with delayed time-to-shelf produce near-zero baselines and absurd lift %.
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stores s
-            WHERE {ret_sql} AND s.is_aggregated_channel = ?
+            SELECT s.store_id FROM dim_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = %s
         ),
         promo_list AS (
-            SELECT promo_id, sku, retailer, start_week, end_week,
+            SELECT promo_id, sku, retailer_name, start_week, end_week,
                    duration_weeks, discount_depth_pct, promo_type, store_scope
-            FROM promotions p
-            WHERE p.retailer = ? {sku_clause}
+            FROM fct_promotions p
+            WHERE p.retailer_name = %s {sku_clause}
         ),
         sku_store_first_scan AS (
             SELECT sku, store_id, MIN(week_ending) AS first_scan
-            FROM scan_data
+            FROM fct_scan_data
             GROUP BY sku, store_id
         ),
         qualified_pairs AS (
@@ -2306,35 +2261,35 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
             FROM promo_list p
             JOIN sku_store_first_scan sf ON sf.sku = p.sku
             JOIN ret_stores rs ON sf.store_id = rs.store_id
-            WHERE sf.first_scan <= DATE(p.start_week, '-28 days')
+            WHERE sf.first_scan <= (p.start_week::date - interval '28 days')::date
         )
         SELECT
-            p.promo_id, p.sku, p.retailer, p.start_week, p.end_week,
+            p.promo_id, p.sku, p.retailer_name, p.start_week, p.end_week,
             p.duration_weeks, p.discount_depth_pct, p.promo_type, p.store_scope,
             pm.product_name, pm.product_line, sc.wholesale_price,
-            (SELECT AVG(d.units_sold) FROM scan_data d
+            (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id
-               AND d.week_ending BETWEEN DATE(p.start_week, '-28 days')
-                                     AND DATE(p.start_week, '-1 days')
+               AND d.week_ending BETWEEN (p.start_week::date - interval '28 days')::date
+                                     AND (p.start_week::date - interval '1 days')::date
             ) AS baseline_v,
-            (SELECT AVG(d.units_sold) FROM scan_data d
+            (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id
                AND d.week_ending BETWEEN p.start_week AND p.end_week
             ) AS promo_v,
-            (SELECT AVG(d.units_sold) FROM scan_data d
+            (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id
-               AND d.week_ending BETWEEN DATE(p.end_week, '+7 days')
-                                     AND DATE(p.end_week, '+21 days')
+               AND d.week_ending BETWEEN (p.end_week::date + interval '7 days')::date
+                                     AND (p.end_week::date + interval '21 days')::date
             ) AS post_v,
             (SELECT COUNT(DISTINCT qp.store_id) FROM qualified_pairs qp
              WHERE qp.promo_id = p.promo_id
             ) AS doors
         FROM promo_list p
-        JOIN product_master pm ON p.sku = pm.sku
-        JOIN sku_costs sc ON p.sku = sc.sku
+        JOIN dim_products pm ON p.sku = pm.sku
+        JOIN stg_sku_costs sc ON p.sku = sc.sku
         ORDER BY p.start_week DESC
     """
     df = pd.read_sql(sql, con, params=ret_params + [is_agg, retailer] + sku_params)
@@ -2361,24 +2316,24 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
 def get_promo_weekly_velocity(promo_id: str, sku: str, retailer: str) -> pd.DataFrame:
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
-    is_agg = 1 if retailer in ("UNFI", "DTC") else 0
+    is_agg = retailer in ("UNFI", "DTC")
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stores s
-            WHERE {ret_sql} AND s.is_aggregated_channel = ?
+            SELECT s.store_id FROM dim_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = %s
         ),
         prom AS (
-            SELECT start_week, end_week FROM promotions
-            WHERE promo_id = ? AND sku = ?
+            SELECT start_week, end_week FROM fct_promotions
+            WHERE promo_id = %s AND sku = %s
             LIMIT 1
         )
         SELECT d.week_ending, AVG(d.units_sold) AS velocity
-        FROM scan_data d, prom
-        WHERE d.sku = ?
+        FROM fct_scan_data d, prom
+        WHERE d.sku = %s
           AND d.store_id IN (SELECT store_id FROM ret_stores)
-          AND d.week_ending BETWEEN DATE(prom.start_week, '-28 days')
-                                AND DATE(prom.end_week, '+28 days')
+          AND d.week_ending BETWEEN (prom.start_week::date - interval '28 days')::date
+                                AND (prom.end_week::date + interval '28 days')::date
         GROUP BY d.week_ending ORDER BY d.week_ending
     """
     return pd.read_sql(sql, con, params=ret_params + [is_agg, promo_id, sku, sku])
@@ -2687,38 +2642,38 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     if retailer is None or retailer == "All Retailers":
         ret_sql, ret_params = "1=1", []
     elif retailer == "Regional":
-        ph = ",".join("?" for _ in REGIONAL_CHAINS)
-        ret_sql, ret_params = f"s.retailer IN ({ph})", list(REGIONAL_CHAINS)
+        ph = ",".join("%s" for _ in REGIONAL_CHAINS)
+        ret_sql, ret_params = f"s.retailer_name IN ({ph})", list(REGIONAL_CHAINS)
     else:
-        ret_sql, ret_params = "s.retailer = ?", [retailer]
+        ret_sql, ret_params = "s.retailer_name = %s", [retailer]
 
     sql = f"""
-        WITH focus AS (SELECT product_line FROM product_master WHERE sku = ?),
+        WITH focus AS (SELECT product_line FROM dim_products WHERE sku = %s),
         target_stores AS (
-            SELECT s.store_id, s.retailer, s.region, s.state, s.volume_tier
-            FROM stores s
-            WHERE s.is_aggregated_channel = 0
+            SELECT s.store_id, s.retailer_name, s.region, s.state, s.volume_tier
+            FROM dim_stores s
+            WHERE s.is_aggregated_channel = false
               AND ({ret_sql})
               AND s.store_id NOT IN (
-                  SELECT store_id FROM distribution_log
-                  WHERE sku = ?
-                    AND (deauthorized_date IS NULL OR deauthorized_date > ?)
+                  SELECT store_id FROM fct_distribution
+                  WHERE sku = %s
+                    AND (deauthorized_date IS NULL OR deauthorized_date > %s)
               )
         ),
         peer_perf AS (
             SELECT d.store_id,
                    COUNT(DISTINCT d.sku) AS n_similar,
                    AVG(sd.units_sold) AS avg_velocity
-            FROM distribution_log d
-            JOIN product_master pm ON d.sku = pm.sku
-            JOIN scan_data sd ON sd.sku = d.sku AND sd.store_id = d.store_id
+            FROM fct_distribution d
+            JOIN dim_products pm ON d.sku = pm.sku
+            JOIN fct_scan_data sd ON sd.sku = d.sku AND sd.store_id = d.store_id
             WHERE pm.product_line = (SELECT product_line FROM focus)
-              AND d.sku != ?
-              AND (d.deauthorized_date IS NULL OR d.deauthorized_date > ?)
-              AND julianday(?) - julianday(sd.week_ending) < 56
+              AND d.sku != %s
+              AND (d.deauthorized_date IS NULL OR d.deauthorized_date > %s)
+              AND (%s::date - sd.week_ending::date) < 56
             GROUP BY d.store_id
         )
-        SELECT ts.store_id, ts.retailer, ts.region, ts.state, ts.volume_tier,
+        SELECT ts.store_id, ts.retailer_name, ts.region, ts.state, ts.volume_tier,
                p.n_similar, p.avg_velocity
         FROM target_stores ts
         JOIN peer_perf p ON ts.store_id = p.store_id
@@ -2738,7 +2693,7 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
 def render_expansion_targeting(focus_sku: str, retailer: str | None) -> None:
     con = get_connection()
     sku_meta = con.execute(
-        "SELECT product_name, product_line FROM product_master WHERE sku = ?",
+        "SELECT product_name, product_line FROM dim_products WHERE sku = %s",
         (focus_sku,),
     ).fetchone()
     if not sku_meta:
@@ -2780,7 +2735,7 @@ def render_expansion_targeting(focus_sku: str, retailer: str | None) -> None:
     is_all_retailers = (retailer is None) or (retailer == "All Retailers")
     if is_all_retailers:
         retailer_avg = (
-            df.groupby("retailer")["score"].mean().sort_values(ascending=False)
+            df.groupby("retailer_name")["score"].mean().sort_values(ascending=False)
         )
         c3.metric("Strongest retailer", retailer_avg.index[0])
     else:
@@ -2821,7 +2776,7 @@ def render_expansion_targeting(focus_sku: str, retailer: str | None) -> None:
 
     display_df = pd.DataFrame({
         "Store ID":               show["store_id"],
-        "Retailer":               show["retailer"],
+        "Retailer":               show["retailer_name"],
         "Region":                 show["region"],
         "State":                  show["state"],
         "Volume Tier":            show["volume_tier"],
@@ -2837,7 +2792,7 @@ def render_expansion_targeting(focus_sku: str, retailer: str | None) -> None:
         if r in ("Walmart", "Costco", "Whole Foods"):
             return r
         return "Regional"
-    cat_counts = show["retailer"].map(_ret_cat).value_counts()
+    cat_counts = show["retailer_name"].map(_ret_cat).value_counts()
     bucket_parts = [(int(cat_counts.get(c, 0)), c) for c in
                     ("Walmart", "Costco", "Whole Foods", "Regional")
                     if cat_counts.get(c, 0) > 0]
@@ -2873,7 +2828,7 @@ def render_expansion_targeting(focus_sku: str, retailer: str | None) -> None:
     # never depending on row position.
     n_show = min(15, len(df))
     top = df.head(n_show).copy().reset_index(drop=True)
-    top["label"] = top["store_id"] + "  ·  " + top["retailer"]
+    top["label"] = top["store_id"] + "  ·  " + top["retailer_name"]
     top["tier"] = top["score"].apply(_tier_for_score)
 
     st.markdown(f"#### Top {n_show} stores ranked by expansion score")
@@ -2937,33 +2892,33 @@ def get_pruning_pairs(retailer: str, product_line: str | None) -> pd.DataFrame:
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
 
-    pl_clause = "AND pm.product_line = ?" if product_line else ""
+    pl_clause = "AND pm.product_line = %s" if product_line else ""
     pl_params = [product_line] if product_line else []
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id, s.retailer, s.region, s.state, s.volume_tier
-            FROM stores s
-            WHERE {ret_sql} AND s.is_aggregated_channel = 0
+            SELECT s.store_id, s.retailer_name, s.region, s.state, s.volume_tier
+            FROM dim_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = false
         ),
         active AS (
             SELECT d.sku, d.store_id
-            FROM distribution_log d
+            FROM fct_distribution d
             WHERE d.store_id IN (SELECT store_id FROM ret_stores)
-              AND (d.deauthorized_date IS NULL OR d.deauthorized_date > ?)
+              AND (d.deauthorized_date IS NULL OR d.deauthorized_date > %s)
         )
         SELECT
             a.sku, a.store_id,
-            rs.retailer, rs.region, rs.state, rs.volume_tier,
+            rs.retailer_name, rs.region, rs.state, rs.volume_tier,
             pm.product_name, pm.product_line,
             sc.wholesale_price,
             AVG(sd.units_sold) AS velocity
         FROM active a
         JOIN ret_stores rs ON a.store_id = rs.store_id
-        JOIN product_master pm ON a.sku = pm.sku
-        JOIN sku_costs sc ON a.sku = sc.sku
-        LEFT JOIN scan_data sd ON sd.sku = a.sku AND sd.store_id = a.store_id
-                              AND julianday(?) - julianday(sd.week_ending) < 91
+        JOIN dim_products pm ON a.sku = pm.sku
+        JOIN stg_sku_costs sc ON a.sku = sc.sku
+        LEFT JOIN fct_scan_data sd ON sd.sku = a.sku AND sd.store_id = a.store_id
+                              AND (%s::date - sd.week_ending::date) < 91
         WHERE 1=1 {pl_clause}
         GROUP BY a.sku, a.store_id
     """
@@ -3190,7 +3145,7 @@ def render_distribution_pruning(retailer: str, product_line: str | None, thresho
                 detail = detail.sort_values("gap", ascending=False).reset_index(drop=True)
                 detail_display = pd.DataFrame({
                     "Store ID":          detail["store_id"],
-                    "Retailer":          detail["retailer"],
+                    "Retailer":          detail["retailer_name"],
                     "Region":            detail["region"],
                     "State":             detail["state"],
                     "Volume Tier":       detail["volume_tier"],
@@ -3253,7 +3208,7 @@ def render_distribution_pruning(retailer: str, product_line: str | None, thresho
         by_store["Severity"] = by_store["skus_below"].apply(store_sev)
         display_store = pd.DataFrame({
             "Store ID":              by_store["store_id"],
-            "Retailer":              by_store["retailer"],
+            "Retailer":              by_store["retailer_name"],
             "Region":                by_store["region"],
             "State":                 by_store["state"],
             "Volume Tier":           by_store["volume_tier"],
@@ -3304,18 +3259,18 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stores s
-            WHERE {ret_sql} AND s.is_aggregated_channel = 0
+            SELECT s.store_id FROM dim_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = false
         )
         SELECT pm.sku, pm.product_name, pm.product_line,
                sc.wholesale_price, sc.cogs_per_unit,
                AVG(sd.units_sold) AS velocity,
                COUNT(DISTINCT sd.store_id) AS doors
-        FROM scan_data sd
+        FROM fct_scan_data sd
         JOIN ret_stores rs ON sd.store_id = rs.store_id
-        JOIN product_master pm ON sd.sku = pm.sku
-        JOIN sku_costs sc ON sd.sku = sc.sku
-        WHERE julianday(?) - julianday(sd.week_ending) < 91
+        JOIN dim_products pm ON sd.sku = pm.sku
+        JOIN stg_sku_costs sc ON sd.sku = sc.sku
+        WHERE (%s::date - sd.week_ending::date) < 91
         GROUP BY pm.sku, pm.product_name, pm.product_line,
                  sc.wholesale_price, sc.cogs_per_unit
     """
@@ -3788,28 +3743,28 @@ def get_launch_data() -> pd.DataFrame:
     sql = """
         WITH launches AS (
             SELECT sku, MIN(authorized_date) AS launch_date
-            FROM distribution_log
+            FROM fct_distribution
             GROUP BY sku
-            HAVING MIN(authorized_date) >= DATE(?, '-364 days')
+            HAVING MIN(authorized_date) >= (%s::date - interval '364 days')::date
         ),
         phys_stores AS (
-            SELECT store_id FROM stores WHERE is_aggregated_channel = 0
+            SELECT store_id FROM dim_stores WHERE is_aggregated_channel = false
         )
         SELECT pm.sku, pm.product_name, pm.product_line, l.launch_date,
-            AVG(CASE WHEN julianday(sd.week_ending) - julianday(l.launch_date) BETWEEN 0 AND 27
+            AVG(CASE WHEN (sd.week_ending::date - l.launch_date::date) BETWEEN 0 AND 27
                      THEN sd.units_sold END) AS v_w14,
-            AVG(CASE WHEN julianday(sd.week_ending) - julianday(l.launch_date) BETWEEN 28 AND 55
+            AVG(CASE WHEN (sd.week_ending::date - l.launch_date::date) BETWEEN 28 AND 55
                      THEN sd.units_sold END) AS v_w58,
-            AVG(CASE WHEN julianday(sd.week_ending) - julianday(l.launch_date) BETWEEN 56 AND 90
+            AVG(CASE WHEN (sd.week_ending::date - l.launch_date::date) BETWEEN 56 AND 90
                      THEN sd.units_sold END) AS v_w913,
-            AVG(CASE WHEN julianday(sd.week_ending) - julianday(l.launch_date) >= 91
+            AVG(CASE WHEN (sd.week_ending::date - l.launch_date::date) >= 91
                      THEN sd.units_sold END) AS v_w14plus,
-            AVG(CASE WHEN julianday(?) - julianday(sd.week_ending) < 28
+            AVG(CASE WHEN (%s::date - sd.week_ending::date) < 28
                      THEN sd.units_sold END) AS v_current
-        FROM scan_data sd
+        FROM fct_scan_data sd
         JOIN launches l ON sd.sku = l.sku
         JOIN phys_stores ps ON sd.store_id = ps.store_id
-        JOIN product_master pm ON sd.sku = pm.sku
+        JOIN dim_products pm ON sd.sku = pm.sku
         GROUP BY pm.sku, pm.product_name, pm.product_line, l.launch_date
         ORDER BY l.launch_date DESC
     """
@@ -3828,17 +3783,17 @@ def get_launch_weekly(sku: str) -> pd.DataFrame:
     con = get_connection()
     sql = """
         WITH phys_stores AS (
-            SELECT store_id FROM stores WHERE is_aggregated_channel = 0
+            SELECT store_id FROM dim_stores WHERE is_aggregated_channel = false
         ),
         launch AS (
             SELECT MIN(authorized_date) AS launch_date
-            FROM distribution_log WHERE sku = ?
+            FROM fct_distribution WHERE sku = %s
         )
         SELECT sd.week_ending, AVG(sd.units_sold) AS velocity,
                (SELECT launch_date FROM launch) AS launch_date
-        FROM scan_data sd
+        FROM fct_scan_data sd
         JOIN phys_stores ps ON sd.store_id = ps.store_id
-        WHERE sd.sku = ?
+        WHERE sd.sku = %s
           AND sd.week_ending >= (SELECT launch_date FROM launch)
         GROUP BY sd.week_ending
         ORDER BY sd.week_ending
@@ -4055,37 +4010,37 @@ def get_pricing_power_data(retailer: str, sku_filter: str | None,
     """Per-SKU baseline / promo / post-promo velocity at one retailer."""
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
-    is_agg = 1 if retailer in ("UNFI", "DTC") else 0
+    is_agg = retailer in ("UNFI", "DTC")
 
     sku_clause = ""
     sku_params: list = []
     if sku_filter:
-        sku_clause = "AND sd.sku = ?"
+        sku_clause = "AND sd.sku = %s"
         sku_params = [sku_filter]
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stores s
-            WHERE {ret_sql} AND s.is_aggregated_channel = ?
+            SELECT s.store_id FROM dim_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = %s
         ),
         sku_promos AS (
             SELECT sku, start_week, end_week, discount_depth_pct
-            FROM promotions WHERE retailer = ?
+            FROM fct_promotions WHERE retailer_name = %s
         ),
         promo_window AS (
             SELECT DISTINCT sp.sku, sd.week_ending
             FROM sku_promos sp
-            JOIN scan_data sd ON sd.sku = sp.sku
+            JOIN fct_scan_data sd ON sd.sku = sp.sku
             JOIN ret_stores rs ON sd.store_id = rs.store_id
             WHERE sd.week_ending BETWEEN sp.start_week AND sp.end_week
         ),
         post_window AS (
             SELECT DISTINCT sp.sku, sd.week_ending
             FROM sku_promos sp
-            JOIN scan_data sd ON sd.sku = sp.sku
+            JOIN fct_scan_data sd ON sd.sku = sp.sku
             JOIN ret_stores rs ON sd.store_id = rs.store_id
-            WHERE sd.week_ending BETWEEN DATE(sp.end_week, '+7 days')
-                                     AND DATE(sp.end_week, '+28 days')
+            WHERE sd.week_ending BETWEEN (sp.end_week::date + interval '7 days')::date
+                                     AND (sp.end_week::date + interval '28 days')::date
         ),
         metrics AS (
             SELECT sd.sku,
@@ -4100,7 +4055,7 @@ def get_pricing_power_data(retailer: str, sku_filter: str | None,
                           AND NOT EXISTS (SELECT 1 FROM post_window pow
                                            WHERE pow.sku = sd.sku AND pow.week_ending = sd.week_ending)
                          THEN sd.units_sold END) AS baseline_v
-            FROM scan_data sd
+            FROM fct_scan_data sd
             JOIN ret_stores rs ON sd.store_id = rs.store_id
             WHERE sd.sku IN (SELECT DISTINCT sku FROM sku_promos)
               {sku_clause}
@@ -4114,7 +4069,7 @@ def get_pricing_power_data(retailer: str, sku_filter: str | None,
                m.baseline_v, m.promo_v, m.post_v,
                d.avg_discount, d.n_promos
         FROM metrics m
-        JOIN product_master pm ON m.sku = pm.sku
+        JOIN dim_products pm ON m.sku = pm.sku
         JOIN discount_avg d ON m.sku = d.sku
         ORDER BY pm.sku
     """
