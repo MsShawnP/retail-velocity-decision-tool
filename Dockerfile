@@ -5,11 +5,11 @@ WORKDIR /app
 COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY app/ .
 
 EXPOSE 8080
 
-CMD ["gunicorn", "app.run:server", \
+CMD ["gunicorn", "run:server", \
      "-b", "0.0.0.0:8080", \
      "-w", "2", \
      "--worker-class", "gthread", \
