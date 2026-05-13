@@ -6,11 +6,13 @@ individual modules under app/decisions/ in subsequent units.
 
 from __future__ import annotations
 
+import threading
+
 import dash_bootstrap_components as dbc
 from dash import Dash
 
 from callbacks import register_callbacks
-from data import init_cache
+from data import init_cache, warm_cache
 from story import register_callbacks as story_cbs
 from decisions.shelf_defense import register_callbacks as shelf_cbs
 from decisions.production import register_callbacks as prod_cbs
@@ -41,6 +43,8 @@ pruning_cbs(app)
 rationalization_cbs(app)
 launch_cbs(app)
 pricing_cbs(app)
+
+threading.Thread(target=warm_cache, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
