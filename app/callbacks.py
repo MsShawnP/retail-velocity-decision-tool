@@ -15,10 +15,13 @@ from dash import Input, Output, State, ctx, no_update, html
 from constants import (
     DECISIONS,
     DECISION_TITLES,
+    NAVY,
     PHYSICAL_RETAILERS,
     RETAILER_THRESHOLDS,
+    WHITE,
 )
 from data import get_promo_skus, get_product_lines, get_skus_for_line
+from story import layout as story_layout
 from decisions.shelf_defense import layout as shelf_layout
 from decisions.production import layout as production_layout
 from decisions.promo_roi import layout as promo_layout
@@ -112,6 +115,8 @@ def register_callbacks(app) -> None:
         Input("pricing-scope", "value"),
         Input("pricing-product-line", "value"),
         Input("pricing-sku", "value"),
+        # Story provenance
+        State("came-from-story", "data"),
         prevent_initial_call=False,
     )
     def dispatch(
@@ -123,10 +128,11 @@ def register_callbacks(app) -> None:
         prune_ret, prune_thr, prune_pl,
         rat_ret, rat_pl,
         price_ret, price_scope, price_pl, price_sku,
+        came_from_story,
     ):
         # Story mode
         if view == "story":
-            return html.Div("Story mode — coming in U6")
+            return story_layout()
 
         # Determine active mode index
         idx = DECISIONS.index(decision) if decision in DECISIONS else 0
@@ -139,34 +145,51 @@ def register_callbacks(app) -> None:
             if triggered not in active_ids:
                 return no_update
 
-        # Modes 0-2: real layouts (U3)
+        # Modes 0-7: real layouts
         if idx == 0:
-            return shelf_layout(shelf_ret, shelf_thr, shelf_pl)
-        if idx == 1:
-            return production_layout(prod_ret, prod_pl)
-        if idx == 2:
-            return promo_layout(promo_ret, promo_sku)
+            content = shelf_layout(shelf_ret, shelf_thr, shelf_pl)
+        elif idx == 1:
+            content = production_layout(prod_ret, prod_pl)
+        elif idx == 2:
+            content = promo_layout(promo_ret, promo_sku)
+        elif idx == 3:
+            content = expansion_layout(exp_pl, exp_sku, exp_ret)
+        elif idx == 4:
+            content = pruning_layout(prune_ret, prune_thr, prune_pl)
+        elif idx == 5:
+            content = rationalization_layout(rat_ret, rat_pl)
+        elif idx == 6:
+            content = launch_layout()
+        elif idx == 7:
+            content = pricing_layout(price_ret, price_scope, price_pl, price_sku)
+        else:
+            title = DECISION_TITLES.get(decision, decision)
+            content = html.Div(
+                f"Decision mode: {title} — unknown mode index {idx}",
+                style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
+            )
 
-        # Modes 3-5: real layouts (U4)
-        if idx == 3:
-            return expansion_layout(exp_pl, exp_sku, exp_ret)
-        if idx == 4:
-            return pruning_layout(prune_ret, prune_thr, prune_pl)
-        if idx == 5:
-            return rationalization_layout(rat_ret, rat_pl)
+        # "Back to Deep Dive" button when arrived from Story jump buttons
+        if came_from_story:
+            back_btn = html.Button(
+                "← Back to the Deep Dive",
+                id="back-to-story-btn",
+                n_clicks=0,
+                style={
+                    "padding": "0.4rem 1rem",
+                    "fontSize": "0.82rem",
+                    "fontWeight": "600",
+                    "color": WHITE,
+                    "backgroundColor": NAVY,
+                    "border": "none",
+                    "borderRadius": "6px",
+                    "cursor": "pointer",
+                    "marginBottom": "1rem",
+                },
+            )
+            return html.Div([back_btn, content])
 
-        # Modes 6-7: real layouts (U5)
-        if idx == 6:
-            return launch_layout()
-        if idx == 7:
-            return pricing_layout(price_ret, price_scope, price_pl, price_sku)
-
-        # Should not reach here — all 8 modes are covered above
-        title = DECISION_TITLES.get(decision, decision)
-        return html.Div(
-            f"Decision mode: {title} — unknown mode index {idx}",
-            style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
-        )
+        return content
 
     # ----------------------------------------------------------
     # c) Dependent dropdown: Promo ROI SKU list
