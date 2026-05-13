@@ -4655,10 +4655,37 @@ def render_sidebar() -> dict:
     return state
 
 
+@st.cache_resource(show_spinner="Preparing all views — first load only...")
+def _warm_cache() -> bool:
+    """Pre-populate st.cache_data for every retailer × product-line
+    combination so dropdown changes are instant cache hits."""
+    product_lines = get_product_lines()
+    pls = [None] + product_lines
+
+    for r in PHYSICAL_RETAILERS:
+        for pl in pls:
+            get_shelf_defense_data(r, pl)
+            get_pruning_pairs(r, pl)
+
+    for r in ["All Retailers"] + PHYSICAL_RETAILERS:
+        for pl in pls:
+            get_production_data(r, pl)
+            get_rationalization_data(r, pl)
+
+    for r in ALL_PHYSICAL_OR_AGG:
+        get_promo_roi_data(r, None)
+        get_pricing_power_data(r, None, None)
+        for pl in product_lines:
+            get_pricing_power_data(r, None, pl)
+
+    get_launch_data()
+    get_latest_week()
+    return True
+
+
 def main() -> None:
-    # First-time visitors land on the first decision mode (Shelf Defense).
-    # The Story is opt-in: it appears only when the user clicks the
-    # "Charred Scallion Relish problem" pill in the sidebar.
+    _warm_cache()
+
     if "show_story" not in st.session_state:
         st.session_state["show_story"] = False
 
