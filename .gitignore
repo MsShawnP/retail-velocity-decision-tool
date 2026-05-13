@@ -22,6 +22,9 @@ env/
 # Claude Code internal state
 .claude/scheduled_tasks.lock
 
+# Environment
+.env
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
