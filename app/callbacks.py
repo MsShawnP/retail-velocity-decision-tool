@@ -25,6 +25,8 @@ from decisions.promo_roi import layout as promo_layout
 from decisions.expansion import layout as expansion_layout
 from decisions.pruning import layout as pruning_layout
 from decisions.rationalization import layout as rationalization_layout
+from decisions.launch_health import layout as launch_layout
+from decisions.pricing_power import layout as pricing_layout
 
 
 # ============================================================
@@ -153,10 +155,16 @@ def register_callbacks(app) -> None:
         if idx == 5:
             return rationalization_layout(rat_ret, rat_pl)
 
-        # Placeholder for U5: remaining decision modules
+        # Modes 6-7: real layouts (U5)
+        if idx == 6:
+            return launch_layout()
+        if idx == 7:
+            return pricing_layout(price_ret, price_scope, price_pl, price_sku)
+
+        # Should not reach here — all 8 modes are covered above
         title = DECISION_TITLES.get(decision, decision)
         return html.Div(
-            f"Decision mode: {title} — coming in U5",
+            f"Decision mode: {title} — unknown mode index {idx}",
             style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
         )
 

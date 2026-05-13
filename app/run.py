@@ -17,6 +17,8 @@ from decisions.promo_roi import register_callbacks as promo_cbs
 from decisions.expansion import register_callbacks as expansion_cbs
 from decisions.pruning import register_callbacks as pruning_cbs
 from decisions.rationalization import register_callbacks as rationalization_cbs
+from decisions.launch_health import register_callbacks as launch_cbs
+from decisions.pricing_power import register_callbacks as pricing_cbs
 from layout import create_layout
 
 app = Dash(
@@ -35,6 +37,8 @@ promo_cbs(app)
 expansion_cbs(app)
 pruning_cbs(app)
 rationalization_cbs(app)
+launch_cbs(app)
+pricing_cbs(app)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
