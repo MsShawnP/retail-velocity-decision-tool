@@ -144,9 +144,9 @@ def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFra
     the protagonist guaranteed to land in the top half so its +15% reads as
     "yet another healthy SKU" rather than a standout.
     """
+    latest = get_latest_week()
     conn = get_raw_conn()
     try:
-        latest = get_latest_week()
         sql = """
             SELECT * FROM (
                 SELECT pm.sku, pm.product_name, pm.product_line,
