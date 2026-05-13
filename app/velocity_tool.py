@@ -243,7 +243,7 @@ def get_connection() -> ConnectionWrapper:
     return ConnectionWrapper(get_database_url())
 
 
-@st.cache_data(show_spinner="Loading product lines...")
+@st.cache_data(show_spinner=False)
 def get_product_lines() -> list[str]:
     con = get_connection()
     return [r[0] for r in con.execute(
@@ -251,7 +251,7 @@ def get_product_lines() -> list[str]:
     ).fetchall()]
 
 
-@st.cache_data(show_spinner="Loading SKUs...")
+@st.cache_data(show_spinner=False)
 def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
     """Return [(sku, product_name), ...] for one product line."""
     con = get_connection()
@@ -262,13 +262,13 @@ def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
     ).fetchall()
 
 
-@st.cache_data(show_spinner="Loading latest data...")
+@st.cache_data(show_spinner=False)
 def get_latest_week() -> str:
     con = get_connection()
     return con.execute("SELECT MAX(week_ending) FROM stg_scan_data").fetchone()[0]
 
 
-@st.cache_data(show_spinner="Loading promo SKUs...")
+@st.cache_data(show_spinner=False)
 def get_promo_skus(retailer: str) -> list[str]:
     con = get_connection()
     return [r[0] for r in con.execute(
@@ -560,7 +560,7 @@ def _promo_to_scan_weeks(start_week: str, end_week: str) -> list[str]:
     return out
 
 
-@st.cache_data(show_spinner="Loading Monday-morning summary...")
+@st.cache_data(show_spinner=False)
 def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFrame:
     """52wk vs prior-52wk units & dollars per SKU.
 
@@ -611,7 +611,7 @@ def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFra
     return out.sort_values("units_yoy_pct", ascending=False).reset_index(drop=True)
 
 
-@st.cache_data(show_spinner="Loading weekly velocity...")
+@st.cache_data(show_spinner=False)
 def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
     """Per-week total + baseline velocity (units / store-week). Promo flag set
     from the union of all promo windows on this SKU regardless of retailer."""
@@ -644,7 +644,7 @@ def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading promo hangover data...")
+@st.cache_data(show_spinner=False)
 def get_promo_hangover_data(sku: str) -> pd.DataFrame:
     """For each promo on the SKU, compute pre / during / post velocity at the
     promo's retailer. Pre = 4 weeks before start. Post = 4 weeks after end."""
@@ -713,7 +713,7 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading trade spend...")
+@st.cache_data(show_spinner=False)
 def get_sku_trade_spend(sku: str) -> float:
     """Total trade spend on a SKU summed over all promo (sku, week, retailer)
     triples. Trade $ = scan dollars in that promo week × retailer trade %."""
@@ -768,7 +768,7 @@ def get_sku_trade_spend(sku: str) -> float:
     return total
 
 
-@st.cache_data(show_spinner="Loading Walmart trajectory...")
+@st.cache_data(show_spinner=False)
 def get_walmart_trajectory(sku: str) -> pd.DataFrame:
     """Trailing 13-week rolling avg of Walmart-only weekly velocity."""
     con = get_connection()
@@ -786,7 +786,7 @@ def get_walmart_trajectory(sku: str) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Calculating revenue at risk...")
+@st.cache_data(show_spinner=False)
 def get_sku_revenue_at_risk(sku: str) -> dict:
     """Annual revenue at the protagonist's current Walmart distribution
     (doors × current velocity × wholesale × 52). What's "at risk" if the SKU
@@ -830,7 +830,7 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
     }
 
 
-@st.cache_data(show_spinner="Loading category average...")
+@st.cache_data(show_spinner=False)
 def get_category_avg_velocity(product_line: str) -> float:
     """Recent 13wk units/store-week for the product line — used as the
     'replacement SKU could earn this much' benchmark."""
@@ -851,7 +851,7 @@ def get_category_avg_velocity(product_line: str) -> float:
 # Bottom subsection: "What the rest of the portfolio looks like"
 # ----------------------------------------------------------------
 
-@st.cache_data(show_spinner="Loading demand data...")
+@st.cache_data(show_spinner=False)
 def get_top_demand_4wk() -> pd.DataFrame:
     """Top 10 SKUs by projected next-4-week case demand."""
     con = get_connection()
@@ -869,7 +869,7 @@ def get_top_demand_4wk() -> pd.DataFrame:
     return df.dropna(subset=["cases_4wk"]).reset_index(drop=True)
 
 
-@st.cache_data(show_spinner="Loading velocity per door...")
+@st.cache_data(show_spinner=False)
 def get_top_velocity_per_door() -> pd.DataFrame:
     """Top 10 retailer chains by avg units/door/week over the trailing 13 weeks."""
     con = get_connection()
@@ -889,7 +889,7 @@ def get_top_velocity_per_door() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading store performance...")
+@st.cache_data(show_spinner=False)
 def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
     """Bottom 10 Walmart stores by per-SKU avg velocity, with their gap below
     the threshold. Returns the worst stores even if all are above threshold —
@@ -912,7 +912,7 @@ def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading elasticity data...")
+@st.cache_data(show_spinner=False)
 def get_top_elasticity_skus() -> pd.DataFrame:
     """Top 10 SKUs by avg promo lift / discount-depth ratio (elasticity)."""
     con = get_connection()
@@ -1792,7 +1792,7 @@ def render_story() -> None:
 # DECISION 1 — SHELF DEFENSE
 # ============================================================
 
-@st.cache_data(show_spinner="Loading shelf-defense data...")
+@st.cache_data(show_spinner=False)
 def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFrame:
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
@@ -1998,7 +1998,7 @@ def render_shelf_defense(retailer: str, product_line: str | None, threshold: flo
 # DECISION 2 — PRODUCTION PLANNING
 # ============================================================
 
-@st.cache_data(show_spinner="Loading production data...")
+@st.cache_data(show_spinner=False)
 def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame:
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
@@ -2225,7 +2225,7 @@ def render_production_planning(retailer: str, product_line: str | None) -> None:
 # DECISION 3 — PROMO ROI
 # ============================================================
 
-@st.cache_data(show_spinner="Loading promo ROI data...")
+@st.cache_data(show_spinner=False)
 def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
@@ -2312,7 +2312,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading promo velocity...")
+@st.cache_data(show_spinner=False)
 def get_promo_weekly_velocity(promo_id: str, sku: str, retailer: str) -> pd.DataFrame:
     con = get_connection()
     ret_sql, ret_params = retailer_clause(retailer)
@@ -2632,7 +2632,7 @@ def render_promo_roi(retailer: str, sku_filter: str | None) -> None:
 # DECISION 4 — DISTRIBUTION EXPANSION
 # ============================================================
 
-@st.cache_data(show_spinner="Finding expansion opportunities...")
+@st.cache_data(show_spinner=False)
 def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     """Stores where focus_sku is NOT authorized but same-line SKUs perform well."""
     con = get_connection()
@@ -2885,7 +2885,7 @@ def render_expansion_targeting(focus_sku: str, retailer: str | None) -> None:
 # DECISION 5 — DISTRIBUTION PRUNING
 # ============================================================
 
-@st.cache_data(show_spinner="Loading pruning data...")
+@st.cache_data(show_spinner=False)
 def get_pruning_pairs(retailer: str, product_line: str | None) -> pd.DataFrame:
     """Per (sku, store) currently authorized at retailer: 13-week avg velocity."""
     con = get_connection()
@@ -3250,7 +3250,7 @@ def render_distribution_pruning(retailer: str, product_line: str | None, thresho
 # DECISION 6 — SKU RATIONALIZATION
 # ============================================================
 
-@st.cache_data(show_spinner="Loading SKU rationalization data...")
+@st.cache_data(show_spinner=False)
 def get_rationalization_data(retailer: str, product_line: str | None) -> pd.DataFrame:
     """Per-SKU 13-week velocity, margin, and door count at the chosen retailer."""
     con = get_connection()
@@ -3734,7 +3734,7 @@ def quadrant_card(col, title: str, subtitle: str, count: int, fg: str, bg: str) 
 # DECISION 7 — LAUNCH HEALTH
 # ============================================================
 
-@st.cache_data(show_spinner="Loading launch trajectories...")
+@st.cache_data(show_spinner=False)
 def get_launch_data() -> pd.DataFrame:
     """One row per SKU launched in the last 52 weeks, with window averages."""
     con = get_connection()
@@ -3778,7 +3778,7 @@ def get_launch_data() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading launch weekly data...")
+@st.cache_data(show_spinner=False)
 def get_launch_weekly(sku: str) -> pd.DataFrame:
     con = get_connection()
     sql = """
@@ -4004,7 +4004,7 @@ def render_launch_health() -> None:
 # DECISION 8 — PRICING POWER
 # ============================================================
 
-@st.cache_data(show_spinner="Loading pricing-power data...")
+@st.cache_data(show_spinner=False)
 def get_pricing_power_data(retailer: str, sku_filter: str | None,
                            product_line_filter: str | None) -> pd.DataFrame:
     """Per-SKU baseline / promo / post-promo velocity at one retailer."""
