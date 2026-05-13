@@ -13,7 +13,7 @@ from typing import Any
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import html
+from dash import dcc, html
 
 from constants import (
     GREY,
@@ -129,8 +129,8 @@ def chart_legend(items: list[tuple[str, str]]) -> html.Div:
 def status_legend(text: str) -> html.Div:
     """Compact muted-grey legend that spells out the bucket cutoffs.
 
-    Accepts raw HTML in *text* -- the Dash Div renders it via
-    dangerouslySetInnerHTML so the same legend strings from the Streamlit
+    Accepts raw HTML in *text* via dcc.Markdown with
+    dangerously_allow_html so the same legend strings from the Streamlit
     app work without conversion.
     """
     return html.Div(
@@ -140,8 +140,7 @@ def status_legend(text: str) -> html.Div:
             "lineHeight": "1.5",
             "margin": "0.25em 0 0.6em 0",
         },
-        dangerously_allow_html=True,
-        children=text,
+        children=dcc.Markdown(text, dangerously_allow_html=True),
     )
 
 

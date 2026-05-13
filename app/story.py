@@ -80,10 +80,8 @@ def _eyebrow(text: str) -> html.Div:
 def _narration(text: str, *, color: str = NAVY) -> html.Div:
     """Pull-quote narration block.  The story-teller voice."""
     return html.Div(
-        # Dash html.Div with dangerously_allow_html renders the HTML entities
-        # and <b> / <i> tags embedded in the narrative.
-        children=text,
-        dangerously_allow_html=True,
+        children=dcc.Markdown(text, dangerously_allow_html=True,
+                              style={"color": color}),
         style={
             "fontSize": "1.08rem",
             "lineHeight": "1.6",
@@ -106,8 +104,8 @@ def _prose(text: str, *, max_width: str = "820px", font_size: str = "1rem",
            color: str = NAVY_MED) -> html.Div:
     """Ordinary paragraph in the Story layout (non-narration)."""
     return html.Div(
-        children=text,
-        dangerously_allow_html=True,
+        children=dcc.Markdown(text, dangerously_allow_html=True,
+                              style={"color": color}),
         style={
             "color": color,
             "fontSize": font_size,
@@ -554,10 +552,12 @@ def _section_4() -> tuple[html.Div, dict]:
         "stays above the Walmart delisting threshold for now"
     )
     children.append(html.Div(
-        children=f"<h4 style='color:{NAVY}; margin-top: 0.4rem;'>"
-                 f"At current trajectory, Charred Scallion Relish "
-                 f"{title_phrase}</h4>",
-        dangerously_allow_html=True,
+        children=dcc.Markdown(
+            f"<h4 style='color:{NAVY}; margin-top: 0.4rem;'>"
+            f"At current trajectory, Charred Scallion Relish "
+            f"{title_phrase}</h4>",
+            dangerously_allow_html=True,
+        ),
     ))
     children.append(chart_legend([
         (NAVY_MED, "Trailing 13-week avg velocity (Walmart)"),

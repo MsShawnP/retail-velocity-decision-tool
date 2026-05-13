@@ -145,6 +145,19 @@ def register_callbacks(app) -> None:
             if triggered not in active_ids:
                 return no_update
 
+        # Normalise sentinel dropdown values to None so data functions
+        # skip the filter instead of matching the literal string.
+        def _none_if(val: str | None, sentinel: str) -> str | None:
+            return None if val == sentinel else val
+
+        shelf_pl = _none_if(shelf_pl, "All")
+        prod_pl = _none_if(prod_pl, "All")
+        prune_pl = _none_if(prune_pl, "All")
+        rat_pl = _none_if(rat_pl, "All")
+        price_pl = _none_if(price_pl, "All")
+        promo_sku = _none_if(promo_sku, "All SKUs")
+        exp_ret = _none_if(exp_ret, "All Retailers")
+
         # Modes 0-7: real layouts
         if idx == 0:
             content = shelf_layout(shelf_ret, shelf_thr, shelf_pl)
