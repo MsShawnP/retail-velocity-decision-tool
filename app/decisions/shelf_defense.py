@@ -14,6 +14,7 @@ from dash import Input, Output, callback_context, dcc, html, no_update
 from charts import apply_hbar_layout, text_annotation
 from components import (
     chart_legend,
+    dashboard_layout,
     empty_state,
     error_card,
     excel_download_data,
@@ -236,55 +237,51 @@ def layout(
     safe_pl = (product_line or "all").lower().replace(" ", "_")
 
     # Assemble the full component tree
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Metric cards row
-        html.Div(
-            [
-                html.Div(metric_card("At Risk", str(n_atrisk)), style={"flex": "1"}),
-                html.Div(metric_card("Warning", str(n_warn)), style={"flex": "1"}),
-                html.Div(metric_card("Safe", str(n_safe)), style={"flex": "1"}),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        status_legend(legend_html),
-        row_count_line("SKUs", [
-            (n_atrisk, "At Risk"),
-            (n_warn, "Warning"),
-            (n_safe, "Safe"),
-        ]),
-        grid,
-        # Chart section
-        html.H4(chart_title, style={"marginTop": "1.5rem"}),
-        html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
-        chart_legend([
-            (RED,    f"At Risk (<{threshold:.2f})"),
-            (ORANGE, f"Warning ({threshold:.2f} ≤ v < {warn_upper:.2f}, declining)"),
-            (TEAL,   f"Safe (v ≥ {warn_upper:.2f}, or in band but stable)"),
-        ]),
-        dcc.Graph(figure=fig, id="shelf-defense-chart"),
-        # Excel export
-        html.Button(
-            "Export to Excel",
-            id="shelf-defense-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
-        ),
-        dcc.Download(id="shelf-defense-download"),
-        # Store display_df as JSON for the download callback
-        dcc.Store(
-            id="shelf-defense-table-data",
-            data={
-                "records": display_df.to_dict("records"),
-                "filename": f"shelf_defense_{safe_ret}_{safe_pl}",
-            },
-        ),
-    ])
+    return dashboard_layout(
+        header=[
+            html.H3(headline, style={"marginBottom": "0.3rem"}),
+            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.Div(
+                [
+                    html.Div(metric_card("At Risk", str(n_atrisk)), style={"flex": "1"}),
+                    html.Div(metric_card("Warning", str(n_warn)), style={"flex": "1"}),
+                    html.Div(metric_card("Safe", str(n_safe)), style={"flex": "1"}),
+                ],
+                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+            ),
+            status_legend(legend_html),
+            row_count_line("SKUs", [
+                (n_atrisk, "At Risk"),
+                (n_warn, "Warning"),
+                (n_safe, "Safe"),
+            ]),
+        ],
+        grid=grid,
+        chart=[
+            html.H4(chart_title, style={"marginTop": "0"}),
+            html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
+            chart_legend([
+                (RED,    f"At Risk (<{threshold:.2f})"),
+                (ORANGE, f"Warning ({threshold:.2f} ≤ v < {warn_upper:.2f}, declining)"),
+                (TEAL,   f"Safe (v ≥ {warn_upper:.2f}, or in band but stable)"),
+            ]),
+            dcc.Graph(figure=fig, id="shelf-defense-chart"),
+        ],
+        footer=[
+            html.Button(
+                "Export to Excel", id="shelf-defense-export-btn", n_clicks=0,
+                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+            ),
+            dcc.Download(id="shelf-defense-download"),
+            dcc.Store(
+                id="shelf-defense-table-data",
+                data={
+                    "records": display_df.to_dict("records"),
+                    "filename": f"shelf_defense_{safe_ret}_{safe_pl}",
+                },
+            ),
+        ],
+    )
 
 
 # ============================================================

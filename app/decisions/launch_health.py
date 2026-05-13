@@ -14,6 +14,7 @@ from dash import Input, Output, State, callback_context, dcc, html, no_update
 from charts import add_vline_at_date, apply_hbar_layout, text_annotation
 from components import (
     chart_legend,
+    dashboard_layout,
     empty_state,
     error_card,
     excel_download_data,
@@ -265,76 +266,70 @@ def layout() -> html.Div:
     ])
 
     # Assemble the full component tree
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Metric cards row
-        html.Div(
-            [
-                html.Div(metric_card("Launched in last 52 wk", str(n_total)), style={"flex": "1"}),
-                html.Div(metric_card("On Track", str(n_track)), style={"flex": "1"}),
-                html.Div(metric_card("Needs Attention", str(n_attn)), style={"flex": "1"}),
-                html.Div(metric_card("Failing", str(n_fail)), style={"flex": "1"}),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        status_legend(legend_html),
-        row_count_line("launches", [
-            (n_track, "On Track"),
-            (n_attn, "Needs Attention"),
-            (n_fail, "Failing"),
-        ]),
-        grid,
-        # Chart section
-        html.H4(chart_title, style={"marginTop": "1.5rem"}),
-        html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
-        chart_legend([
-            (RED,    f"Failing"),
-            (ORANGE, f"Needs Attention"),
-            (TEAL,   f"On Track"),
-        ]),
-        dcc.Graph(figure=fig, id="launch-health-chart"),
-        # Drill-in: weekly velocity per launch
-        html.H4("Drill into one launch", style={"marginTop": "1.5rem"}),
-        html.P(
-            "Pick a launched SKU to see weekly velocity since launch:",
-            style={"color": GREY, "fontSize": "0.85rem"},
-        ),
-        dcc.Dropdown(
-            id="launch-detail-select",
-            options=drill_options,
-            value=drill_options[0]["value"] if drill_options else None,
-            clearable=False,
-            style={"marginBottom": "1rem"},
-        ),
-        detail_legend,
-        html.Div(id="launch-detail-content"),
-        # Excel export
-        html.Button(
-            "Export to Excel",
-            id="launch-health-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
-        ),
-        dcc.Download(id="launch-health-download"),
-        # Store display_df as JSON for the download callback
-        dcc.Store(
-            id="launch-health-table-data",
-            data={
-                "records": display_df.to_dict("records"),
-                "filename": "launch_health_all",
-            },
-        ),
-        # Store the display_df for drilldown (sku -> status mapping)
-        dcc.Store(
-            id="launch-health-sku-status",
-            data=drill_df[["SKU", "Product Name", "Status", "Launch Date"]].to_dict("records"),
-        ),
-    ])
+    return dashboard_layout(
+        header=[
+            html.H3(headline, style={"marginBottom": "0.3rem"}),
+            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.Div(
+                [
+                    html.Div(metric_card("Launched in last 52 wk", str(n_total)), style={"flex": "1"}),
+                    html.Div(metric_card("On Track", str(n_track)), style={"flex": "1"}),
+                    html.Div(metric_card("Needs Attention", str(n_attn)), style={"flex": "1"}),
+                    html.Div(metric_card("Failing", str(n_fail)), style={"flex": "1"}),
+                ],
+                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+            ),
+            status_legend(legend_html),
+            row_count_line("launches", [
+                (n_track, "On Track"),
+                (n_attn, "Needs Attention"),
+                (n_fail, "Failing"),
+            ]),
+        ],
+        grid=grid,
+        chart=[
+            html.H4(chart_title, style={"marginTop": "0"}),
+            html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
+            chart_legend([
+                (RED,    "Failing"),
+                (ORANGE, "Needs Attention"),
+                (TEAL,   "On Track"),
+            ]),
+            dcc.Graph(figure=fig, id="launch-health-chart"),
+            html.H4("Drill into one launch", style={"marginTop": "1rem"}),
+            html.P(
+                "Pick a launched SKU to see weekly velocity since launch:",
+                style={"color": GREY, "fontSize": "0.85rem"},
+            ),
+            dcc.Dropdown(
+                id="launch-detail-select",
+                options=drill_options,
+                value=drill_options[0]["value"] if drill_options else None,
+                clearable=False,
+                style={"marginBottom": "0.5rem"},
+            ),
+            detail_legend,
+            html.Div(id="launch-detail-content"),
+        ],
+        footer=[
+            html.Button(
+                "Export to Excel", id="launch-health-export-btn", n_clicks=0,
+                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+            ),
+            dcc.Download(id="launch-health-download"),
+            dcc.Store(
+                id="launch-health-table-data",
+                data={
+                    "records": display_df.to_dict("records"),
+                    "filename": "launch_health_all",
+                },
+            ),
+            dcc.Store(
+                id="launch-health-sku-status",
+                data=drill_df[["SKU", "Product Name", "Status", "Launch Date"]].to_dict("records"),
+            ),
+        ],
+    )
 
 
 # ============================================================

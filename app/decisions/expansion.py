@@ -14,6 +14,7 @@ from dash import Input, Output, callback_context, dcc, html, no_update
 from charts import apply_hbar_layout
 from components import (
     chart_legend,
+    dashboard_layout,
     empty_state,
     error_card,
     excel_download_data,
@@ -256,55 +257,52 @@ def layout(
         f"{product_name} yet — here are the strongest fits."
     )
 
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Metric cards row
-        html.Div(
-            [
-                html.Div(metric_card("Top opportunity score", f"{top_score:.2f}"), style={"flex": "1"}),
-                html.Div(metric_card("Average score", f"{avg_score:.2f}"), style={"flex": "1"}),
-                html.Div(metric_card(third_label, str(third_value)), style={"flex": "1"}),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        status_legend(
-            "<b>Score</b> = average velocity of peer SKUs (same product line, "
-            "already on shelf at that store) × volume-tier multiplier "
-            "(A = 1.3, B = 1.0, C = 0.7).  Higher score = stronger expansion fit. "
-            "Showing top 30 of all qualifying stores."
-        ),
-        row_count_line("stores", bucket_parts),
-        grid,
-        # Chart section
-        html.H4(chart_title, style={"marginTop": "1.5rem"}),
-        html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
-        chart_legend([
-            (TEAL,     f"Strongest (score ≥ {strongest_floor:.2f})"),
-            (NAVY_MED, f"Solid ({solid_floor:.2f}–{strongest_floor:.2f})"),
-            (GREY,     f"Worth considering (< {solid_floor:.2f})"),
-        ]),
-        dcc.Graph(figure=fig, id="expansion-chart"),
-        # Excel export
-        html.Button(
-            "Export to Excel",
-            id="expansion-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
-        ),
-        dcc.Download(id="expansion-download"),
-        dcc.Store(
-            id="expansion-table-data",
-            data={
-                "records": display_df.to_dict("records"),
-                "filename": f"expansion_{safe_sku}_{safe_ret}",
-            },
-        ),
-    ])
+    return dashboard_layout(
+        header=[
+            html.H3(headline, style={"marginBottom": "0.3rem"}),
+            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.Div(
+                [
+                    html.Div(metric_card("Top opportunity score", f"{top_score:.2f}"), style={"flex": "1"}),
+                    html.Div(metric_card("Average score", f"{avg_score:.2f}"), style={"flex": "1"}),
+                    html.Div(metric_card(third_label, str(third_value)), style={"flex": "1"}),
+                ],
+                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+            ),
+            status_legend(
+                "<b>Score</b> = average velocity of peer SKUs (same product line, "
+                "already on shelf at that store) × volume-tier multiplier "
+                "(A = 1.3, B = 1.0, C = 0.7).  Higher score = stronger expansion fit. "
+                "Showing top 30 of all qualifying stores."
+            ),
+            row_count_line("stores", bucket_parts),
+        ],
+        grid=grid,
+        chart=[
+            html.H4(chart_title, style={"marginTop": "0"}),
+            html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
+            chart_legend([
+                (TEAL,     f"Strongest (score ≥ {strongest_floor:.2f})"),
+                (NAVY_MED, f"Solid ({solid_floor:.2f}–{strongest_floor:.2f})"),
+                (GREY,     f"Worth considering (< {solid_floor:.2f})"),
+            ]),
+            dcc.Graph(figure=fig, id="expansion-chart"),
+        ],
+        footer=[
+            html.Button(
+                "Export to Excel", id="expansion-export-btn", n_clicks=0,
+                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+            ),
+            dcc.Download(id="expansion-download"),
+            dcc.Store(
+                id="expansion-table-data",
+                data={
+                    "records": display_df.to_dict("records"),
+                    "filename": f"expansion_{safe_sku}_{safe_ret}",
+                },
+            ),
+        ],
+    )
 
 
 # ============================================================

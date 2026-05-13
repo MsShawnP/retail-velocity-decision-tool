@@ -14,6 +14,7 @@ from dash import Input, Output, State, callback_context, dcc, html, no_update
 from charts import add_vline_at_date, apply_hbar_layout, text_annotation
 from components import (
     chart_legend,
+    dashboard_layout,
     empty_state,
     error_card,
     excel_download_data,
@@ -292,75 +293,67 @@ def layout(
     safe_sku = (sku_filter or "all").lower()
 
     # Assemble the full component tree
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Metric cards row
-        html.Div(
-            [
-                html.Div(metric_card("Avg lift", f"{avg_lift:+.2f}%"), style={"flex": "1"}),
-                html.Div(metric_card("Incremental revenue", f"${total_incr:,.2f}"), style={"flex": "1"}),
-                html.Div(metric_card("Total promo cost", f"${total_cost:,.2f}"), style={"flex": "1"}),
-                html.Div(metric_card("Strong ROI promos", f"{n_strong} / {n_total}"), style={"flex": "1"}),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        status_legend(legend_html),
-        row_count_line("promos", [
-            (n_strong, "Strong ROI"),
-            (n_marginal, "Marginal ROI"),
-            (n_negative, "Negative ROI"),
-        ]),
-        grid,
-        # Chart section
-        html.H4(
-            "Best and worst promos by return on spend",
-            style={"marginTop": "1.5rem"},
-        ),
-        html.P(
-            f"Bars colored teal = strong ROI (>{roi_strong_pct:.2f}%), "
-            f"orange = marginal (0–{roi_strong_pct:.2f}%), red = negative.",
-            style={"color": GREY, "fontSize": "0.85rem"},
-        ),
-        chart_legend([
-            (TEAL,   f"Strong ROI (>{roi_strong_pct:.2f}%)"),
-            (ORANGE, f"Marginal ROI (0–{roi_strong_pct:.2f}%)"),
-            (RED,    "Negative ROI (<0%)"),
-        ]),
-        *chart_children,
-        # Promo detail drilldown section
-        html.H4("Drill into one promo", style={"marginTop": "1.5rem"}),
-        html.P(
-            "Pick a promo to see weekly velocity before, during, and after:",
-            style={"color": GREY, "fontSize": "0.85rem"},
-        ),
-        dcc.Dropdown(
-            id="promo-detail-select",
-            options=promo_options,
-            value=default_promo,
-            clearable=False,
-            style={"marginBottom": "1rem"},
-        ),
-        html.Div(id="promo-detail-content"),
-        # Excel export
-        html.Button(
-            "Export to Excel",
-            id="promo-roi-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
-        ),
-        dcc.Download(id="promo-roi-download"),
-        dcc.Store(
-            id="promo-roi-table-data",
-            data={
-                "records": display_df.to_dict("records"),
-                "filename": f"promo_roi_{safe_ret}_{safe_sku}",
-            },
-        ),
+    return dashboard_layout(
+        header=[
+            html.H3(headline, style={"marginBottom": "0.3rem"}),
+            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.Div(
+                [
+                    html.Div(metric_card("Avg lift", f"{avg_lift:+.2f}%"), style={"flex": "1"}),
+                    html.Div(metric_card("Incremental revenue", f"${total_incr:,.2f}"), style={"flex": "1"}),
+                    html.Div(metric_card("Total promo cost", f"${total_cost:,.2f}"), style={"flex": "1"}),
+                    html.Div(metric_card("Strong ROI promos", f"{n_strong} / {n_total}"), style={"flex": "1"}),
+                ],
+                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+            ),
+            status_legend(legend_html),
+            row_count_line("promos", [
+                (n_strong, "Strong ROI"),
+                (n_marginal, "Marginal ROI"),
+                (n_negative, "Negative ROI"),
+            ]),
+        ],
+        grid=grid,
+        chart=[
+            html.H4("Best and worst promos by return on spend", style={"marginTop": "0"}),
+            html.P(
+                f"Bars colored teal = strong ROI (>{roi_strong_pct:.2f}%), "
+                f"orange = marginal (0–{roi_strong_pct:.2f}%), red = negative.",
+                style={"color": GREY, "fontSize": "0.85rem"},
+            ),
+            chart_legend([
+                (TEAL,   f"Strong ROI (>{roi_strong_pct:.2f}%)"),
+                (ORANGE, f"Marginal ROI (0–{roi_strong_pct:.2f}%)"),
+                (RED,    "Negative ROI (<0%)"),
+            ]),
+            *chart_children,
+            html.H4("Drill into one promo", style={"marginTop": "1rem"}),
+            html.P(
+                "Pick a promo to see weekly velocity before, during, and after:",
+                style={"color": GREY, "fontSize": "0.85rem"},
+            ),
+            dcc.Dropdown(
+                id="promo-detail-select",
+                options=promo_options,
+                value=default_promo,
+                clearable=False,
+                style={"marginBottom": "0.5rem"},
+            ),
+            html.Div(id="promo-detail-content"),
+        ],
+        footer=[
+            html.Button(
+                "Export to Excel", id="promo-roi-export-btn", n_clicks=0,
+                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+            ),
+            dcc.Download(id="promo-roi-download"),
+            dcc.Store(
+                id="promo-roi-table-data",
+                data={
+                    "records": display_df.to_dict("records"),
+                    "filename": f"promo_roi_{safe_ret}_{safe_sku}",
+                },
+            ),
         # Store the raw promo data for the detail callback
         dcc.Store(
             id="promo-roi-raw-data",

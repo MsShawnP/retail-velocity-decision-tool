@@ -199,46 +199,48 @@ def layout(
     safe_ret = retailer.lower().replace(" ", "_")
     safe_pl = (product_line or "all").lower().replace(" ", "_")
 
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Quadrant subtitle
-        html.H4(
-            "Velocity vs. margin: where does each SKU sit?",
-            style={"marginTop": "1rem"},
-        ),
-        html.P(
-            f"Median velocity = {median_velocity:.2f}. Median margin per store-week = "
-            f"${median_margin:.2f}. Each SKU lands in one quadrant.",
-            style={"color": GREY, "fontSize": "0.85rem"},
-        ),
-        # Quadrant cards row
-        html.Div(
-            [
-                _quadrant_card("Winners", "High velocity, high margin",
-                               n_winners, TEAL, GREEN_FAINT),
-                _quadrant_card("Volume plays", "High velocity, low margin",
-                               n_volume, NAVY_MED, GREY_BG),
-                _quadrant_card("Niche / slow movers", "Low velocity, high margin",
-                               n_niche, ORANGE, ORANGE_FAINT),
-                _quadrant_card("Cut candidates", "Low velocity, low margin",
-                               n_cut, RED, RED_FAINT),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        # Tabs
-        dbc.Tabs([
-            dbc.Tab(label="Cut candidates", children=cut_tab_children),
-            dbc.Tab(label="Portfolio overview", children=portfolio_tab_children),
+    return html.Div(
+        style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},
+        children=[
+        html.Div([
+            html.H3(headline, style={"marginBottom": "0.3rem"}),
+            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.3rem"}),
+            html.P(
+                f"Median velocity = {median_velocity:.2f}. Median margin/store-week = "
+                f"${median_margin:.2f}. Each SKU lands in one quadrant.",
+                style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"},
+            ),
+            html.Div(
+                [
+                    _quadrant_card("Winners", "High velocity, high margin",
+                                   n_winners, TEAL, GREEN_FAINT),
+                    _quadrant_card("Volume plays", "High velocity, low margin",
+                                   n_volume, NAVY_MED, GREY_BG),
+                    _quadrant_card("Niche / slow movers", "Low velocity, high margin",
+                                   n_niche, ORANGE, ORANGE_FAINT),
+                    _quadrant_card("Cut candidates", "Low velocity, low margin",
+                                   n_cut, RED, RED_FAINT),
+                ],
+                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+            ),
         ]),
-        # Excel export
+        html.Div(
+            style={"flex": "1", "minHeight": "0", "overflow": "hidden"},
+            children=[
+                dbc.Tabs([
+                    dbc.Tab(label="Cut candidates", children=cut_tab_children),
+                    dbc.Tab(label="Portfolio overview", children=portfolio_tab_children),
+                ]),
+            ],
+        ),
+        html.Div([
         html.Button(
             "Export to Excel",
             id="rationalization-export-btn",
             n_clicks=0,
             style={
                 "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
+                "padding": "0.4rem 1.2rem",
                 "cursor": "pointer",
             },
         ),
@@ -250,6 +252,7 @@ def layout(
                 "filename": f"sku_rationalization_{safe_ret}_{safe_pl}",
             },
         ),
+        ]),
     ])
 
 
@@ -388,8 +391,6 @@ def _build_cut_tab(
     )
     fig_cut.update_yaxes(categoryorder="array", categoryarray=cut_labels)
 
-    children.append(dcc.Graph(figure=fig_cut, id="rationalization-cut-chart"))
-
     # Cut-candidate table — all rows red-tinted
     cut_display = cut_df.drop(columns=["Quadrant"])
     cut_column_defs = [
@@ -422,7 +423,16 @@ def _build_cut_tab(
         row_style_conditions=cut_row_style,
         id="rationalization-cut-grid",
     )
-    children.append(cut_grid)
+    children.append(html.Div(
+        style={"display": "flex", "gap": "1.5rem", "height": "calc(100vh - 420px)", "minHeight": "250px"},
+        children=[
+            html.Div([cut_grid], style={"flex": "1", "minWidth": "0", "overflow": "hidden"}),
+            html.Div(
+                [dcc.Graph(figure=fig_cut, id="rationalization-cut-chart")],
+                style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
+            ),
+        ],
+    ))
 
     return children
 
@@ -513,7 +523,6 @@ def _build_portfolio_tab(
         row_style_conditions=row_style_conditions,
         id="rationalization-portfolio-grid",
     )
-    children.append(grid)
 
     # Bottom 15 by total weekly margin chart
     n_show = min(15, len(display_df))
@@ -536,34 +545,6 @@ def _build_portfolio_tab(
         "Niche / slow":  ORANGE,
         "Cut candidate": RED,
     }
-
-    children.append(html.H4(
-        f"Bottom {n_show} SKUs by weekly margin — should they stay or go?",
-        style={"marginTop": "1.5rem"},
-    ))
-    children.append(html.Div(
-        style={"color": GREY, "fontSize": "0.92em", "margin": "-0.4em 0 0.4em 0"},
-        children=dcc.Markdown(
-            f"Low total margin doesn't always mean cut.  "
-            f"<span style='color:{NAVY_MED}; font-weight:600'>Low distribution</span> "
-            f"(navy) = strong per-store performance but too few doors to generate "
-            f"meaningful total margin — consider expanding distribution rather "
-            f"than cutting.  "
-            f"<span style='color:{ORANGE}; font-weight:600'>Niche / slow</span> "
-            f"(orange) = low velocity but high margin per unit — selective "
-            f"expansion may help.  "
-            f"<span style='color:{RED}; font-weight:600'>Cut candidates</span> "
-            f"(red) have low velocity AND low margin — kill first.  "
-            f"Median velocity = {median_velocity:.2f} units/store/week, median "
-            f"margin per store-week = ${median_margin:.2f}.",
-            dangerously_allow_html=True,
-        ),
-    ))
-    children.append(chart_legend([
-        (NAVY_MED, "Low distribution (Winner / Volume play, too few doors)"),
-        (ORANGE,   "Niche / slow (low velocity, high margin)"),
-        (RED,      "Cut candidate (below both medians)"),
-    ]))
 
     fig = go.Figure()
     for bucket in (LOW_DIST, "Niche / slow", "Cut candidate"):
@@ -603,7 +584,45 @@ def _build_portfolio_tab(
     )
     fig.update_yaxes(categoryorder="array", categoryarray=bottom_labels)
 
-    children.append(dcc.Graph(figure=fig, id="rationalization-portfolio-chart"))
+    children.append(html.Div(
+        style={"display": "flex", "gap": "1.5rem", "height": "calc(100vh - 380px)", "minHeight": "250px"},
+        children=[
+            html.Div([grid], style={"flex": "1", "minWidth": "0", "overflow": "hidden"}),
+            html.Div(
+                [
+                    html.H4(
+                        f"Bottom {n_show} SKUs by weekly margin — should they stay or go?",
+                        style={"marginTop": "0"},
+                    ),
+                    html.Div(
+                        style={"color": GREY, "fontSize": "0.92em", "margin": "0 0 0.4em 0"},
+                        children=dcc.Markdown(
+                            f"Low total margin doesn't always mean cut.  "
+                            f"<span style='color:{NAVY_MED}; font-weight:600'>Low distribution</span> "
+                            f"(navy) = strong per-store performance but too few doors to generate "
+                            f"meaningful total margin — consider expanding distribution rather "
+                            f"than cutting.  "
+                            f"<span style='color:{ORANGE}; font-weight:600'>Niche / slow</span> "
+                            f"(orange) = low velocity but high margin per unit — selective "
+                            f"expansion may help.  "
+                            f"<span style='color:{RED}; font-weight:600'>Cut candidates</span> "
+                            f"(red) have low velocity AND low margin — kill first.  "
+                            f"Median velocity = {median_velocity:.2f} units/store/week, median "
+                            f"margin per store-week = ${median_margin:.2f}.",
+                            dangerously_allow_html=True,
+                        ),
+                    ),
+                    chart_legend([
+                        (NAVY_MED, "Low distribution (Winner / Volume play, too few doors)"),
+                        (ORANGE,   "Niche / slow (low velocity, high margin)"),
+                        (RED,      "Cut candidate (below both medians)"),
+                    ]),
+                    dcc.Graph(figure=fig, id="rationalization-portfolio-chart"),
+                ],
+                style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
+            ),
+        ],
+    ))
 
     return children
 
