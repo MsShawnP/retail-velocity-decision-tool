@@ -257,7 +257,7 @@ def make_grid(
         ]
 
     grid_options: dict[str, Any] = {
-        "domLayout": "autoHeight",
+        "domLayout": "normal",
         "animateRows": True,
     }
     if row_style_conditions:
@@ -267,8 +267,43 @@ def make_grid(
         "rowData": df.to_dict("records"),
         "columnDefs": column_defs,
         "dashGridOptions": grid_options,
-        "style": {"width": "100%"},
+        "style": {"width": "100%", "height": "100%"},
         "className": "ag-theme-alpine",
     }
     defaults.update(kwargs)
     return dag.AgGrid(**defaults)
+
+
+def dashboard_layout(
+    header: list,
+    grid,
+    chart: list,
+    footer: list,
+) -> html.Div:
+    """Two-column dashboard: grid left, chart right, everything in-viewport.
+
+    ``header`` spans full width (headline + metrics).
+    ``grid`` fills the left column with its own scrollbar.
+    ``chart`` fills the right column — visible without page scrolling.
+    ``footer`` spans full width below (export button, stores, downloads).
+    """
+    return html.Div(
+        style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},
+        children=[
+            html.Div(header),
+            html.Div(
+                style={"display": "flex", "gap": "1.5rem", "flex": "1", "minHeight": "0"},
+                children=[
+                    html.Div(
+                        [grid],
+                        style={"flex": "1", "minWidth": "0", "overflow": "hidden"},
+                    ),
+                    html.Div(
+                        chart,
+                        style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
+                    ),
+                ],
+            ),
+            html.Div(footer, style={"paddingTop": "0.5rem"}),
+        ],
+    )

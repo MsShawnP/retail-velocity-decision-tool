@@ -129,28 +129,35 @@ def layout(
     safe_ret = retailer.lower().replace(" ", "_")
     safe_pl = (product_line or "all").lower().replace(" ", "_")
 
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Metric cards row
-        html.Div(
-            [
-                html.Div(metric_card("Active pairs", f"{n_pairs:,}"), style={"flex": "1"}),
-                html.Div(metric_card("Below threshold", f"{n_below:,}"), style={"flex": "1"}),
-                html.Div(metric_card("SKUs affected", f"{n_skus_affected} / {n_skus}"), style={"flex": "1"}),
-                html.Div(metric_card("Stores affected", f"{n_stores_affected} / {n_stores}"), style={"flex": "1"}),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        # Tabs: By SKU and By Store
-        dbc.Tabs([
-            dbc.Tab(label="By SKU", children=sku_tab_children),
-            dbc.Tab(label="By Store", children=store_tab_children),
-        ]),
-        # Excel downloads (stores + buttons are inside each tab)
-        dcc.Download(id="pruning-sku-download"),
-        dcc.Download(id="pruning-store-download"),
-    ])
+    return html.Div(
+        style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},
+        children=[
+            html.Div([
+                html.H3(headline, style={"marginBottom": "0.3rem"}),
+                html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+                html.Div(
+                    [
+                        html.Div(metric_card("Active pairs", f"{n_pairs:,}"), style={"flex": "1"}),
+                        html.Div(metric_card("Below threshold", f"{n_below:,}"), style={"flex": "1"}),
+                        html.Div(metric_card("SKUs affected", f"{n_skus_affected} / {n_skus}"), style={"flex": "1"}),
+                        html.Div(metric_card("Stores affected", f"{n_stores_affected} / {n_stores}"), style={"flex": "1"}),
+                    ],
+                    style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                ),
+            ]),
+            html.Div(
+                style={"flex": "1", "minHeight": "0", "overflow": "hidden"},
+                children=[
+                    dbc.Tabs([
+                        dbc.Tab(label="By SKU", children=sku_tab_children),
+                        dbc.Tab(label="By Store", children=store_tab_children),
+                    ]),
+                ],
+            ),
+            dcc.Download(id="pruning-sku-download"),
+            dcc.Download(id="pruning-store-download"),
+        ],
+    )
 
 
 # ============================================================
@@ -315,24 +322,25 @@ def _build_sku_tab(
             (n_conc, "Concerning"),
             (n_mild, "Mild"),
         ]),
-        grid,
-        html.H4(chart_title, style={"marginTop": "1.5rem"}),
-        html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
-        chart_legend([
-            (RED,      f"Critical (≥{crit_pct:.2f}% of stores below threshold)"),
-            (ORANGE,   f"Concerning ({conc_pct:.2f}% to <{crit_pct:.2f}%)"),
-            (NAVY_MED, f"Mild (<{conc_pct:.2f}%)"),
-        ]),
-        dcc.Graph(figure=fig, id="pruning-sku-chart"),
+        html.Div(
+            style={"display": "flex", "gap": "1.5rem", "height": "calc(100vh - 380px)", "minHeight": "300px"},
+            children=[
+                html.Div([grid], style={"flex": "1", "minWidth": "0", "overflow": "hidden"}),
+                html.Div([
+                    html.H4(chart_title, style={"marginTop": "0"}),
+                    html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
+                    chart_legend([
+                        (RED,      f"Critical (≥{crit_pct:.2f}% of stores below threshold)"),
+                        (ORANGE,   f"Concerning ({conc_pct:.2f}% to <{crit_pct:.2f}%)"),
+                        (NAVY_MED, f"Mild (<{conc_pct:.2f}%)"),
+                    ]),
+                    dcc.Graph(figure=fig, id="pruning-sku-chart"),
+                ], style={"flex": "1", "minWidth": "0", "overflowY": "auto"}),
+            ],
+        ),
         html.Button(
-            "Export By SKU to Excel",
-            id="pruning-sku-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
+            "Export By SKU to Excel", id="pruning-sku-export-btn", n_clicks=0,
+            style={"padding": "0.4rem 1.2rem", "cursor": "pointer", "marginTop": "0.5rem"},
         ),
         dcc.Store(
             id="pruning-sku-table-data",
@@ -454,16 +462,10 @@ def _build_store_tab(
             (n_conc, "Concerning"),
             (n_mild, "Mild"),
         ]),
-        grid,
+        html.Div([grid], style={"height": "calc(100vh - 380px)", "minHeight": "300px", "overflow": "hidden"}),
         html.Button(
-            "Export By Store to Excel",
-            id="pruning-store-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
+            "Export By Store to Excel", id="pruning-store-export-btn", n_clicks=0,
+            style={"padding": "0.4rem 1.2rem", "cursor": "pointer", "marginTop": "0.5rem"},
         ),
         dcc.Store(
             id="pruning-store-table-data",

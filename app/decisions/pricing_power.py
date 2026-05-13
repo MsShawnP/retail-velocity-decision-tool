@@ -14,6 +14,7 @@ from dash import Input, Output, callback_context, dcc, html, no_update
 from charts import apply_hbar_layout, text_annotation
 from components import (
     chart_legend,
+    dashboard_layout,
     empty_state,
     error_card,
     excel_download_data,
@@ -299,68 +300,60 @@ def layout(
     safe_scope = (effective_sku or effective_pl or "all").lower().replace(" ", "_")
 
     # Assemble the full component tree
-    return html.Div([
-        html.H3(headline, style={"marginBottom": "0.5rem"}),
-        html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem"}),
-        # Metric cards row
-        html.Div(
-            [
-                html.Div(metric_card("Avg Elasticity", f"{avg_elast:.2f}"), style={"flex": "1"}),
-                html.Div(metric_card("Avg Discount", f"{avg_disc:.2f}%"), style={"flex": "1"}),
-                html.Div(metric_card("Promote-again SKUs", str(n_promote_again)), style={"flex": "1"}),
-                html.Div(metric_card("Backfired Promos", str(n_backfired)), style={"flex": "1"}),
-            ],
-            style={"display": "flex", "gap": "1rem", "marginBottom": "1rem"},
-        ),
-        status_legend(legend_html),
-        row_count_line("SKUs", [
-            (n_promote_again, "Promote again"),
-            (n_cautious, "Promote cautiously"),
-            (n_stop, "Stop promoting"),
-            (n_backfired, "Promo backfired"),
-        ]),
-        grid,
-        # Chart section
-        html.H4(chart_title, style={"marginTop": "1.5rem"}),
-        html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
-        chart_legend([
-            (TEAL,     "Promote again (lift + full recovery)"),
-            (ORANGE,   "Promote cautiously (lift + partial recovery)"),
-            (RED,      "Stop promoting (lift + slow recovery)"),
-            (DARK_RED, "Promo backfired (velocity dropped)"),
-        ]),
-        dcc.Graph(figure=fig, id="pricing-power-chart"),
-        html.Div(
-            "Negative elasticity can indicate failed promo execution (item not "
-            "properly set up at POS), poor price perception, or brand damage "
-            "from discounting.",
-            style={
-                "color": GREY,
-                "fontSize": "12px",
-                "margin": "-0.5em 0 0.8em 0",
-            },
-        ),
-        # Excel export
-        html.Button(
-            "Export to Excel",
-            id="pricing-power-export-btn",
-            n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.5rem 1.5rem",
-                "cursor": "pointer",
-            },
-        ),
-        dcc.Download(id="pricing-power-download"),
-        # Store display_df as JSON for the download callback
-        dcc.Store(
-            id="pricing-power-table-data",
-            data={
-                "records": display_df.to_dict("records"),
-                "filename": f"pricing_power_{safe_ret}_{safe_scope}",
-            },
-        ),
-    ])
+    return dashboard_layout(
+        header=[
+            html.H3(headline, style={"marginBottom": "0.3rem"}),
+            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.Div(
+                [
+                    html.Div(metric_card("Avg Elasticity", f"{avg_elast:.2f}"), style={"flex": "1"}),
+                    html.Div(metric_card("Avg Discount", f"{avg_disc:.2f}%"), style={"flex": "1"}),
+                    html.Div(metric_card("Promote-again SKUs", str(n_promote_again)), style={"flex": "1"}),
+                    html.Div(metric_card("Backfired Promos", str(n_backfired)), style={"flex": "1"}),
+                ],
+                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+            ),
+            status_legend(legend_html),
+            row_count_line("SKUs", [
+                (n_promote_again, "Promote again"),
+                (n_cautious, "Promote cautiously"),
+                (n_stop, "Stop promoting"),
+                (n_backfired, "Promo backfired"),
+            ]),
+        ],
+        grid=grid,
+        chart=[
+            html.H4(chart_title, style={"marginTop": "0"}),
+            html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
+            chart_legend([
+                (TEAL,     "Promote again (lift + full recovery)"),
+                (ORANGE,   "Promote cautiously (lift + partial recovery)"),
+                (RED,      "Stop promoting (lift + slow recovery)"),
+                (DARK_RED, "Promo backfired (velocity dropped)"),
+            ]),
+            dcc.Graph(figure=fig, id="pricing-power-chart"),
+            html.Div(
+                "Negative elasticity can indicate failed promo execution (item not "
+                "properly set up at POS), poor price perception, or brand damage "
+                "from discounting.",
+                style={"color": GREY, "fontSize": "12px", "margin": "-0.5em 0 0.8em 0"},
+            ),
+        ],
+        footer=[
+            html.Button(
+                "Export to Excel", id="pricing-power-export-btn", n_clicks=0,
+                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+            ),
+            dcc.Download(id="pricing-power-download"),
+            dcc.Store(
+                id="pricing-power-table-data",
+                data={
+                    "records": display_df.to_dict("records"),
+                    "filename": f"pricing_power_{safe_ret}_{safe_scope}",
+                },
+            ),
+        ],
+    )
 
 
 # ============================================================
