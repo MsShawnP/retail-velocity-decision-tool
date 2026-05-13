@@ -19,6 +19,9 @@ from constants import (
     RETAILER_THRESHOLDS,
 )
 from data import get_promo_skus, get_product_lines, get_skus_for_line
+from decisions.shelf_defense import layout as shelf_layout
+from decisions.production import layout as production_layout
+from decisions.promo_roi import layout as promo_layout
 
 
 # ============================================================
@@ -131,10 +134,18 @@ def register_callbacks(app) -> None:
             if triggered not in active_ids:
                 return no_update
 
-        # Placeholder for U3-U5: each decision module will provide layout()
+        # Modes 0-2: real layouts (U3)
+        if idx == 0:
+            return shelf_layout(shelf_ret, shelf_thr, shelf_pl)
+        if idx == 1:
+            return production_layout(prod_ret, prod_pl)
+        if idx == 2:
+            return promo_layout(promo_ret, promo_sku)
+
+        # Placeholder for U4-U5: remaining decision modules
         title = DECISION_TITLES.get(decision, decision)
         return html.Div(
-            f"Decision mode: {title} — coming in U3–U5",
+            f"Decision mode: {title} — coming in U4–U5",
             style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
         )
 
