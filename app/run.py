@@ -7,9 +7,11 @@ individual modules under app/decisions/ in subsequent units.
 from __future__ import annotations
 
 import dash_bootstrap_components as dbc
-from dash import Dash, html
+from dash import Dash
 
+from callbacks import register_callbacks
 from data import init_cache
+from layout import create_layout
 
 app = Dash(
     __name__,
@@ -19,7 +21,8 @@ app = Dash(
 server = app.server
 init_cache(app)
 
-app.layout = html.Div("Cinderhaven Velocity Tool — foundation loaded")
+app.layout = create_layout()
+register_callbacks(app)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
