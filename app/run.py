@@ -14,6 +14,9 @@ from data import init_cache
 from decisions.shelf_defense import register_callbacks as shelf_cbs
 from decisions.production import register_callbacks as prod_cbs
 from decisions.promo_roi import register_callbacks as promo_cbs
+from decisions.expansion import register_callbacks as expansion_cbs
+from decisions.pruning import register_callbacks as pruning_cbs
+from decisions.rationalization import register_callbacks as rationalization_cbs
 from layout import create_layout
 
 app = Dash(
@@ -29,6 +32,9 @@ register_callbacks(app)
 shelf_cbs(app)
 prod_cbs(app)
 promo_cbs(app)
+expansion_cbs(app)
+pruning_cbs(app)
+rationalization_cbs(app)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
