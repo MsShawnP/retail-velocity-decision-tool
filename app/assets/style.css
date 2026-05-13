@@ -1,0 +1,187 @@
+/* Cinderhaven Velocity Tool — brand overrides for Dash + Bootstrap.
+   Dash auto-loads every CSS file in the assets/ directory. */
+
+/* ============================================================
+   Body + page background
+   ============================================================ */
+
+body {
+    background-color: #DADDE3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    color: #1B2A4A;
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+
+.sidebar {
+    background-color: #FFFFFF;
+    border-right: 1px solid #DFE6E9;
+    padding: 1.5rem 1.25rem;
+    min-height: 100vh;
+}
+
+/* Brand header (Georgia serif) */
+.brand-header {
+    padding: 0.5rem 0 1rem 0;
+    border-bottom: 1px solid #DFE6E9;
+    margin-bottom: 1rem;
+}
+
+.brand-name {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: 0.04rem;
+    color: #1B2A4A;
+}
+
+.brand-sub {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.78rem;
+    color: #3D5A80;
+    letter-spacing: 0.32rem;
+    margin-top: -0.1rem;
+}
+
+.brand-tool {
+    font-size: 0.72rem;
+    color: #636E72;
+    margin-top: 0.6rem;
+}
+
+/* ============================================================
+   Cards (metric cards, content panels)
+   ============================================================ */
+
+.metric-card {
+    background-color: #FFFFFF;
+    border: 1px solid #DFE6E9;
+    border-radius: 6px;
+    padding: 0.85rem 1rem 0.75rem 1rem;
+    box-shadow: 0 1px 2px rgba(27, 42, 74, 0.05);
+}
+
+/* ============================================================
+   Main content area
+   ============================================================ */
+
+.main-content {
+    padding: 1.5rem;
+}
+
+/* Plotly charts: transparent outer canvas so page bg shows through.
+   Inner plot area stays white (set via paper_bgcolor/plot_bgcolor in code). */
+.js-plotly-plot .plotly .main-svg {
+    background: transparent !important;
+}
+
+/* ============================================================
+   AG Grid overrides
+   ============================================================ */
+
+.ag-theme-alpine .ag-header {
+    background-color: #1B2A4A;
+    color: #FFFFFF;
+}
+
+.ag-theme-alpine .ag-header-cell-text {
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.ag-theme-alpine .ag-row {
+    font-size: 0.9rem;
+}
+
+/* ============================================================
+   Story entry button (navy pill)
+   ============================================================ */
+
+.story-entry-btn {
+    background-color: #3D5A80;
+    border-color: #3D5A80;
+    color: #FFFFFF;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.7rem 0.9rem;
+    line-height: 1.3;
+    box-shadow: 0 2px 6px rgba(61, 90, 128, 0.22);
+    border-radius: 6px;
+    width: 100%;
+    cursor: pointer;
+    border: none;
+    font-size: 0.9rem;
+}
+
+.story-entry-btn:hover {
+    background-color: #1B2A4A;
+    border-color: #1B2A4A;
+    box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
+}
+
+/* ============================================================
+   Jump buttons (Section 5 of Story)
+   ============================================================ */
+
+.jump-btn {
+    background-color: #3D5A80;
+    border: none;
+    color: #FFFFFF;
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(61, 90, 128, 0.22);
+    font-size: 0.85rem;
+}
+
+.jump-btn:hover {
+    background-color: #1B2A4A;
+    box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
+}
+
+/* ============================================================
+   Back-to-story button
+   ============================================================ */
+
+.back-to-story-btn {
+    background-color: #3D5A80;
+    border: none;
+    color: #FFFFFF;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    margin-bottom: 1rem;
+}
+
+.back-to-story-btn:hover {
+    background-color: #1B2A4A;
+}
+
+/* ============================================================
+   Loading spinner
+   ============================================================ */
+
+._dash-loading {
+    color: #3D5A80;
+}
+
+/* ============================================================
+   Tabs (Pruning mode)
+   ============================================================ */
+
+.nav-tabs .nav-link.active {
+    color: #1B2A4A;
+    font-weight: 600;
+    border-bottom: 2px solid #1B2A4A;
+}
+
+.nav-tabs .nav-link {
+    color: #636E72;
+}

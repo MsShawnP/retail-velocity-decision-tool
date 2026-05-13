@@ -1,5 +1,10 @@
-streamlit>=1.32
+dash>=3.0
+dash-bootstrap-components
+dash-ag-grid
+flask-caching
+gunicorn
 pandas>=2.0
 plotly>=5.18
+psycopg2-binary>=2.9
 openpyxl>=3.1
 xlsxwriter>=3.1
