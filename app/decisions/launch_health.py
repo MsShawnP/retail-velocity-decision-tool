@@ -456,9 +456,8 @@ def register_callbacks(app) -> None:
 
         return html.Div([
             html.Div(
-                header_html,
+                dcc.Markdown(header_html, dangerously_allow_html=True),
                 style={"marginBottom": "0.5rem"},
-                dangerously_allow_html=True,
             ),
             dcc.Graph(figure=fig, id="launch-detail-chart"),
         ])

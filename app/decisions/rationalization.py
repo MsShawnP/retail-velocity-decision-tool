@@ -307,8 +307,7 @@ def _build_cut_tab(
         children.append(html.Div(
             style={"color": NAVY, "fontSize": "1rem", "lineHeight": "1.55",
                    "margin": "-0.2em 0 0.4em 0"},
-            dangerously_allow_html=True,
-            children=(
+            children=dcc.Markdown(
                 f"These <b>{len(cut_df)} SKUs</b> currently earn "
                 f"<b>${total_cut_margin:,.0f}/week</b> across "
                 f"<b>{cut_slots:,}</b> shelf slots. At median Winner "
@@ -316,33 +315,34 @@ def _build_cut_tab(
                 f"<b>${projected_weekly:,.0f}/week</b> — a net "
                 f"<b style='color:{net_color}'>{gain_or_loss} of "
                 f"${abs(net_weekly):,.0f}/week "
-                f"(${abs(net_annual):,.0f}/year)</b> from replacement."
+                f"(${abs(net_annual):,.0f}/year)</b> from replacement.",
+                dangerously_allow_html=True,
             ),
         ))
         # Supporting math line
         children.append(html.Div(
             style={"color": GREY, "fontSize": "0.86em", "margin": "0 0 0.6em 0"},
-            dangerously_allow_html=True,
-            children=(
+            children=dcc.Markdown(
                 f"Median Winner: <b>{winner_med_vel:.2f}</b> u/store/week × "
                 f"<b>${winner_med_mpu:.2f}</b>/unit = "
                 f"<b>${winner_med_msw:.2f}</b>/store/week. "
                 f"Cut candidates fall below both the median velocity "
                 f"({median_velocity:.2f}) and the median margin per "
-                f"store-week (${median_margin:.2f})."
+                f"store-week (${median_margin:.2f}).",
+                dangerously_allow_html=True,
             ),
         ))
     else:
         children.append(html.Div(
             style={"color": GREY, "fontSize": "0.92em", "margin": "-0.4em 0 0.6em 0"},
-            dangerously_allow_html=True,
-            children=(
+            children=dcc.Markdown(
                 f"<b>{len(cut_df)} SKUs are cut candidates</b>, currently "
                 f"earning <b>${total_cut_margin:,.0f}/wk</b> across "
                 f"{cut_slots:,} shelf slots. Below both the median "
                 f"velocity ({median_velocity:.2f}) and the median margin "
                 f"per store-week (${median_margin:.2f}). No Winner SKUs "
-                f"in scope to project a replacement comparison against."
+                f"in scope to project a replacement comparison against.",
+                dangerously_allow_html=True,
             ),
         ))
 
@@ -543,8 +543,7 @@ def _build_portfolio_tab(
     ))
     children.append(html.Div(
         style={"color": GREY, "fontSize": "0.92em", "margin": "-0.4em 0 0.4em 0"},
-        dangerously_allow_html=True,
-        children=(
+        children=dcc.Markdown(
             f"Low total margin doesn't always mean cut.  "
             f"<span style='color:{NAVY_MED}; font-weight:600'>Low distribution</span> "
             f"(navy) = strong per-store performance but too few doors to generate "
@@ -556,7 +555,8 @@ def _build_portfolio_tab(
             f"<span style='color:{RED}; font-weight:600'>Cut candidates</span> "
             f"(red) have low velocity AND low margin — kill first.  "
             f"Median velocity = {median_velocity:.2f} units/store/week, median "
-            f"margin per store-week = ${median_margin:.2f}."
+            f"margin per store-week = ${median_margin:.2f}.",
+            dangerously_allow_html=True,
         ),
     ))
     children.append(chart_legend([

@@ -28,7 +28,7 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 server = app.server
-init_cache(app)
+init_cache(server)
 
 app.layout = create_layout()
 register_callbacks(app)
