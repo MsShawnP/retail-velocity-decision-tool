@@ -244,7 +244,7 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
     for _, p in promos.iterrows():
         ret = p["retailer"]
         ret_clause, ret_params = retailer_clause(ret)
-        is_agg = 1 if ret in ("UNFI", "DTC") else 0
+        is_agg = ret in ("UNFI", "DTC")
         # Saturday-align the promo dates
         start_we = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5)).date().isoformat()
         end_we   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5)).date().isoformat()
@@ -1194,9 +1194,15 @@ def warm_cache() -> None:
         # Story mode helpers
         ("monday_summary",          lambda: get_monday_morning_summary(PROTAGONIST_SKU)),
         ("sku_velocity",            lambda: get_sku_weekly_velocity(PROTAGONIST_SKU)),
+        ("sku_trade_spend",         lambda: get_sku_trade_spend(PROTAGONIST_SKU)),
+        ("promo_hangover",          lambda: get_promo_hangover_data(PROTAGONIST_SKU)),
+        ("sku_costs",               lambda: get_sku_costs(PROTAGONIST_SKU)),
         ("walmart_trajectory",      lambda: get_walmart_trajectory(PROTAGONIST_SKU)),
+        ("revenue_at_risk",         lambda: get_sku_revenue_at_risk(PROTAGONIST_SKU)),
+        ("category_avg_velocity",   lambda: get_category_avg_velocity("Specialty Condiments")),
         ("top_demand_4wk",          lambda: get_top_demand_4wk()),
         ("top_velocity_per_door",   lambda: get_top_velocity_per_door()),
+        ("bottom_stores",           lambda: get_bottom_stores_below_threshold(threshold=2.0)),
         ("top_elasticity_skus",     lambda: get_top_elasticity_skus()),
     ]
 
