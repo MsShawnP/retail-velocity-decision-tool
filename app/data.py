@@ -23,10 +23,14 @@ from db import get_pool, get_raw_conn
 # Cache setup (FileSystemCache, 1-hour default)
 # ============================================================
 
+import os
+
+_CACHE_DIR = "/cache/dash" if os.path.isdir("/cache") else "/tmp/dash-cache"
+
 cache = Cache(config={
     "CACHE_TYPE": "FileSystemCache",
-    "CACHE_DIR": "/tmp/dash-cache",
-    "CACHE_DEFAULT_TIMEOUT": 3600,
+    "CACHE_DIR": _CACHE_DIR,
+    "CACHE_DEFAULT_TIMEOUT": 86400,
 })
 
 
