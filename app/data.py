@@ -1171,10 +1171,24 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
 # Cache warming
 # ============================================================
 
+def warm_default_view() -> None:
+    """Synchronously warm the default view (Shelf Defense + Walmart) so the
+    first page load has data immediately.  Called before the background thread."""
+    import logging
+    log = logging.getLogger("warm_cache")
+
+    get_product_lines()
+    get_latest_week()
+    get_shelf_defense_data("Walmart", None)
+    log.info("default view warmed")
+
+
 def warm_cache() -> None:
     """Pre-call every retailer × mode combination so dropdown switches
-    never hit a cold cache.  Runs in a background thread on worker boot."""
+    never hit a cold cache.  Runs in a background thread after the default
+    view is already warm."""
     import logging
+    import time
     log = logging.getLogger("warm_cache")
 
     from constants import (
@@ -1183,16 +1197,18 @@ def warm_cache() -> None:
         PROTAGONIST_SKU,
     )
 
+    # Small delay to let the worker finish booting and serve the first request
+    time.sleep(2)
+
     calls: list[tuple[str, callable]] = [
-        ("get_product_lines", lambda: get_product_lines()),
-        ("get_latest_week",   lambda: get_latest_week()),
-        ("launch_data",       lambda: get_launch_data()),
+        ("launch_data", lambda: get_launch_data()),
     ]
 
-    # Shelf defense + pruning: physical retailers only
+    # Shelf defense + pruning: physical retailers only (Walmart already warmed)
     for ret in PHYSICAL_RETAILERS:
-        calls.append((f"shelf_defense({ret})", lambda r=ret: get_shelf_defense_data(r, None)))
-        calls.append((f"pruning({ret})",       lambda r=ret: get_pruning_data(r, None)))
+        if ret != "Walmart":
+            calls.append((f"shelf_defense({ret})", lambda r=ret: get_shelf_defense_data(r, None)))
+        calls.append((f"pruning({ret})", lambda r=ret: get_pruning_data(r, None)))
 
     # Production + rationalization: physical retailers + "All Retailers"
     for ret in ["All Retailers"] + PHYSICAL_RETAILERS:
@@ -1231,3 +1247,5 @@ def warm_cache() -> None:
             log.info("warmed %s", name)
         except Exception:
             log.warning("warm_cache: %s failed", name, exc_info=True)
+
+    log.info("cache fully warmed (%d entries)", len(calls))
