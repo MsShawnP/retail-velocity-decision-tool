@@ -12,7 +12,7 @@ import dash_bootstrap_components as dbc
 from dash import Dash
 
 from callbacks import register_callbacks
-from data import init_cache, warm_cache
+from data import init_cache, warm_cache, warm_default_view
 from story import register_callbacks as story_cbs
 from decisions.shelf_defense import register_callbacks as shelf_cbs
 from decisions.production import register_callbacks as prod_cbs
@@ -44,6 +44,7 @@ rationalization_cbs(app)
 launch_cbs(app)
 pricing_cbs(app)
 
+warm_default_view()
 threading.Thread(target=warm_cache, daemon=True).start()
 
 if __name__ == "__main__":

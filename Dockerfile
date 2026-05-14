@@ -11,7 +11,7 @@ EXPOSE 8080
 
 CMD ["gunicorn", "run:server", \
      "-b", "0.0.0.0:8080", \
-     "-w", "2", \
+     "-w", "1", \
      "--worker-class", "gthread", \
-     "--threads", "2", \
-     "--timeout", "60"]
+     "--threads", "4", \
+     "--timeout", "120"]
