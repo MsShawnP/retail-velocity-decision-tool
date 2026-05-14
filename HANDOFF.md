@@ -1,41 +1,53 @@
 # Handoff — Retail Velocity Decision Tool
 
-## Session ended: 2026-05-13 ~8:30pm ET
+## Session ended: 2026-05-14 ~1:55pm ET
 
-### Status: BLOCKED on performance — app deployed but not usable yet
+### Status: App deployed and serving — needs browser verification
 
-### What shipped
-- Streamlit-to-Dash rewrite fully deployed to Fly.io
+### What shipped this session
+- Fixed `get_pruning_data` GROUP BY error — added 7 missing non-aggregated columns (PR #4, merged)
+- Connection pool maxconn increased from 4 to 10 (shipped in prior session commit `bbd84e9`)
+- `fct_distribution` table created on production Fly Postgres (12,507 rows, shipped prior session via SSH)
+- Deployed version 30 to Fly.io — machine `5683e221ce00d8` running in `iad`
+- Cache fully populated: 95 files in `/cache/dash/` on persistent volume
+- App serving HTTP 200 (verified via SSH localhost hit)
+- Cleaned up temp `create_fct.py` script
+- PR #1 created for refactor-older-cinderhaven-projects (SQLite-to-Postgres migration)
+
+### What was fixed across both sessions (cumulative)
+- Streamlit-to-Dash rewrite fully deployed
 - Side-by-side layout (grid left, chart right) for all 8 decision modes
 - Background cache warming for all retailer × mode combinations
-- Persistent Fly volume at `/cache` so cache survives deploys
+- Persistent Fly volume at `/cache` (survives deploys)
 - 1 gunicorn worker + 4 threads + 120s timeout
-- Machine set to always-on (`auto_stop_machines = 'off'`)
-- Fixed `get_promo_hangover_data` boolean type mismatch (`is_agg` was int, Postgres column is boolean)
+- Machine always-on (`auto_stop_machines = 'off'`)
+- Boolean type mismatch in `get_promo_hangover_data` (`is_agg` int → Python bool)
+- `fct_distribution` table created (was never materialized by dbt)
+- Connection pool maxconn 4 → 10
+- Pruning SQL GROUP BY error fixed
 
-### What's broken — must fix next session
+### What needs verification — do this first next session
 
-1. **All tabs must load instantaneously.** Currently the first load after a deploy or cache expiry is slow (each query hits remote Postgres). The persistent volume helps on subsequent visits, but the first warm is still painful. Consider pre-loading the "All" / default data for every dropdown on every mode so the most common views are always ready. The cache TTL is 24h — weekly data doesn't change faster than that.
+1. **Open https://retail-velocity-decision-tool.fly.dev/ in a real browser.** WebFetch can't test Dash's JS SPA. Verify:
+   - All 8 decision mode tabs load with data grids and charts
+   - Dropdown switching is instant (data is cached)
+   - **Story mode (Charred Scallion Relish) loads end-to-end** — user has never seen this work
+2. If any tab fails, check `fly logs --app retail-velocity-decision-tool --no-tail` for the specific error
 
-2. **The Charred Scallion Relish story/report has never successfully loaded.** The user has not seen it work once. Known issues:
-   - `get_promo_hangover_data` was hitting a `boolean = integer` type error on `is_aggregated_channel` — fixed in code but may not have been cached successfully yet
-   - `get_pruning_data` fails with `relation "fct_distribution" does not exist` — this table may not exist in the current database schema. Needs investigation: is the table missing from dbt, or is the query referencing the wrong table name?
-   - Story mode calls ~12 data functions sequentially. If any one fails, the whole page may error out. Need to check whether the Story layout handles partial failures or crashes entirely.
-
-3. **"Connection pool exhausted" errors on tab switching.** User saw `Promo ROI query failed — Could not load promo ROI data for Walmart: connection pool exhausted`. Root cause: warm_cache background thread holds connections while user requests also need them. Pool is maxconn=4, worker has 4 threads + 1 warm_cache thread = 5 potential consumers. Fix: increase maxconn to 8 in `app/db.py` line 58, OR throttle warm_cache to sleep between queries and release connections, OR restructure warm_cache to use a single connection for all queries instead of checking out/returning per call.
-
-### Specific next steps
-
-1. **Fix connection pool exhaustion** — increase `maxconn` in `app/db.py` from 4 to 8, or restructure warm_cache to be less greedy with connections
-2. SSH into Fly machine, check `/cache/dash` directory to confirm cache files exist and are being written
-3. Investigate `fct_distribution` — does this table exist in the database? Run `\dt fct_*` or check dbt models
-4. Load the Story tab manually and read the full error traceback from `fly logs`
-5. Make warm_cache robust to individual query failures (it already catches exceptions, but confirm the Story-mode data functions all succeed)
-6. Test every tab + every dropdown value in the browser and confirm instant switching
-7. Consider whether the cache warming strategy needs rethinking — pre-compute at deploy time vs runtime warming
+### Known risks
+- `fct_distribution` was created via direct SQL, not dbt. Won't auto-refresh. Distribution data changes infrequently, so acceptable for now.
+- Cache TTL is 24h. After expiry, warm_cache re-runs on next boot/visit. Persistent volume means cache survives deploys but not TTL expiry.
+- Fly machine occasionally stops unexpectedly despite `auto_stop_machines = 'off'`. May need a health check endpoint or Fly uptime monitor.
 
 ### Architecture notes
 - Cache: `flask-caching` FileSystemCache at `/cache/dash` (Fly volume, 1GB, persists across deploys)
-- DB: Postgres via psycopg2, PID-aware ThreadedConnectionPool (maxconn=4 — TOO LOW, needs increase)
+- DB: Postgres via psycopg2, PID-aware ThreadedConnectionPool (maxconn=10)
 - Deploy: `fly deploy` from local, Dockerfile builds from `app/` directory
 - Gunicorn: 1 worker, gthread class, 4 threads, 120s timeout
+- Machine: shared-cpu-1x, 1GB RAM, iad region, always-on
+
+---
+
+## Session ended: 2026-05-13 ~8:30pm ET (prior session)
+
+### Status: BLOCKED on performance — resolved in 2026-05-14 session above
