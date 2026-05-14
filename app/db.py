@@ -55,7 +55,7 @@ def get_pool() -> psycopg2.pool.ThreadedConnectionPool:
         _register_dec2float()
         pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=1,
-            maxconn=4,
+            maxconn=10,
             dsn=get_database_url(),
         )
         _pools[pid] = pool
