@@ -171,8 +171,9 @@ def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFra
         df = pd.read_sql(sql, conn, params=[latest] * 6)
     finally:
         _return_conn(conn)
-    df["units_yoy_pct"] = (df["units_cur"] - df["units_prior"]) / df["units_prior"] * 100
-    df["dollars_yoy_pct"] = (df["dollars_cur"] - df["dollars_prior"]) / df["dollars_prior"] * 100
+    df["units_yoy_pct"] = (df["units_cur"] - df["units_prior"]) / df["units_prior"].replace(0, pd.NA) * 100
+    df["dollars_yoy_pct"] = (df["dollars_cur"] - df["dollars_prior"]) / df["dollars_prior"].replace(0, pd.NA) * 100
+    df = df.dropna(subset=["units_yoy_pct", "dollars_yoy_pct"])
 
     # Stratified sample so the YoY column shows a realistic spread
     n_winners = (n_show + 1) // 2
@@ -242,34 +243,35 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
             """,
             conn, params=[sku],
         )
-    finally:
-        _return_conn(conn)
-    rows = []
-    for _, p in promos.iterrows():
-        ret = p["retailer"]
-        ret_clause, ret_params = retailer_clause(ret)
-        is_agg = ret in ("UNFI", "DTC")
-        # Saturday-align the promo dates
-        start_we = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5)).date().isoformat()
-        end_we   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5)).date().isoformat()
-        pre_start  = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(weeks=4)).date().isoformat()
-        pre_end    = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(days=1)).date().isoformat()
-        post_start = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(days=7)).date().isoformat()
-        post_end   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(weeks=4)).date().isoformat()
 
-        conn_inner = get_raw_conn()
-        try:
-            cur = conn_inner.cursor()
+        # Single cursor reused across all promos to avoid hammering the
+        # connection pool with one checkout per promo iteration.
+        rows = []
+        cur = conn.cursor()
+        for _, p in promos.iterrows():
+            ret = p["retailer"]
+            ret_clause, ret_params = retailer_clause(ret)
+            is_agg = ret in ("UNFI", "DTC")
+            # Saturday-align the promo dates
+            start_we = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5)).date().isoformat()
+            end_we   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5)).date().isoformat()
+            pre_start  = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(weeks=4)).date().isoformat()
+            pre_end    = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(days=1)).date().isoformat()
+            post_start = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(days=7)).date().isoformat()
+            post_end   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(weeks=4)).date().isoformat()
 
-            def _avg_vel(start: str, end: str) -> float | None:
+            def _avg_vel(start: str, end: str,
+                         _ret_clause: str = ret_clause,
+                         _ret_params: list = ret_params,
+                         _is_agg: bool = is_agg) -> float | None:
                 sql = f"""
                     SELECT AVG(d.units_sold)
                     FROM stg_scan_data d
                     JOIN stg_stores s ON d.store_id = s.store_id
-                    WHERE d.sku = %s AND {ret_clause} AND s.is_aggregated_channel = %s
+                    WHERE d.sku = %s AND {_ret_clause} AND s.is_aggregated_channel = %s
                       AND d.week_ending BETWEEN %s AND %s
                 """
-                cur.execute(sql, [sku] + ret_params + [is_agg, start, end])
+                cur.execute(sql, [sku] + _ret_params + [_is_agg, start, end])
                 r = cur.fetchone()[0]
                 return float(r) if r is not None else None
 
@@ -277,7 +279,6 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
             promo_v = _avg_vel(start_we, end_we)
             post_v  = _avg_vel(post_start, post_end)
 
-            # Doors and incremental dollars
             doors_sql = f"""
                 SELECT COUNT(DISTINCT d.store_id)
                 FROM stg_scan_data d JOIN stg_stores s ON d.store_id = s.store_id
@@ -286,24 +287,25 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
             """
             cur.execute(doors_sql, [sku] + ret_params + [is_agg, start_we, end_we])
             doors = cur.fetchone()[0] or 0
-        finally:
-            _return_conn(conn_inner)
 
-        rows.append({
-            "promo_id": p["promo_id"], "retailer": ret,
-            "start_week": p["start_week"], "end_week": p["end_week"],
-            "duration_weeks": p["duration_weeks"],
-            "discount_depth_pct": p["discount_depth_pct"],
-            "promo_type": p["promo_type"],
-            "pre_v": pre_v, "promo_v": promo_v, "post_v": post_v,
-            "doors": doors,
-        })
+            rows.append({
+                "promo_id": p["promo_id"], "retailer": ret,
+                "start_week": p["start_week"], "end_week": p["end_week"],
+                "duration_weeks": p["duration_weeks"],
+                "discount_depth_pct": p["discount_depth_pct"],
+                "promo_type": p["promo_type"],
+                "pre_v": pre_v, "promo_v": promo_v, "post_v": post_v,
+                "doors": doors,
+            })
+    finally:
+        _return_conn(conn)
     df = pd.DataFrame(rows)
     if df.empty:
         return df
     # Lift, dip, and per-promo hangover (post minus pre, the residual damage)
-    df["lift_pct"] = (df["promo_v"] - df["pre_v"]) / df["pre_v"] * 100
-    df["dip_pct"]  = (df["post_v"] - df["pre_v"]) / df["pre_v"] * 100
+    pre_safe = df["pre_v"].replace(0, pd.NA)
+    df["lift_pct"] = (df["promo_v"] - df["pre_v"]) / pre_safe * 100
+    df["dip_pct"]  = (df["post_v"] - df["pre_v"]) / pre_safe * 100
     return df
 
 
@@ -410,7 +412,7 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
             """,
             [sku],
         )
-        row = cur.fetchone()
+        row = cur.fetchone() or (None, None, None)
         walmart_doors = row[0] or 0
         walmart_v     = row[1] or 0.0
         walmart_q     = row[2] or 0.0  # last 13wk dollars at walmart
@@ -422,7 +424,7 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
             """SELECT wholesale_walmart, cogs_per_unit FROM stg_sku_costs WHERE sku=%s""",
             [sku],
         )
-        cost_row = cur.fetchone()
+        cost_row = cur.fetchone() or (None, None)
     finally:
         _return_conn(conn)
     wholesale_walmart = cost_row[0] or 0
@@ -845,14 +847,7 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     """Stores where focus_sku is NOT authorized but same-line SKUs perform well."""
     latest = get_latest_week()
 
-    # Determine retailer filter for stores
-    if retailer is None or retailer == "All Retailers":
-        ret_sql, ret_params = "1=1", []
-    elif retailer == "Regional":
-        ph = ",".join("%s" for _ in REGIONAL_CHAINS)
-        ret_sql, ret_params = f"s.retailer IN ({ph})", list(REGIONAL_CHAINS)
-    else:
-        ret_sql, ret_params = "s.retailer = %s", [retailer]
+    ret_sql, ret_params = retailer_clause(retailer or "All Retailers")
 
     sql = f"""
         WITH focus AS (SELECT product_line FROM dim_products WHERE sku = %s),
@@ -1245,11 +1240,19 @@ def warm_cache() -> None:
         ("top_elasticity_skus",   lambda: get_top_elasticity_skus()),
     ])
 
+    failures: list[str] = []
     for name, fn in calls:
         try:
             fn()
             log.info("warmed %s", name)
         except Exception:
+            failures.append(name)
             log.warning("warm_cache: %s failed", name, exc_info=True)
 
-    log.info("cache fully warmed (%d entries)", len(calls))
+    if failures:
+        log.error(
+            "cache warmed with %d/%d failures: %s",
+            len(failures), len(calls), ", ".join(failures),
+        )
+    else:
+        log.info("cache fully warmed (%d entries)", len(calls))

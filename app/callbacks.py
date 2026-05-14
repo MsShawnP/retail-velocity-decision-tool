@@ -130,9 +130,35 @@ def register_callbacks(app) -> None:
         price_ret, price_scope, price_pl, price_sku,
         came_from_story,
     ):
+        import logging
+        log = logging.getLogger("dispatch")
+
+        def _error_panel(mode: str, exc: Exception):
+            return html.Div(
+                [
+                    html.Div(
+                        f"{mode} couldn't load.",
+                        style={"color": NAVY, "fontWeight": "600", "fontSize": "1.1rem",
+                               "marginBottom": "0.4rem"},
+                    ),
+                    html.Div(
+                        f"{exc.__class__.__name__}: {exc}",
+                        style={"color": "#636E72", "fontFamily": "monospace",
+                               "fontSize": "0.85rem", "whiteSpace": "pre-wrap"},
+                    ),
+                ],
+                style={"padding": "1.5rem", "backgroundColor": "#F8F9FA",
+                       "border": "1px solid #DFE6E9", "borderRadius": "6px",
+                       "margin": "1rem"},
+            )
+
         # Story mode
         if view == "story":
-            return story_layout()
+            try:
+                return story_layout()
+            except Exception as exc:
+                log.exception("story layout failed")
+                return _error_panel("The Charred Scallion Relish deep dive", exc)
 
         # Determine active mode index
         idx = DECISIONS.index(decision) if decision in DECISIONS else 0
@@ -158,29 +184,32 @@ def register_callbacks(app) -> None:
         promo_sku = _none_if(promo_sku, "All SKUs")
         exp_ret = _none_if(exp_ret, "All Retailers")
 
-        # Modes 0-7: real layouts
-        if idx == 0:
-            content = shelf_layout(shelf_ret, shelf_thr, shelf_pl)
-        elif idx == 1:
-            content = production_layout(prod_ret, prod_pl)
-        elif idx == 2:
-            content = promo_layout(promo_ret, promo_sku)
-        elif idx == 3:
-            content = expansion_layout(exp_pl, exp_sku, exp_ret)
-        elif idx == 4:
-            content = pruning_layout(prune_ret, prune_thr, prune_pl)
-        elif idx == 5:
-            content = rationalization_layout(rat_ret, rat_pl)
-        elif idx == 6:
-            content = launch_layout()
-        elif idx == 7:
-            content = pricing_layout(price_ret, price_scope, price_pl, price_sku)
-        else:
-            title = DECISION_TITLES.get(decision, decision)
-            content = html.Div(
-                f"Decision mode: {title} — unknown mode index {idx}",
-                style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
-            )
+        title = DECISION_TITLES.get(decision, decision)
+        try:
+            if idx == 0:
+                content = shelf_layout(shelf_ret, shelf_thr, shelf_pl)
+            elif idx == 1:
+                content = production_layout(prod_ret, prod_pl)
+            elif idx == 2:
+                content = promo_layout(promo_ret, promo_sku)
+            elif idx == 3:
+                content = expansion_layout(exp_pl, exp_sku, exp_ret)
+            elif idx == 4:
+                content = pruning_layout(prune_ret, prune_thr, prune_pl)
+            elif idx == 5:
+                content = rationalization_layout(rat_ret, rat_pl)
+            elif idx == 6:
+                content = launch_layout()
+            elif idx == 7:
+                content = pricing_layout(price_ret, price_scope, price_pl, price_sku)
+            else:
+                content = html.Div(
+                    f"Decision mode: {title} — unknown mode index {idx}",
+                    style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
+                )
+        except Exception as exc:
+            log.exception("decision mode %s (idx=%s) failed", title, idx)
+            content = _error_panel(title, exc)
 
         # "Back to Deep Dive" button when arrived from Story jump buttons
         if came_from_story:

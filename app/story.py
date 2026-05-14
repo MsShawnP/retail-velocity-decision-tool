@@ -19,6 +19,7 @@ from components import chart_legend, metric_card
 from constants import (
     DECISIONS,
     GREY,
+    GREY_BG,
     GREY_LIGHT,
     NAVY,
     NAVY_MED,
@@ -986,22 +987,71 @@ def layout() -> html.Div:
         ),
     ], style={"marginBottom": "0.6rem"})
 
-    # Build sections sequentially (some pass computed values forward)
-    sec1 = _section_1()
+    import logging
+    log = logging.getLogger("story")
 
-    sec2, sec2_vals = _section_2()
+    def _fallback(section_name: str, exc: Exception) -> html.Div:
+        return html.Div(
+            [
+                html.Div(
+                    f"This section of the deep dive could not be loaded.",
+                    style={"color": NAVY, "fontWeight": "600", "marginBottom": "0.3rem"},
+                ),
+                html.Div(
+                    f"{section_name}: {exc.__class__.__name__} — {exc}",
+                    style={"color": GREY, "fontSize": "0.85rem", "fontFamily": "monospace"},
+                ),
+            ],
+            style={
+                "backgroundColor": GREY_BG, "border": f"1px solid {GREY_LIGHT}",
+                "borderLeft": f"6px solid {ORANGE}", "borderRadius": "6px",
+                "padding": "1rem 1.2rem", "margin": "1rem 0",
+            },
+        )
 
-    sec3, sec3_vals = _section_3(sec2_vals["trade_spend"])
+    _SEC2_DEFAULTS = {
+        "yoy_units_pct": 0.0, "trade_spend": 0.0,
+        "prior_baseline": 0.0, "recent_baseline": 0.0, "baseline_pct": 0.0,
+    }
+    _SEC4_DEFAULTS = {"rev": None, "cross_date": None}
 
-    sec4, sec4_vals = _section_4()
+    try:
+        sec1 = _section_1()
+    except Exception as exc:
+        log.exception("story section 1 failed")
+        sec1 = _fallback("Section 1 — Monday morning report", exc)
 
-    sec5 = _section_5(
-        yoy_units_pct=sec2_vals["yoy_units_pct"],
-        trade_spend=sec2_vals["trade_spend"],
-        prior_baseline=sec2_vals["prior_baseline"],
-        recent_baseline=sec2_vals["recent_baseline"],
-        rev=sec4_vals["rev"],
-    )
+    try:
+        sec2, sec2_vals = _section_2()
+    except Exception as exc:
+        log.exception("story section 2 failed")
+        sec2 = _fallback("Section 2 — velocity & baseline", exc)
+        sec2_vals = dict(_SEC2_DEFAULTS)
+
+    try:
+        sec3, _ = _section_3(sec2_vals["trade_spend"])
+    except Exception as exc:
+        log.exception("story section 3 failed")
+        sec3 = _fallback("Section 3 — promo ROI", exc)
+
+    try:
+        sec4, sec4_vals = _section_4()
+    except Exception as exc:
+        log.exception("story section 4 failed")
+        sec4 = _fallback("Section 4 — Walmart trajectory", exc)
+        sec4_vals = dict(_SEC4_DEFAULTS)
+
+    try:
+        sec5 = _section_5(
+            yoy_units_pct=sec2_vals["yoy_units_pct"],
+            trade_spend=sec2_vals["trade_spend"],
+            prior_baseline=sec2_vals["prior_baseline"],
+            recent_baseline=sec2_vals["recent_baseline"],
+            rev=sec4_vals["rev"],
+        )
+    except Exception as exc:
+        log.exception("story section 5 failed")
+        sec5 = _fallback("Section 5 — total cost", exc)
 
     return html.Div([
         title_block,

@@ -44,7 +44,7 @@ git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
 cd retail-velocity-decision-tool
 pip install -r app/requirements.txt
 cp .env.example .env   # edit DATABASE_URL if not using local Docker
-streamlit run app/velocity_tool.py
+cd app && python run.py
 ```
 
 To run locally, start the shared Docker Postgres from
@@ -54,16 +54,21 @@ To run locally, start the shared Docker Postgres from
 # In the refactor-older-cinderhaven-projects repo:
 docker compose up
 
-# Then in this repo:
-streamlit run app/velocity_tool.py
+# Then in this repo (development mode, http://localhost:8050):
+cd app && python run.py
+
+# Or, to run the gunicorn server the way it runs in production:
+cd app && gunicorn run:server -b 0.0.0.0:8080 --worker-class gthread --threads 4
 ```
 
 ## Built with
 
-- **Streamlit** — interactive decision tool
-- **Python + Pandas** — data generation and analysis
-- **Plotly** — CEO-readable visualizations
-- **Postgres** — Cinderhaven Data Platform
+- **Dash + Plotly** — interactive decision tool and CEO-readable visualizations
+- **dash-ag-grid** — sortable, filterable data grids
+- **flask-caching** — FileSystemCache backed by a persistent Fly volume
+- **Python + Pandas** — data analysis
+- **Postgres** — Cinderhaven Data Platform (psycopg2 + PID-aware pool)
+- **Fly.io** — deployment (1 gunicorn worker × 4 threads, always-on)
 
 ## Context
 
