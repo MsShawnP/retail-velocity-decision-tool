@@ -1172,39 +1172,58 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
 # ============================================================
 
 def warm_cache() -> None:
-    """Pre-call the primary data function for each decision mode so the
-    first tab switch doesn't hit a cold cache.  Runs in a background
-    thread on worker boot."""
+    """Pre-call every retailer × mode combination so dropdown switches
+    never hit a cold cache.  Runs in a background thread on worker boot."""
     import logging
     log = logging.getLogger("warm_cache")
 
-    from constants import PROTAGONIST_SKU
+    from constants import (
+        ALL_PHYSICAL_OR_AGG,
+        PHYSICAL_RETAILERS,
+        PROTAGONIST_SKU,
+    )
 
     calls: list[tuple[str, callable]] = [
-        ("get_product_lines",       lambda: get_product_lines()),
-        ("get_latest_week",         lambda: get_latest_week()),
-        ("shelf_defense(Walmart)",  lambda: get_shelf_defense_data("Walmart", None)),
-        ("production(Walmart)",     lambda: get_production_data("Walmart", None)),
-        ("promo_roi(Walmart)",      lambda: get_promo_roi_data("Walmart", None)),
-        ("expansion(CHP-0044)",     lambda: get_expansion_data(PROTAGONIST_SKU, None)),
-        ("pruning(Walmart)",        lambda: get_pruning_data("Walmart", None)),
-        ("rationalization(Walmart)", lambda: get_rationalization_data("Walmart", None)),
-        ("launch_data",             lambda: get_launch_data()),
-        ("pricing(Walmart)",        lambda: get_pricing_data("Walmart", None, None)),
-        # Story mode helpers
-        ("monday_summary",          lambda: get_monday_morning_summary(PROTAGONIST_SKU)),
-        ("sku_velocity",            lambda: get_sku_weekly_velocity(PROTAGONIST_SKU)),
-        ("sku_trade_spend",         lambda: get_sku_trade_spend(PROTAGONIST_SKU)),
-        ("promo_hangover",          lambda: get_promo_hangover_data(PROTAGONIST_SKU)),
-        ("sku_costs",               lambda: get_sku_costs(PROTAGONIST_SKU)),
-        ("walmart_trajectory",      lambda: get_walmart_trajectory(PROTAGONIST_SKU)),
-        ("revenue_at_risk",         lambda: get_sku_revenue_at_risk(PROTAGONIST_SKU)),
-        ("category_avg_velocity",   lambda: get_category_avg_velocity("Specialty Condiments")),
-        ("top_demand_4wk",          lambda: get_top_demand_4wk()),
-        ("top_velocity_per_door",   lambda: get_top_velocity_per_door()),
-        ("bottom_stores",           lambda: get_bottom_stores_below_threshold(threshold=2.0)),
-        ("top_elasticity_skus",     lambda: get_top_elasticity_skus()),
+        ("get_product_lines", lambda: get_product_lines()),
+        ("get_latest_week",   lambda: get_latest_week()),
+        ("launch_data",       lambda: get_launch_data()),
     ]
+
+    # Shelf defense + pruning: physical retailers only
+    for ret in PHYSICAL_RETAILERS:
+        calls.append((f"shelf_defense({ret})", lambda r=ret: get_shelf_defense_data(r, None)))
+        calls.append((f"pruning({ret})",       lambda r=ret: get_pruning_data(r, None)))
+
+    # Production + rationalization: physical retailers + "All Retailers"
+    for ret in ["All Retailers"] + PHYSICAL_RETAILERS:
+        calls.append((f"production({ret})",      lambda r=ret: get_production_data(r, None)))
+        calls.append((f"rationalization({ret})", lambda r=ret: get_rationalization_data(r, None)))
+
+    # Promo ROI + pricing: all physical + aggregated channels
+    for ret in ALL_PHYSICAL_OR_AGG:
+        calls.append((f"promo_roi({ret})", lambda r=ret: get_promo_roi_data(r, None)))
+        calls.append((f"pricing({ret})",   lambda r=ret: get_pricing_data(r, None, None)))
+
+    # Expansion: protagonist SKU across all retailer options
+    for ret in [None] + PHYSICAL_RETAILERS:
+        label = ret or "All"
+        calls.append((f"expansion({label})", lambda r=ret: get_expansion_data(PROTAGONIST_SKU, r)))
+
+    # Story mode helpers (SKU-specific, not retailer-varied)
+    calls.extend([
+        ("monday_summary",        lambda: get_monday_morning_summary(PROTAGONIST_SKU)),
+        ("sku_velocity",          lambda: get_sku_weekly_velocity(PROTAGONIST_SKU)),
+        ("sku_trade_spend",       lambda: get_sku_trade_spend(PROTAGONIST_SKU)),
+        ("promo_hangover",        lambda: get_promo_hangover_data(PROTAGONIST_SKU)),
+        ("sku_costs",             lambda: get_sku_costs(PROTAGONIST_SKU)),
+        ("walmart_trajectory",    lambda: get_walmart_trajectory(PROTAGONIST_SKU)),
+        ("revenue_at_risk",       lambda: get_sku_revenue_at_risk(PROTAGONIST_SKU)),
+        ("category_avg_velocity", lambda: get_category_avg_velocity("Specialty Condiments")),
+        ("top_demand_4wk",        lambda: get_top_demand_4wk()),
+        ("top_velocity_per_door", lambda: get_top_velocity_per_door()),
+        ("bottom_stores",         lambda: get_bottom_stores_below_threshold(threshold=2.0)),
+        ("top_elasticity_skus",   lambda: get_top_elasticity_skus()),
+    ])
 
     for name, fn in calls:
         try:
