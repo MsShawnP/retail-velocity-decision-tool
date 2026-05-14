@@ -15,6 +15,10 @@ primary_region = 'iad'
   auto_start_machines = true
   min_machines_running = 1
 
+[mounts]
+  source = "cache_data"
+  destination = "/cache"
+
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
