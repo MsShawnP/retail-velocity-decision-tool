@@ -939,7 +939,10 @@ def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
         LEFT JOIN stg_scan_data sd ON sd.sku = a.sku AND sd.store_id = a.store_id
                               AND (%s::date - sd.week_ending::date) < 91
         WHERE 1=1 {pl_clause}
-        GROUP BY a.sku, a.store_id
+        GROUP BY a.sku, a.store_id,
+                 rs.retailer, rs.region, rs.state, rs.volume_tier,
+                 pm.product_name, pm.product_line,
+                 sc.wholesale_price
     """
     params = ret_params + [latest, latest] + pl_params
     conn = get_raw_conn()
