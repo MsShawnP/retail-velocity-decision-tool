@@ -1,6 +1,8 @@
 # Handoff — Retail Velocity Decision Tool
 
-## Last session: 2026-05-13
+## Session ended: 2026-05-13 ~8:30pm ET
+
+### Status: BLOCKED on performance — app deployed but not usable yet
 
 ### What shipped
 - Streamlit-to-Dash rewrite fully deployed to Fly.io
