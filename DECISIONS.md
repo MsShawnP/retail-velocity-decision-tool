@@ -24,6 +24,22 @@
 
 **Tradeoff:** ~$3-5/month for a shared-cpu-1x 1GB machine running continuously.
 
+## 2026-05-14: Connection pool maxconn=10
+
+**Decision:** Increased `ThreadedConnectionPool` maxconn from 4 to 10 in `app/db.py`.
+
+**Why:** 4 gunicorn threads + 1 warm_cache background thread = 5 potential concurrent consumers. maxconn=4 caused "connection pool exhausted" errors on tab switching when warm_cache was running simultaneously.
+
+**Tradeoff:** 10 connections to Fly Postgres is well within limits. Slight memory overhead per idle connection (~5MB each), negligible on the 1GB machine.
+
+## 2026-05-14: Create fct_distribution directly on production DB
+
+**Decision:** Created the `fct_distribution` table via direct SQL on the Fly Postgres instance rather than running dbt.
+
+**Why:** The dbt model existed (`cinderhaven-data-platform/models/marts/fct_distribution.sql`) but was never materialized. The dbt profile points at localhost, not the remote Fly Postgres. Running `CREATE TABLE fct_distribution AS SELECT ...` directly was the fastest path to unblocking pruning, expansion, and Story mode — all of which depend on this table.
+
+**Tradeoff:** Table won't auto-refresh when dbt runs. Acceptable for now — distribution data changes infrequently. Will need a proper dbt materialization path when the data platform CI pipeline runs against production.
+
 ## 2026-05-13: Side-by-side layout (grid left, chart right)
 
 **Decision:** Restructured all 8 decision modes from vertical stacking to a viewport-fitting flex layout with data grid on the left and chart/narrative on the right.
