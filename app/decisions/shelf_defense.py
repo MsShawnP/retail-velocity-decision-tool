@@ -238,15 +238,15 @@ def layout(
     # Assemble the full component tree
     return dashboard_layout(
         header=[
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("At Risk", str(n_atrisk)), style={"flex": "1"}),
-                    html.Div(metric_card("Warning", str(n_warn)), style={"flex": "1"}),
-                    html.Div(metric_card("Safe", str(n_safe)), style={"flex": "1"}),
+                    html.Div(metric_card("At Risk", str(n_atrisk)), className="dh-metric"),
+                    html.Div(metric_card("Warning", str(n_warn)), className="dh-metric"),
+                    html.Div(metric_card("Safe", str(n_safe)), className="dh-metric"),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
             status_legend(legend_html),
             row_count_line("SKUs", [
@@ -269,7 +269,7 @@ def layout(
         footer=[
             html.Button(
                 "Export to Excel", id="shelf-defense-export-btn", n_clicks=0,
-                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+                className="export-btn",
             ),
             dcc.Download(id="shelf-defense-download"),
             dcc.Store(

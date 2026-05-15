@@ -125,19 +125,19 @@ def layout(
     store_tab_children = _build_store_tab(pairs, threshold, retailer, product_line)
 
     return html.Div(
-        style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},
+        className="dash-layout",
         children=[
             html.Div([
-                html.H3(headline, style={"marginBottom": "0.3rem"}),
-                html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+                html.H3(headline, className="dh-headline"),
+                html.P(caption_text, className="dh-caption"),
                 html.Div(
                     [
-                        html.Div(metric_card("Active pairs", f"{n_pairs:,}"), style={"flex": "1"}),
-                        html.Div(metric_card("Below threshold", f"{n_below:,}"), style={"flex": "1"}),
-                        html.Div(metric_card("SKUs affected", f"{n_skus_affected} / {n_skus}"), style={"flex": "1"}),
-                        html.Div(metric_card("Stores affected", f"{n_stores_affected} / {n_stores}"), style={"flex": "1"}),
+                        html.Div(metric_card("Active pairs", f"{n_pairs:,}"), className="dh-metric"),
+                        html.Div(metric_card("Below threshold", f"{n_below:,}"), className="dh-metric"),
+                        html.Div(metric_card("SKUs affected", f"{n_skus_affected} / {n_skus}"), className="dh-metric"),
+                        html.Div(metric_card("Stores affected", f"{n_stores_affected} / {n_stores}"), className="dh-metric"),
                     ],
-                    style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                    className="dh-metrics",
                 ),
             ]),
             html.Div(

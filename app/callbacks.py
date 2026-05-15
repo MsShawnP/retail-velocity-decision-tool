@@ -15,9 +15,7 @@ from dash import Input, Output, State, ctx, dcc, no_update, html
 from constants import (
     DECISIONS,
     DECISION_TITLES,
-    NAVY,
     RETAILER_THRESHOLDS,
-    WHITE,
 )
 from data import get_promo_skus, get_product_lines, get_skus_for_line
 from pitch_export import build_pitch_excel, build_pitch_pdf
@@ -188,17 +186,7 @@ def register_callbacks(app) -> None:
                 "← Back to the Deep Dive",
                 id="back-to-story-btn",
                 n_clicks=0,
-                style={
-                    "padding": "0.4rem 1rem",
-                    "fontSize": "0.82rem",
-                    "fontWeight": "600",
-                    "color": WHITE,
-                    "backgroundColor": NAVY,
-                    "border": "none",
-                    "borderRadius": "6px",
-                    "cursor": "pointer",
-                    "marginBottom": "1rem",
-                },
+                className="back-to-story-btn",
             )
             return html.Div([back_btn, content])
 

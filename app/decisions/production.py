@@ -211,16 +211,16 @@ def layout(
     # Assemble the full component tree
     return dashboard_layout(
         header=[
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("Weekly demand (units)", f"{total_units:,}"), style={"flex": "1"}),
-                    html.Div(metric_card("Weekly demand (cases)", f"{total_cases:,}"), style={"flex": "1"}),
-                    html.Div(metric_card("4-wk target (cases)", f"{forecast_cases:,}"), style={"flex": "1"}),
-                    html.Div(metric_card("Accelerating SKUs", str(n_accel)), style={"flex": "1"}),
+                    html.Div(metric_card("Weekly demand (units)", f"{total_units:,}"), className="dh-metric"),
+                    html.Div(metric_card("Weekly demand (cases)", f"{total_cases:,}"), className="dh-metric"),
+                    html.Div(metric_card("4-wk target (cases)", f"{forecast_cases:,}"), className="dh-metric"),
+                    html.Div(metric_card("Accelerating SKUs", str(n_accel)), className="dh-metric"),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
             status_legend(legend_html),
             row_count_line("SKUs", [
@@ -243,7 +243,7 @@ def layout(
         footer=[
             html.Button(
                 "Export to Excel", id="production-export-btn", n_clicks=0,
-                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+                className="export-btn",
             ),
             dcc.Download(id="production-download"),
             dcc.Store(
