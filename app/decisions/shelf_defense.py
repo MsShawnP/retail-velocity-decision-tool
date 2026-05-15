@@ -31,7 +31,6 @@ from constants import (
     GREEN_FAINT,
     RED,
     RED_FAINT,
-    SHELF_ROW,
     SHELF_STATUS_COLORS,
     TEAL,
     THRESHOLDS,

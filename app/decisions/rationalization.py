@@ -22,7 +22,6 @@ from components import (
     error_card,
     excel_download_data,
     make_grid,
-    metric_card,
     row_count_line,
     status_legend,
 )
@@ -39,7 +38,6 @@ from constants import (
     RED_FAINT,
     RETAILER_THRESHOLDS,
     TEAL,
-    WHITE,
 )
 from data import get_latest_week, get_rationalization_data
 
@@ -139,7 +137,6 @@ def layout(
     n_niche = int(((~df["high_velocity"]) & (df["high_margin"])).sum())
     n_cut = int(((~df["high_velocity"]) & (~df["high_margin"])).sum())
 
-    n_below_thresh = int((df["velocity"] < threshold).sum())
     bottom_q = df["weekly_total_margin"].quantile(0.20)
     n_low_margin = int((df["weekly_total_margin"] <= bottom_q).sum())
     cut_candidates = df[(df["velocity"] < threshold) & (df["weekly_total_margin"] <= bottom_q)]

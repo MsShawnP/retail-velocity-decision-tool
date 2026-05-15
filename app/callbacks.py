@@ -16,7 +16,6 @@ from constants import (
     DECISIONS,
     DECISION_TITLES,
     NAVY,
-    PHYSICAL_RETAILERS,
     RETAILER_THRESHOLDS,
     WHITE,
 )

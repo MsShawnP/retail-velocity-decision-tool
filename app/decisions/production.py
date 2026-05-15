@@ -29,7 +29,6 @@ from constants import (
     GREY_BG,
     NAVY,
     NAVY_MED,
-    PRODUCTION_ROW,
     PRODUCTION_STATUS_COLORS,
     RED,
     RED_FAINT,
@@ -94,14 +93,6 @@ def layout(
     total_units = int(df["weekly_units"].sum())
     total_cases = int(df["weekly_cases"].sum())
     forecast_cases = int(df["forecast_4w_cases"].sum())
-
-    # Forecast explanation
-    forecast_explanation = (
-        "This forecast uses trailing 4-week velocity adjusted for seasonal "
-        "patterns. If the same period last year ran above the annual average, "
-        "the forecast adjusts upward — and vice versa. These are production "
-        "targets, not historical summaries."
-    )
 
     # Status legend
     accel_pct = THRESHOLDS["production_trend_accel"] * 100
