@@ -20,6 +20,7 @@ primary_region = 'iad'
   destination = "/cache"
 
 [[checks]]
+  name = "health"
   port = 8080
   type = "http"
   interval = "30s"
