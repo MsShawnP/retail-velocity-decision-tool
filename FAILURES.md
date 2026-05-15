@@ -42,4 +42,4 @@
 
 **Why it failed:** The `update_expansion_skus` callback has `prevent_initial_call=True`, so it only fires when the product line value changes. On initial load, the default value is already set but the callback never fires to populate the dependent SKU dropdown.
 
-**Not fixed:** Pre-existing behavior, out of scope for this PR. Would need either `prevent_initial_call=False` with proper handling, or server-side pre-population of the SKU options in the layout function.
+**Fixed:** Pre-populated SKU options server-side in `_filters_expansion()` by calling `get_skus_for_line(product_lines[0])` at layout build time (PR #9).

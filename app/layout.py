@@ -18,7 +18,7 @@ from constants import (
     PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
 )
-from data import get_product_lines
+from data import get_product_lines, get_skus_for_line
 
 
 # ============================================================
@@ -107,9 +107,13 @@ def _filters_promo() -> html.Div:
 
 
 def _filters_expansion(product_lines: list[str]) -> html.Div:
+    initial_skus = []
+    if product_lines:
+        pairs = get_skus_for_line(product_lines[0])
+        initial_skus = [{"label": f"{sku} — {name}", "value": sku} for sku, name in pairs]
     return html.Div(id="filters-expansion", style={"display": "none"}, children=[
         _filter_dropdown("expansion-product-line", product_lines, label="Product Line"),
-        _filter_dropdown("expansion-focus-sku", [], label="Focus SKU",
+        _filter_dropdown("expansion-focus-sku", initial_skus, label="Focus SKU",
                          placeholder="Select a product line first"),
         _filter_dropdown("expansion-retailer", ["All Retailers"] + PHYSICAL_RETAILERS,
                          label="Retailer"),
