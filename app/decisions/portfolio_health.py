@@ -161,7 +161,7 @@ def layout() -> html.Div:
             RED,
             (f"{s['prod_decelerating']} slowing — may need "
              "production adjustment"),
-            "production",
+            "production-decel",
         ),
         _risk_card(
             "Accelerating",
@@ -170,7 +170,7 @@ def layout() -> html.Div:
             TEAL,
             (f"{s['prod_accelerating']} gaining velocity — "
              "check supply can keep up"),
-            "production",
+            "production-accel",
         ),
         _risk_card(
             "Launch Health",

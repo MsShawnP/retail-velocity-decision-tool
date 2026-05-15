@@ -9,7 +9,7 @@ never touches a module-level app instance.
 
 from __future__ import annotations
 
-from dash import Input, Output, State, ctx, dcc, no_update, html
+from dash import ALL, Input, Output, State, ctx, dcc, no_update, html
 
 from constants import (
     DECISIONS,
@@ -80,6 +80,27 @@ def register_callbacks(app) -> None:
             {"display": "block"} if i == idx else {"display": "none"}
             for i in range(len(_FILTER_IDS))
         ]
+
+    # ----------------------------------------------------------
+    # a2) Portfolio drill-down: risk card click → decision picker
+    # ----------------------------------------------------------
+    _RISK_TO_DECISION = {
+        "shelf": DECISIONS[0],
+        "production-decel": DECISIONS[1],
+        "production-accel": DECISIONS[1],
+        "launch": DECISIONS[6],
+    }
+
+    @app.callback(
+        Output("decision-picker", "value"),
+        Input({"type": "ph-risk-card", "decision": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def drill_down(n_clicks_list):
+        if not ctx.triggered_id or not any(n_clicks_list):
+            return no_update
+        decision_key = ctx.triggered_id["decision"]
+        return _RISK_TO_DECISION.get(decision_key, no_update)
 
     # ----------------------------------------------------------
     # b) Dispatcher: single callback that owns main-content

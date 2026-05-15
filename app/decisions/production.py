@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, callback_context, dcc, html, no_update
 
-from charts import apply_hbar_layout
+from charts import apply_hbar_layout, base_chart_layout
 from components import (
     chart_legend,
     dashboard_layout,
@@ -35,7 +35,7 @@ from constants import (
     TEAL,
     THRESHOLDS,
 )
-from data import get_latest_week, get_production_data
+from data import get_latest_week, get_production_data, get_weekly_total_units
 
 
 # ============================================================
@@ -82,17 +82,36 @@ def layout(
     else:
         headline = f"All {n_total} SKUs are running at stable velocity."
 
+    # Metric totals
+    total_units = int(df["weekly_units"].sum())
+    total_cases = int(df["weekly_cases"].sum())
+    forecast_cases = int(df["forecast_4w_cases"].sum())
+
+    # Insight
+    if n_accel > 0 and n_decel > 0:
+        insight = (
+            f"The portfolio needs {forecast_cases:,} cases over the next 4 weeks. "
+            f"{n_accel} accelerating SKUs risk stock-outs while "
+            f"{n_decel} decelerating could leave excess inventory."
+        )
+    elif n_accel > 0:
+        insight = (
+            f"Plan for {forecast_cases:,} cases over 4 weeks. "
+            f"Accelerating SKUs are driving demand above recent run rates — "
+            f"check raw material and co-packer capacity."
+        )
+    else:
+        insight = (
+            f"Steady state: {forecast_cases:,} cases needed over 4 weeks, "
+            f"with {n_stable} of {n_total} SKUs running at stable velocity."
+        )
+
     # Caption
     caption_text = (
         f"Retailer scope: {retailer}  |  Window: last 4 weeks  "
         f"|  Most recent week: {latest}  "
         "|  Forecast adjusted by year-over-year seasonality."
     )
-
-    # Metric totals
-    total_units = int(df["weekly_units"].sum())
-    total_cases = int(df["weekly_cases"].sum())
-    forecast_cases = int(df["forecast_4w_cases"].sum())
 
     # Status legend
     accel_pct = THRESHOLDS["production_trend_accel"] * 100
@@ -204,6 +223,32 @@ def layout(
         left_margin=200,
     )
 
+    # Weekly demand trend chart
+    trend_chart_elements = []
+    wtu = get_weekly_total_units(retailer)
+    if not wtu.empty:
+        trend_fig = go.Figure()
+        trend_fig.add_trace(go.Scatter(
+            x=wtu["week_ending"], y=wtu["total_units"],
+            mode="lines+markers", name="Weekly units",
+            line=dict(color=TEAL, width=2.5),
+            marker=dict(size=5),
+            fill="tozeroy",
+            fillcolor="rgba(0, 184, 148, 0.08)",
+        ))
+        layout_kw = base_chart_layout(
+            height=300, x_title="Week", y_title="Total units sold",
+        )
+        layout_kw["yaxis"]["autorange"] = True
+        trend_fig.update_layout(**layout_kw)
+        trend_chart_elements = [
+            html.H4(
+                "Weekly demand trend",
+                style={"marginTop": "1.5rem"},
+            ),
+            dcc.Graph(figure=trend_fig, id="production-trend-chart"),
+        ]
+
     # Excel export filename parts
     safe_ret = retailer.lower().replace(" ", "_")
     safe_pl = (product_line or "all").lower().replace(" ", "_")
@@ -212,6 +257,7 @@ def layout(
     return dashboard_layout(
         header=[
             html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
             html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
@@ -239,7 +285,7 @@ def layout(
                 (NAVY_MED, f"Stable (±{accel_pct:.2f}%)"),
             ]),
             dcc.Graph(figure=fig, id="production-chart"),
-        ],
+        ] + trend_chart_elements,
         footer=[
             html.Button(
                 "Export to Excel", id="production-export-btn", n_clicks=0,

@@ -90,7 +90,7 @@ portfolio story.
       cards render with real Cinderhaven data. Decision picker still switches
       to all 8 existing modes.
 
-- [ ] A4: Drill-down navigation
+- [x] A4: Drill-down navigation
     - Depends on: A3
     - Risk indicator cards on the portfolio health page are clickable. Clicking
       one sets the decision-picker to the corresponding mode (e.g., clicking
@@ -102,7 +102,7 @@ portfolio story.
 
 ### Track B — Decision mode enhancements (parallel, independent of A)
 
-- [ ] B1: Decision mode narrative framing
+- [x] B1: Decision mode narrative framing
     - Depends on: none
     - Add a "so what" insight section to each of the 8 decision modes: a
       1-2 sentence contextual interpretation below the headline that frames
@@ -114,7 +114,7 @@ portfolio story.
       specific numbers from the current filter selection. Visual QA confirms
       readability.
 
-- [ ] B2: Decision mode time-series additions
+- [x] B2: Decision mode time-series additions
     - Depends on: none
     - Add trend visualizations to decision modes that currently show only
       point-in-time data. Candidates: Shelf Defense (velocity trend over
@@ -126,7 +126,7 @@ portfolio story.
 
 ### Integration
 
-- [ ] C: End-to-end polish
+- [x] C: End-to-end polish
     - Depends on: A4, B1, B2
     - Full flow verification in browser: land on portfolio health → read
       the KPIs → click a risk card → arrive at decision mode with narrative

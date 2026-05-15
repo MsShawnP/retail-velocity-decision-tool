@@ -207,6 +207,93 @@ def get_portfolio_summary() -> dict:
 
 
 # ============================================================
+# Time-series data for trend charts
+# ============================================================
+
+@cache.memoize(timeout=3600)
+def get_weekly_velocity_trend(
+    retailer: str, skus: list[str], weeks: int = 12,
+) -> pd.DataFrame:
+    """Weekly avg velocity per SKU over the last *weeks* weeks.
+
+    Returns columns: sku, product_name, week_ending, avg_velocity.
+    """
+    ret_sql, ret_params = retailer_clause(retailer)
+    latest = get_latest_week()
+    ph = ",".join(["%s"] * len(skus))
+    sql = f"""
+        WITH ret_stores AS (
+            SELECT store_id FROM stg_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = false
+        )
+        SELECT d.sku, pm.product_name, d.week_ending,
+               AVG(d.units_sold) AS avg_velocity
+        FROM stg_scan_data d
+        JOIN ret_stores rs ON d.store_id = rs.store_id
+        JOIN dim_products pm ON d.sku = pm.sku
+        WHERE d.sku IN ({ph})
+          AND d.week_ending > (%s::date - interval '{int(weeks * 7)} days')::date
+        GROUP BY d.sku, pm.product_name, d.week_ending
+        ORDER BY d.week_ending, d.sku
+    """
+    with get_conn() as conn:
+        return pd.read_sql(sql, conn, params=ret_params + skus + [latest])
+
+
+@cache.memoize(timeout=3600)
+def get_weekly_total_units(retailer: str, weeks: int = 12) -> pd.DataFrame:
+    """Total units per week across all SKUs for a retailer scope.
+
+    Returns columns: week_ending, total_units.
+    """
+    ret_sql, ret_params = retailer_clause(retailer)
+    latest = get_latest_week()
+    sql = f"""
+        WITH ret_stores AS (
+            SELECT store_id FROM stg_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = false
+        )
+        SELECT d.week_ending, SUM(d.units_sold) AS total_units
+        FROM stg_scan_data d
+        JOIN ret_stores rs ON d.store_id = rs.store_id
+        WHERE d.week_ending > (%s::date - interval '{int(weeks * 7)} days')::date
+        GROUP BY d.week_ending
+        ORDER BY d.week_ending
+    """
+    with get_conn() as conn:
+        return pd.read_sql(sql, conn, params=ret_params + [latest])
+
+
+@cache.memoize(timeout=3600)
+def get_launch_velocity_curve(sku: str) -> pd.DataFrame:
+    """Weekly avg velocity since launch for a single SKU (physical stores).
+
+    Returns columns: week_ending, avg_velocity, weeks_since_launch.
+    """
+    sql = """
+        WITH launch AS (
+            SELECT MIN(authorized_date) AS launch_date
+            FROM fct_distribution WHERE sku = %s
+        ),
+        phys_stores AS (
+            SELECT store_id FROM stg_stores WHERE is_aggregated_channel = false
+        )
+        SELECT sd.week_ending,
+               AVG(sd.units_sold) AS avg_velocity,
+               (sd.week_ending::date
+                - (SELECT launch_date FROM launch)::date) / 7 AS weeks_since_launch
+        FROM stg_scan_data sd
+        JOIN phys_stores ps ON sd.store_id = ps.store_id
+        WHERE sd.sku = %s
+          AND sd.week_ending >= (SELECT launch_date FROM launch)
+        GROUP BY sd.week_ending
+        ORDER BY sd.week_ending
+    """
+    with get_conn() as conn:
+        return pd.read_sql(sql, conn, params=[sku, sku])
+
+
+# ============================================================
 # Decision data functions
 # ============================================================
 

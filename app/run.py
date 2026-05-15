@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import pathlib
 import threading
+
+from dotenv import load_dotenv
+
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import dash_bootstrap_components as dbc
 from dash import Dash

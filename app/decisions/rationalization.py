@@ -155,6 +155,24 @@ def layout(
             f"but none are also below the velocity threshold — pruning here would lose volume."
         )
 
+    # Insight
+    total_margin = int(df["weekly_total_margin"].sum())
+    cut_margin = int(cut_candidates["weekly_total_margin"].sum()) if n_cut_candidates > 0 else 0
+    if n_cut_candidates > 0:
+        insight = (
+            f"The portfolio generates ${total_margin:,}/week in gross margin. "
+            f"The {n_cut_candidates} cut candidate{'s' if n_cut_candidates != 1 else ''} "
+            f"contribute{'s' if n_cut_candidates == 1 else ''} only "
+            f"${cut_margin:,}/week — discontinuing them frees resources "
+            f"for the {n_winners} winners."
+        )
+    else:
+        insight = (
+            f"${total_margin:,}/week total gross margin across {n_total} SKUs. "
+            f"No clear cut candidates — every low-margin SKU still pulls enough "
+            f"velocity to justify its shelf space."
+        )
+
     # Quadrant label assignment
     def quadrant_label(row: pd.Series) -> str:
         if row["high_velocity"] and row["high_margin"]:
@@ -201,6 +219,7 @@ def layout(
         children=[
         html.Div([
             html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
             html.P(caption_text, className="dh-caption"),
             html.P(
                 f"Median velocity = {median_velocity:.2f}. Median margin/store-week = "
