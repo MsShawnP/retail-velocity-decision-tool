@@ -43,11 +43,12 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
 cd retail-velocity-decision-tool
 pip install -r app/requirements.txt
-cp .env.example .env   # edit DATABASE_URL if not using local Docker
-streamlit run app/velocity_tool.py
+cp .env.example .env   # set DATABASE_URL
+cd app && python run.py
 ```
 
-To run locally, start the shared Docker Postgres from
+The app connects to a Postgres database. To run locally, start the shared
+Docker Postgres from
 [refactor-older-cinderhaven-projects](https://github.com/MsShawnP/refactor-older-cinderhaven-projects):
 
 ```bash
@@ -55,20 +56,25 @@ To run locally, start the shared Docker Postgres from
 docker compose up
 
 # Then in this repo:
-streamlit run app/velocity_tool.py
+cd app && python run.py
 ```
 
 ## Built with
 
-- **Streamlit** — interactive decision tool
-- **Python + Pandas** — data generation and analysis
+- **Dash** — interactive decision tool
+- **Python + Pandas** — data analysis
 - **Plotly** — CEO-readable visualizations
 - **Postgres** — Cinderhaven Data Platform
+- **Fly.io** — hosting and deployment
 
 ## Context
 
-This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M–$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), a GTIN Validator tool, and a 53-query SQL library for retail data analysis.
+This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M–$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), the [GTIN Validator](https://github.com/MsShawnP/gtin-validator), and a 53-query SQL library for retail data analysis.
 
 ---
 
 *"The report isn't the point. The point is knowing what to do next."*
+
+## License
+
+MIT — see [LICENSE](LICENSE).

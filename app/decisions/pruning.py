@@ -34,7 +34,6 @@ from constants import (
     ORANGE_FAINT,
     RED,
     RED_FAINT,
-    PRUNING_ROW,
     PRUNING_SEVERITY_COLORS,
     THRESHOLDS,
 )
@@ -124,10 +123,6 @@ def layout(
 
     # ---------- BY STORE tab ----------
     store_tab_children = _build_store_tab(pairs, threshold, retailer, product_line)
-
-    # Excel export filename parts
-    safe_ret = retailer.lower().replace(" ", "_")
-    safe_pl = (product_line or "all").lower().replace(" ", "_")
 
     return html.Div(
         style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},

@@ -1,13 +1,14 @@
 """Cinderhaven Velocity Tool -- data layer.
 
-All database queries live here. Every function that was decorated with
-``@st.cache_data`` in velocity_tool.py is now decorated with
-``@cache.memoize(timeout=3600)`` using flask-caching with FileSystemCache.
-
-SQL queries and DataFrame logic are kept IDENTICAL to the Streamlit version.
+All database queries live here. Every function uses flask-caching with
+FileSystemCache for memoization. All database connections use the
+``get_conn()`` context manager from ``db.py`` to guarantee connections
+are returned to the pool on exit.
 """
 
 from __future__ import annotations
+
+import os
 
 import pandas as pd
 from flask_caching import Cache
@@ -17,13 +18,11 @@ from constants import (
     THRESHOLDS,
     VOLUME_TIER_MULT,
 )
-from db import get_pool, get_raw_conn
+from db import get_conn
 
 # ============================================================
 # Cache setup (FileSystemCache, 1-hour default)
 # ============================================================
-
-import os
 
 _CACHE_DIR = "/cache/dash" if os.path.isdir("/cache") else "/tmp/dash-cache"
 
@@ -42,14 +41,6 @@ def init_cache(app) -> None:
 # ============================================================
 # Helpers
 # ============================================================
-
-def _return_conn(conn) -> None:
-    """Return a raw connection to the pool after pd.read_sql finishes."""
-    try:
-        get_pool().putconn(conn)
-    except Exception:
-        pass
-
 
 def retailer_clause(retailer: str) -> tuple[str, list]:
     """Return (sql_clause, params) for a stores-table filter on retailer."""
@@ -81,22 +72,18 @@ def _promo_to_scan_weeks(start_week: str, end_week: str) -> list[str]:
 
 @cache.memoize(timeout=3600)
 def get_product_lines() -> list[str]:
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             "SELECT DISTINCT product_line FROM dim_products ORDER BY product_line"
         )
         return [r[0] for r in cur.fetchall()]
-    finally:
-        _return_conn(conn)
 
 
 @cache.memoize(timeout=3600)
 def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
     """Return [(sku, product_name), ...] for one product line."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             "SELECT sku, product_name FROM dim_products "
@@ -104,33 +91,25 @@ def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
             (product_line,),
         )
         return cur.fetchall()
-    finally:
-        _return_conn(conn)
 
 
 @cache.memoize(timeout=3600)
 def get_latest_week() -> str:
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("SELECT MAX(week_ending) FROM stg_scan_data")
         return cur.fetchone()[0]
-    finally:
-        _return_conn(conn)
 
 
 @cache.memoize(timeout=3600)
 def get_promo_skus(retailer: str) -> list[str]:
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             "SELECT DISTINCT sku FROM stg_promotions WHERE retailer = %s ORDER BY sku",
             (retailer,),
         )
         return [r[0] for r in cur.fetchall()]
-    finally:
-        _return_conn(conn)
 
 
 # ============================================================
@@ -149,32 +128,29 @@ def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFra
     "yet another healthy SKU" rather than a standout.
     """
     latest = get_latest_week()
-    conn = get_raw_conn()
-    try:
-        sql = """
-            SELECT * FROM (
-                SELECT pm.sku, pm.product_name, pm.product_line,
-                       SUM(CASE WHEN (%s::date - d.week_ending::date) < 364
-                                THEN d.units_sold ELSE 0 END) AS units_cur,
-                       SUM(CASE WHEN (%s::date - d.week_ending::date) >= 364
-                                 AND (%s::date - d.week_ending::date) < 728
-                                THEN d.units_sold ELSE 0 END) AS units_prior,
-                       SUM(CASE WHEN (%s::date - d.week_ending::date) < 364
-                                THEN d.dollars_sold ELSE 0 END) AS dollars_cur,
-                       SUM(CASE WHEN (%s::date - d.week_ending::date) >= 364
-                                 AND (%s::date - d.week_ending::date) < 728
-                                THEN d.dollars_sold ELSE 0 END) AS dollars_prior
-                FROM stg_scan_data d JOIN dim_products pm ON d.sku = pm.sku
-                GROUP BY pm.sku, pm.product_name, pm.product_line
-            ) sub WHERE units_prior > 0
-        """
+    sql = """
+        SELECT * FROM (
+            SELECT pm.sku, pm.product_name, pm.product_line,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) < 364
+                            THEN d.units_sold ELSE 0 END) AS units_cur,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) >= 364
+                             AND (%s::date - d.week_ending::date) < 728
+                            THEN d.units_sold ELSE 0 END) AS units_prior,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) < 364
+                            THEN d.dollars_sold ELSE 0 END) AS dollars_cur,
+                   SUM(CASE WHEN (%s::date - d.week_ending::date) >= 364
+                             AND (%s::date - d.week_ending::date) < 728
+                            THEN d.dollars_sold ELSE 0 END) AS dollars_prior
+            FROM stg_scan_data d JOIN dim_products pm ON d.sku = pm.sku
+            GROUP BY pm.sku, pm.product_name, pm.product_line
+        ) sub WHERE units_prior > 0
+    """
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=[latest] * 6)
-    finally:
-        _return_conn(conn)
+
     df["units_yoy_pct"] = (df["units_cur"] - df["units_prior"]) / df["units_prior"] * 100
     df["dollars_yoy_pct"] = (df["dollars_cur"] - df["dollars_prior"]) / df["dollars_prior"] * 100
 
-    # Stratified sample so the YoY column shows a realistic spread
     n_winners = (n_show + 1) // 2
     n_losers = n_show - n_winners
     winners_pool = df[df["units_yoy_pct"] > 0].nlargest(n_winners * 2, "units_cur")
@@ -192,20 +168,15 @@ def get_monday_morning_summary(protagonist: str, n_show: int = 18) -> pd.DataFra
 def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
     """Per-week total + baseline velocity (units / store-week). Promo flag set
     from the union of all promo windows on this SKU regardless of retailer."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         promos = pd.read_sql(
             "SELECT start_week, end_week FROM stg_promotions WHERE sku=%s",
             conn, params=[sku],
         )
-    finally:
-        _return_conn(conn)
-    promo_set: set[str] = set()
-    for _, r in promos.iterrows():
-        promo_set.update(_promo_to_scan_weeks(r["start_week"], r["end_week"]))
+        promo_set: set[str] = set()
+        for _, r in promos.iterrows():
+            promo_set.update(_promo_to_scan_weeks(r["start_week"], r["end_week"]))
 
-    conn2 = get_raw_conn()
-    try:
         df = pd.read_sql(
             """
             SELECT week_ending,
@@ -216,14 +187,11 @@ def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
             FROM stg_scan_data WHERE sku=%s
             GROUP BY week_ending ORDER BY week_ending
             """,
-            conn2, params=[sku],
+            conn, params=[sku],
         )
-    finally:
-        _return_conn(conn2)
+
     df["week_ending"] = pd.to_datetime(df["week_ending"])
     df["on_promo"] = df["week_ending"].dt.date.astype(str).isin(promo_set)
-    # baseline_v: velocity in non-promo weeks only (NaN on promo weeks so the
-    # plotted line breaks rather than connecting through the spike)
     df["baseline_v"] = df["velocity"].where(~df["on_promo"])
     return df
 
@@ -232,8 +200,7 @@ def get_sku_weekly_velocity(sku: str) -> pd.DataFrame:
 def get_promo_hangover_data(sku: str) -> pd.DataFrame:
     """For each promo on the SKU, compute pre / during / post velocity at the
     promo's retailer. Pre = 4 weeks before start. Post = 4 weeks after end."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         promos = pd.read_sql(
             """
             SELECT promo_id, retailer, start_week, end_week, duration_weeks,
@@ -242,31 +209,26 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
             """,
             conn, params=[sku],
         )
-    finally:
-        _return_conn(conn)
-    rows = []
-    for _, p in promos.iterrows():
-        ret = p["retailer"]
-        ret_clause, ret_params = retailer_clause(ret)
-        is_agg = ret in ("UNFI", "DTC")
-        # Saturday-align the promo dates
-        start_we = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5)).date().isoformat()
-        end_we   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5)).date().isoformat()
-        pre_start  = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(weeks=4)).date().isoformat()
-        pre_end    = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(days=1)).date().isoformat()
-        post_start = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(days=7)).date().isoformat()
-        post_end   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(weeks=4)).date().isoformat()
+        rows = []
+        for _, p in promos.iterrows():
+            ret = p["retailer"]
+            ret_clause_sql, ret_params = retailer_clause(ret)
+            is_agg = ret in ("UNFI", "DTC")
+            start_we = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5)).date().isoformat()
+            end_we   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5)).date().isoformat()
+            pre_start  = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(weeks=4)).date().isoformat()
+            pre_end    = (pd.to_datetime(p["start_week"]) + pd.Timedelta(days=5) - pd.Timedelta(days=1)).date().isoformat()
+            post_start = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(days=7)).date().isoformat()
+            post_end   = (pd.to_datetime(p["end_week"])   + pd.Timedelta(days=5) + pd.Timedelta(weeks=4)).date().isoformat()
 
-        conn_inner = get_raw_conn()
-        try:
-            cur = conn_inner.cursor()
+            cur = conn.cursor()
 
             def _avg_vel(start: str, end: str) -> float | None:
                 sql = f"""
                     SELECT AVG(d.units_sold)
                     FROM stg_scan_data d
                     JOIN stg_stores s ON d.store_id = s.store_id
-                    WHERE d.sku = %s AND {ret_clause} AND s.is_aggregated_channel = %s
+                    WHERE d.sku = %s AND {ret_clause_sql} AND s.is_aggregated_channel = %s
                       AND d.week_ending BETWEEN %s AND %s
                 """
                 cur.execute(sql, [sku] + ret_params + [is_agg, start, end])
@@ -277,31 +239,28 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
             promo_v = _avg_vel(start_we, end_we)
             post_v  = _avg_vel(post_start, post_end)
 
-            # Doors and incremental dollars
             doors_sql = f"""
                 SELECT COUNT(DISTINCT d.store_id)
                 FROM stg_scan_data d JOIN stg_stores s ON d.store_id = s.store_id
-                WHERE d.sku = %s AND {ret_clause} AND s.is_aggregated_channel = %s
+                WHERE d.sku = %s AND {ret_clause_sql} AND s.is_aggregated_channel = %s
                   AND d.week_ending BETWEEN %s AND %s
             """
             cur.execute(doors_sql, [sku] + ret_params + [is_agg, start_we, end_we])
             doors = cur.fetchone()[0] or 0
-        finally:
-            _return_conn(conn_inner)
 
-        rows.append({
-            "promo_id": p["promo_id"], "retailer": ret,
-            "start_week": p["start_week"], "end_week": p["end_week"],
-            "duration_weeks": p["duration_weeks"],
-            "discount_depth_pct": p["discount_depth_pct"],
-            "promo_type": p["promo_type"],
-            "pre_v": pre_v, "promo_v": promo_v, "post_v": post_v,
-            "doors": doors,
-        })
+            rows.append({
+                "promo_id": p["promo_id"], "retailer": ret,
+                "start_week": p["start_week"], "end_week": p["end_week"],
+                "duration_weeks": p["duration_weeks"],
+                "discount_depth_pct": p["discount_depth_pct"],
+                "promo_type": p["promo_type"],
+                "pre_v": pre_v, "promo_v": promo_v, "post_v": post_v,
+                "doors": doors,
+            })
+
     df = pd.DataFrame(rows)
     if df.empty:
         return df
-    # Lift, dip, and per-promo hangover (post minus pre, the residual damage)
     df["lift_pct"] = (df["promo_v"] - df["pre_v"]) / df["pre_v"] * 100
     df["dip_pct"]  = (df["post_v"] - df["pre_v"]) / df["pre_v"] * 100
     return df
@@ -311,8 +270,7 @@ def get_promo_hangover_data(sku: str) -> pd.DataFrame:
 def get_sku_trade_spend(sku: str) -> float:
     """Total trade spend on a SKU summed over all promo (sku, week, retailer)
     triples. Trade $ = scan dollars in that promo week * retailer trade %."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """SELECT trade_spend_pct_walmart, trade_spend_pct_costco,
@@ -333,18 +291,16 @@ def get_sku_trade_spend(sku: str) -> float:
         }
         regional_pct = costs[3] or 0.0
 
-        # Promo (week, retailer) set
         cur.execute(
             "SELECT retailer, start_week, end_week FROM stg_promotions WHERE sku=%s",
             [sku],
         )
         promo_rows = cur.fetchall()
-        promo_index: dict[str, set[str]] = {}  # retailer -> set of week_ending
+        promo_index: dict[str, set[str]] = {}
         for ret, sw, ew in promo_rows:
             for wk in _promo_to_scan_weeks(sw, ew):
                 promo_index.setdefault(ret, set()).add(wk)
 
-        # Total scan dollars by (week, retailer) for this SKU
         cur.execute(
             """
             SELECT d.week_ending, s.retailer, SUM(d.dollars_sold)
@@ -355,8 +311,6 @@ def get_sku_trade_spend(sku: str) -> float:
             [sku],
         )
         scan_rows = cur.fetchall()
-    finally:
-        _return_conn(conn)
 
     total = 0.0
     for wk, ret, dollars in scan_rows:
@@ -373,8 +327,7 @@ def get_sku_trade_spend(sku: str) -> float:
 @cache.memoize(timeout=3600)
 def get_walmart_trajectory(sku: str) -> pd.DataFrame:
     """Trailing 13-week rolling avg of Walmart-only weekly velocity."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(
             """
             SELECT d.week_ending, AVG(d.units_sold) AS velocity
@@ -384,8 +337,6 @@ def get_walmart_trajectory(sku: str) -> pd.DataFrame:
             """,
             conn, params=[sku],
         )
-    finally:
-        _return_conn(conn)
     df["week_ending"] = pd.to_datetime(df["week_ending"])
     df["t13"] = df["velocity"].rolling(window=13, min_periods=4).mean()
     return df
@@ -396,8 +347,7 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
     """Annual revenue at the protagonist's current Walmart distribution
     (doors * current velocity * wholesale * 52). What's "at risk" if the SKU
     crosses the delisting threshold and Walmart drops it in the next review."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -413,18 +363,14 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
         row = cur.fetchone()
         walmart_doors = row[0] or 0
         walmart_v     = row[1] or 0.0
-        walmart_q     = row[2] or 0.0  # last 13wk dollars at walmart
 
-        # Annualize: take the trailing 13wk avg velocity and project a year forward
         annual_units_walmart = walmart_v * walmart_doors * 52
-        # SKU wholesale at walmart for revenue conversion
         cur.execute(
             """SELECT wholesale_walmart, cogs_per_unit FROM stg_sku_costs WHERE sku=%s""",
             [sku],
         )
         cost_row = cur.fetchone()
-    finally:
-        _return_conn(conn)
+
     wholesale_walmart = cost_row[0] or 0
     cogs              = cost_row[1] or 0
     annual_rev_walmart = annual_units_walmart * wholesale_walmart
@@ -433,7 +379,7 @@ def get_sku_revenue_at_risk(sku: str) -> dict:
     return {
         "walmart_doors": walmart_doors,
         "walmart_v_t13": walmart_v,
-        "walmart_dollars_t13": walmart_q,
+        "walmart_dollars_t13": row[2] or 0.0,
         "annual_rev_walmart": annual_rev_walmart,
         "annual_margin_walmart": annual_margin_walmart,
         "wholesale_walmart": wholesale_walmart,
@@ -449,16 +395,13 @@ def get_sku_costs(sku: str) -> dict:
     without duplicating the raw SQL that already lives in
     get_sku_revenue_at_risk.
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             "SELECT wholesale_walmart, cogs_per_unit FROM stg_sku_costs WHERE sku=%s",
             [sku],
         )
         row = cur.fetchone()
-    finally:
-        _return_conn(conn)
     ws = (row[0] or 0) if row else 0
     cogs = (row[1] or 0) if row else 0
     return {"wholesale_walmart": ws, "cogs_per_unit": cogs}
@@ -468,8 +411,7 @@ def get_sku_costs(sku: str) -> dict:
 def get_category_avg_velocity(product_line: str) -> float:
     """Recent 13wk units/store-week for the product line -- used as the
     'replacement SKU could earn this much' benchmark."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -481,8 +423,6 @@ def get_category_avg_velocity(product_line: str) -> float:
             [product_line],
         )
         row = cur.fetchone()
-    finally:
-        _return_conn(conn)
     return row[0] or 0.0
 
 
@@ -493,8 +433,7 @@ def get_category_avg_velocity(product_line: str) -> float:
 @cache.memoize(timeout=3600)
 def get_top_demand_4wk() -> pd.DataFrame:
     """Top 10 SKUs by projected next-4-week case demand."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(
             """
             SELECT pm.sku, pm.product_name,
@@ -506,16 +445,13 @@ def get_top_demand_4wk() -> pd.DataFrame:
             """,
             conn,
         )
-    finally:
-        _return_conn(conn)
     return df.dropna(subset=["cases_4wk"]).reset_index(drop=True)
 
 
 @cache.memoize(timeout=3600)
 def get_top_velocity_per_door() -> pd.DataFrame:
     """Top 10 retailer chains by avg units/door/week over the trailing 13 weeks."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(
             """
             SELECT s.retailer AS chain,
@@ -529,8 +465,6 @@ def get_top_velocity_per_door() -> pd.DataFrame:
             """,
             conn,
         )
-    finally:
-        _return_conn(conn)
     return df
 
 
@@ -540,8 +474,7 @@ def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
     the threshold. Returns the worst stores even if all are above threshold --
     the chart still shows the tail of the distribution. The 'gap' column is
     threshold - velocity (positive = below the line, negative = above)."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(
             """
             SELECT d.store_id, AVG(d.units_sold) AS vel
@@ -553,8 +486,6 @@ def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
             """,
             conn,
         )
-    finally:
-        _return_conn(conn)
     df["gap"] = threshold - df["vel"]
     df["threshold"] = threshold
     return df
@@ -563,8 +494,7 @@ def get_bottom_stores_below_threshold(threshold: float = 2.0) -> pd.DataFrame:
 @cache.memoize(timeout=3600)
 def get_top_elasticity_skus() -> pd.DataFrame:
     """Top 10 SKUs by avg promo lift / discount-depth ratio (elasticity)."""
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(
             """
             WITH promo_pairs AS (
@@ -592,8 +522,6 @@ def get_top_elasticity_skus() -> pd.DataFrame:
             """,
             conn,
         )
-    finally:
-        _return_conn(conn)
     return df
 
 
@@ -629,11 +557,8 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
         FROM agg JOIN dim_products pm ON agg.sku = pm.sku
         ORDER BY pm.sku
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + [latest, latest, latest, latest])
-    finally:
-        _return_conn(conn)
     if product_line:
         df = df[df["product_line"] == product_line]
     return df.dropna(subset=["current_v"]).reset_index(drop=True)
@@ -687,11 +612,9 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
         ORDER BY a.sum_recent DESC
     """
     params = ret_params + [latest] * 9
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=params)
-    finally:
-        _return_conn(conn)
+
     if product_line:
         df = df[df["product_line"] == product_line].reset_index(drop=True)
 
@@ -786,11 +709,8 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
         JOIN stg_sku_costs sc ON p.sku = sc.sku
         ORDER BY p.start_week DESC
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + [is_agg, retailer] + sku_params)
-    finally:
-        _return_conn(conn)
     if df.empty:
         return df
 
@@ -833,11 +753,8 @@ def get_promo_weekly_velocity(promo_id: str, sku: str, retailer: str) -> pd.Data
                                 AND (prom.end_week::date + interval '28 days')::date
         GROUP BY d.week_ending ORDER BY d.week_ending
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         return pd.read_sql(sql, conn, params=ret_params + [is_agg, promo_id, sku, sku])
-    finally:
-        _return_conn(conn)
 
 
 @cache.memoize(timeout=3600)
@@ -845,7 +762,6 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     """Stores where focus_sku is NOT authorized but same-line SKUs perform well."""
     latest = get_latest_week()
 
-    # Determine retailer filter for stores
     if retailer is None or retailer == "All Retailers":
         ret_sql, ret_params = "1=1", []
     elif retailer == "Regional":
@@ -887,11 +803,8 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
         ORDER BY p.avg_velocity DESC
     """
     params = [focus_sku] + ret_params + [focus_sku, latest, focus_sku, latest, latest]
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=params)
-    finally:
-        _return_conn(conn)
     if df.empty:
         return df
 
@@ -945,11 +858,8 @@ def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
                  sc.wholesale_price
     """
     params = ret_params + [latest, latest] + pl_params
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=params)
-    finally:
-        _return_conn(conn)
     return df.dropna(subset=["velocity"]).reset_index(drop=True)
 
 
@@ -976,11 +886,9 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
         GROUP BY pm.sku, pm.product_name, pm.product_line,
                  sc.wholesale_price, sc.cogs_per_unit
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + [latest])
-    finally:
-        _return_conn(conn)
+
     if product_line:
         df = df[df["product_line"] == product_line]
     df = df.dropna(subset=["velocity"]).reset_index(drop=True)
@@ -1027,11 +935,8 @@ def get_launch_data() -> pd.DataFrame:
         GROUP BY pm.sku, pm.product_name, pm.product_line, l.launch_date
         ORDER BY l.launch_date DESC
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=[latest, latest])
-    finally:
-        _return_conn(conn)
     if df.empty:
         return df
 
@@ -1060,11 +965,8 @@ def get_launch_weekly(sku: str) -> pd.DataFrame:
         GROUP BY sd.week_ending
         ORDER BY sd.week_ending
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         return pd.read_sql(sql, conn, params=[sku, sku])
-    finally:
-        _return_conn(conn)
 
 
 @cache.memoize(timeout=3600)
@@ -1139,11 +1041,8 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         JOIN discount_avg d ON m.sku = d.sku
         ORDER BY pm.sku
     """
-    conn = get_raw_conn()
-    try:
+    with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + [is_agg, retailer] + sku_params)
-    finally:
-        _return_conn(conn)
     if df.empty:
         return df
     if product_line_filter:
@@ -1191,7 +1090,7 @@ def warm_default_view() -> None:
 
 
 def warm_cache() -> None:
-    """Pre-call every retailer × mode combination so dropdown switches
+    """Pre-call every retailer x mode combination so dropdown switches
     never hit a cold cache.  Runs in a background thread after the default
     view is already warm."""
     import logging
@@ -1204,35 +1103,29 @@ def warm_cache() -> None:
         PROTAGONIST_SKU,
     )
 
-    # Small delay to let the worker finish booting and serve the first request
     time.sleep(2)
 
     calls: list[tuple[str, callable]] = [
         ("launch_data", lambda: get_launch_data()),
     ]
 
-    # Shelf defense + pruning: physical retailers only (Walmart already warmed)
     for ret in PHYSICAL_RETAILERS:
         if ret != "Walmart":
             calls.append((f"shelf_defense({ret})", lambda r=ret: get_shelf_defense_data(r, None)))
         calls.append((f"pruning({ret})", lambda r=ret: get_pruning_data(r, None)))
 
-    # Production + rationalization: physical retailers + "All Retailers"
     for ret in ["All Retailers"] + PHYSICAL_RETAILERS:
         calls.append((f"production({ret})",      lambda r=ret: get_production_data(r, None)))
         calls.append((f"rationalization({ret})", lambda r=ret: get_rationalization_data(r, None)))
 
-    # Promo ROI + pricing: all physical + aggregated channels
     for ret in ALL_PHYSICAL_OR_AGG:
         calls.append((f"promo_roi({ret})", lambda r=ret: get_promo_roi_data(r, None)))
         calls.append((f"pricing({ret})",   lambda r=ret: get_pricing_data(r, None, None)))
 
-    # Expansion: protagonist SKU across all retailer options
     for ret in [None] + PHYSICAL_RETAILERS:
         label = ret or "All"
         calls.append((f"expansion({label})", lambda r=ret: get_expansion_data(PROTAGONIST_SKU, r)))
 
-    # Story mode helpers (SKU-specific, not retailer-varied)
     calls.extend([
         ("monday_summary",        lambda: get_monday_morning_summary(PROTAGONIST_SKU)),
         ("sku_velocity",          lambda: get_sku_weekly_velocity(PROTAGONIST_SKU)),
