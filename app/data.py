@@ -14,7 +14,9 @@ import pandas as pd
 from flask_caching import Cache
 
 from constants import (
+    PHYSICAL_RETAILERS,
     REGIONAL_CHAINS,
+    RETAILER_THRESHOLDS,
     THRESHOLDS,
     VOLUME_TIER_MULT,
 )
@@ -97,6 +99,111 @@ def get_promo_skus(retailer: str) -> list[str]:
         )
         return [r[0] for r in cur.fetchall()]
 
+
+# ============================================================
+# Portfolio-level aggregation
+# ============================================================
+
+@cache.memoize(timeout=3600)
+def get_portfolio_summary() -> dict:
+    """Aggregate portfolio-wide metrics by composing decision-mode queries.
+
+    Returns a flat dict with counts, totals, and status distributions
+    suitable for the portfolio health landing page.
+    """
+    latest = get_latest_week()
+
+    # -- Total physical doors across all retailers --
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM stg_stores"
+            " WHERE is_aggregated_channel = false"
+        )
+        total_doors = cur.fetchone()[0]
+
+    # -- Production: active SKUs + trend distribution --
+    prod = get_production_data("All Retailers", None)
+    total_skus = len(prod)
+    prod_accel = int((prod["status"] == "Accelerating").sum())
+    prod_decel = int((prod["status"] == "Decelerating").sum())
+    prod_stable = total_skus - prod_accel - prod_decel
+    weekly_units = int(prod["weekly_units"].sum())
+    forecast_4w_cases = int(prod["forecast_4w_cases"].sum())
+
+    # -- Shelf risk: per-retailer classification, count unique at-risk SKUs --
+    at_risk_skus: set[str] = set()
+    warning_skus: set[str] = set()
+    shelf_warn_mult = THRESHOLDS["shelf_warning_mult"]
+    for ret in PHYSICAL_RETAILERS:
+        shelf = get_shelf_defense_data(ret, None)
+        if shelf.empty:
+            continue
+        thr = RETAILER_THRESHOLDS.get(ret, 2.0)
+        warn_upper = thr * shelf_warn_mult
+        for _, row in shelf.iterrows():
+            c, t = row["current_v"], row["trailing_v"]
+            if c < thr:
+                at_risk_skus.add(row["sku"])
+            elif c < warn_upper and pd.notna(t) and t > c:
+                warning_skus.add(row["sku"])
+    warning_skus -= at_risk_skus
+
+    # -- Launch health --
+    launches = get_launch_data()
+    n_launches = len(launches)
+    launch_on_track = 0
+    launch_failing = 0
+    launch_attention = 0
+    if not launches.empty:
+        on_track_ret = THRESHOLDS["launch_on_track"]
+        failing_floor = THRESHOLDS["launch_failing"]
+        launch_thr = 2.0
+        for _, row in launches.iterrows():
+            initial, current = row["v_w14"], row["v_current"]
+            if pd.isna(current):
+                launch_attention += 1
+            elif pd.isna(initial):
+                if current >= launch_thr:
+                    launch_on_track += 1
+                else:
+                    launch_attention += 1
+            elif current >= launch_thr:
+                if current < initial * on_track_ret:
+                    launch_attention += 1
+                else:
+                    launch_on_track += 1
+            elif (current < initial * on_track_ret
+                  or current < launch_thr * failing_floor):
+                launch_failing += 1
+            else:
+                launch_attention += 1
+
+    # -- Rationalization: total weekly margin --
+    rat = get_rationalization_data("All Retailers", None)
+    total_weekly_margin = (
+        int(rat["weekly_total_margin"].sum()) if not rat.empty else 0
+    )
+
+    return {
+        "latest_week": latest,
+        "total_skus": total_skus,
+        "total_retailers": len(PHYSICAL_RETAILERS),
+        "total_doors": total_doors,
+        "total_product_lines": len(get_product_lines()),
+        "weekly_units": weekly_units,
+        "forecast_4w_cases": forecast_4w_cases,
+        "shelf_at_risk": len(at_risk_skus),
+        "shelf_warning": len(warning_skus),
+        "prod_accelerating": prod_accel,
+        "prod_decelerating": prod_decel,
+        "prod_stable": prod_stable,
+        "launches_total": n_launches,
+        "launches_on_track": launch_on_track,
+        "launches_failing": launch_failing,
+        "launches_attention": launch_attention,
+        "total_weekly_margin": total_weekly_margin,
+    }
 
 
 # ============================================================

@@ -64,7 +64,7 @@ portfolio story.
     - Done when: story.py is gone, app starts cleanly, all 8 decision modes
       still work, no import errors.
 
-- [ ] A2: Portfolio health data layer
+- [x] A2: Portfolio health data layer
     - Depends on: none
     - New functions in data.py that aggregate across decision areas to produce
       portfolio-level metrics. Compose from existing queries where possible:
