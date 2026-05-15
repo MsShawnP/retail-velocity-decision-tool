@@ -72,7 +72,7 @@ cd app && python run.py
 
 ## Context
 
-This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M–$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), the [GTIN Validator](https://github.com/MsShawnP/gtin-validator), and a 53-query SQL library for retail data analysis.
+This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M-$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), the [GTIN Validator](https://github.com/MsShawnP/gtin-validator), and a 53-query SQL library for retail data analysis.
 
 ---
 
