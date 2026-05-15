@@ -259,15 +259,15 @@ def layout(
 
     return dashboard_layout(
         header=[
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("Top opportunity score", f"{top_score:.2f}"), style={"flex": "1"}),
-                    html.Div(metric_card("Average score", f"{avg_score:.2f}"), style={"flex": "1"}),
-                    html.Div(metric_card(third_label, str(third_value)), style={"flex": "1"}),
+                    html.Div(metric_card("Top opportunity score", f"{top_score:.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Average score", f"{avg_score:.2f}"), className="dh-metric"),
+                    html.Div(metric_card(third_label, str(third_value)), className="dh-metric"),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
             status_legend(
                 "<b>Score</b> = average velocity of peer SKUs (same product line, "
@@ -291,7 +291,7 @@ def layout(
         footer=[
             html.Button(
                 "Export to Excel", id="expansion-export-btn", n_clicks=0,
-                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+                className="export-btn",
             ),
             dcc.Download(id="expansion-download"),
             dcc.Store(
