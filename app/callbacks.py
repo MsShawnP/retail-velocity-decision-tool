@@ -10,7 +10,7 @@ never touches a module-level app instance.
 
 from __future__ import annotations
 
-from dash import Input, Output, State, ctx, no_update, html
+from dash import Input, Output, State, ctx, dcc, no_update, html
 
 from constants import (
     DECISIONS,
@@ -20,6 +20,7 @@ from constants import (
     WHITE,
 )
 from data import get_promo_skus, get_product_lines, get_skus_for_line
+from pitch_export import build_pitch_excel, build_pitch_pdf
 from story import layout as story_layout
 from decisions.shelf_defense import layout as shelf_layout
 from decisions.production import layout as production_layout
@@ -326,3 +327,39 @@ def register_callbacks(app) -> None:
     )
     def update_pruning_threshold(retailer: str):
         return RETAILER_THRESHOLDS.get(retailer, 2.0)
+
+    # ----------------------------------------------------------
+    # g) Pitch export: Excel
+    # ----------------------------------------------------------
+    @app.callback(
+        Output("pitch-excel-download", "data"),
+        Input("pitch-excel-btn", "n_clicks"),
+        State("pitch-retailer", "value"),
+        State("pitch-product-line", "value"),
+        prevent_initial_call=True,
+    )
+    def download_pitch_excel(n_clicks, retailer, product_line):
+        if not n_clicks or not retailer:
+            return no_update
+        product_line = None if product_line == "All" else product_line
+        threshold = RETAILER_THRESHOLDS.get(retailer, 2.0)
+        info = build_pitch_excel(retailer, product_line, threshold)
+        return dcc.send_bytes(info["content"], info["filename"])
+
+    # ----------------------------------------------------------
+    # g) Pitch export: PDF
+    # ----------------------------------------------------------
+    @app.callback(
+        Output("pitch-pdf-download", "data"),
+        Input("pitch-pdf-btn", "n_clicks"),
+        State("pitch-retailer", "value"),
+        State("pitch-product-line", "value"),
+        prevent_initial_call=True,
+    )
+    def download_pitch_pdf(n_clicks, retailer, product_line):
+        if not n_clicks or not retailer:
+            return no_update
+        product_line = None if product_line == "All" else product_line
+        threshold = RETAILER_THRESHOLDS.get(retailer, 2.0)
+        info = build_pitch_pdf(retailer, product_line, threshold)
+        return dcc.send_bytes(info["content"], info["filename"])
