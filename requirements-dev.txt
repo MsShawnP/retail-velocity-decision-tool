@@ -1,0 +1,4 @@
+-r app/requirements.txt
+pytest>=8.0
+ruff>=0.4
+flask>=3.0

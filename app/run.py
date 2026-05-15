@@ -1,8 +1,4 @@
-"""Cinderhaven Velocity Tool -- Dash application entry point.
-
-Minimal scaffold for U1 foundation. Decision pages will be registered as
-individual modules under app/decisions/ in subsequent units.
-"""
+"""Cinderhaven Velocity Tool -- Dash application entry point."""
 
 from __future__ import annotations
 
@@ -10,6 +6,7 @@ import threading
 
 import dash_bootstrap_components as dbc
 from dash import Dash
+from flask import jsonify
 
 from callbacks import register_callbacks
 from data import init_cache, warm_cache, warm_default_view
@@ -31,6 +28,12 @@ app = Dash(
 )
 server = app.server
 init_cache(server)
+
+
+@server.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
 
 app.layout = create_layout()
 register_callbacks(app)
