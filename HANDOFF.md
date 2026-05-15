@@ -18,10 +18,9 @@
 - Branch: `claude/elastic-kare-2125ea`
 
 ### What needs doing next
-1. **Merge PR #8** and deploy to Fly.io
-2. **Expansion initial-load bug** — SKU dropdown empty on first load because `prevent_initial_call=True` prevents population. Pre-existing, not a regression. Fix: populate SKU options server-side in layout or switch to `prevent_initial_call=False`.
-3. **Competitive benchmarking** — explicitly out of scope (requires new synthetic data), but would be the natural next decision area
-4. **`base_chart_layout` time-series helper** — if more trend charts are added, extract a `time_series_layout()` to avoid repeating the yaxis autorange override
+1. **Merge PR #9** (expansion fix) and deploy both PRs to Fly.io
+2. **Competitive benchmarking** — explicitly out of scope (requires new synthetic data), but would be the natural next decision area
+3. **`base_chart_layout` time-series helper** — if more trend charts are added, extract a `time_series_layout()` to avoid repeating the yaxis autorange override
 
 ### Known risks
 - `fct_distribution` was created via direct SQL, not dbt. Won't auto-refresh.
