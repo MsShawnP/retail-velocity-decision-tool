@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, callback_context, dcc, html, no_update
 
-from charts import apply_hbar_layout, text_annotation
+from charts import apply_hbar_layout, base_chart_layout, text_annotation
 from components import (
     chart_legend,
     dashboard_layout,
@@ -35,7 +35,7 @@ from constants import (
     TEAL,
     THRESHOLDS,
 )
-from data import get_latest_week, get_shelf_defense_data
+from data import get_latest_week, get_shelf_defense_data, get_weekly_velocity_trend
 
 
 # ============================================================
@@ -105,6 +105,25 @@ def layout(
         )
     else:
         headline = f"All SKUs are safely above the {retailer} threshold of {threshold:.2f}."
+
+    # Insight
+    total = n_atrisk + n_warn + n_safe
+    if n_atrisk > 0:
+        insight = (
+            f"Losing shelf placement on {n_atrisk} SKU{'s' if n_atrisk != 1 else ''} "
+            f"shifts that volume to competitors. Another {n_warn} in the warning "
+            f"zone could tip with one slow week."
+        )
+    elif n_warn > 0:
+        insight = (
+            f"{n_warn} of {total} SKUs are close enough to the threshold "
+            f"that a single slow week could trigger a delisting conversation."
+        )
+    else:
+        insight = (
+            f"All {total} SKUs are comfortably above threshold — "
+            f"focus shelf conversations on expansion rather than defense."
+        )
 
     # Caption
     caption_text = (
@@ -231,6 +250,49 @@ def layout(
         left_margin=200,
     )
 
+    # Velocity trend chart for at-risk + warning SKUs
+    trend_chart_elements = []
+    watch_skus = df.loc[df["status"].isin(["At Risk", "Warning"]), "sku"].tolist()
+    if watch_skus:
+        trend_df = get_weekly_velocity_trend(retailer, watch_skus)
+        if not trend_df.empty:
+            trend_fig = go.Figure()
+            status_map = dict(zip(df["sku"], df["status"]))
+            for sku in watch_skus:
+                s = trend_df[trend_df["sku"] == sku]
+                if s.empty:
+                    continue
+                name = s["product_name"].iloc[0]
+                color = SHELF_STATUS_COLORS.get(status_map.get(sku, "Warning"), ORANGE)
+                trend_fig.add_trace(go.Scatter(
+                    x=s["week_ending"], y=s["avg_velocity"],
+                    mode="lines+markers", name=f"{sku} — {name}",
+                    line=dict(color=color, width=2),
+                    marker=dict(size=5),
+                ))
+            trend_fig.add_hline(
+                y=threshold, line_dash="dash", line_color=GREY, line_width=2,
+                annotation_text=f"Threshold {threshold:.2f}",
+                annotation_position="top left",
+            )
+            layout_kw = base_chart_layout(
+                height=340, x_title="Week", y_title="Avg units/store/week",
+                show_legend=True,
+            )
+            layout_kw["yaxis"]["autorange"] = True
+            layout_kw["legend"] = dict(
+                orientation="h", yanchor="bottom", y=1.02,
+                xanchor="left", x=0, font=dict(size=11),
+            )
+            trend_fig.update_layout(**layout_kw)
+            trend_chart_elements = [
+                html.H4(
+                    "Velocity trend — at-risk & warning SKUs",
+                    style={"marginTop": "1.5rem"},
+                ),
+                dcc.Graph(figure=trend_fig, id="shelf-trend-chart"),
+            ]
+
     # Excel export filename parts
     safe_ret = retailer.lower().replace(" ", "_")
     safe_pl = (product_line or "all").lower().replace(" ", "_")
@@ -238,15 +300,16 @@ def layout(
     # Assemble the full component tree
     return dashboard_layout(
         header=[
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
+            html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("At Risk", str(n_atrisk)), style={"flex": "1"}),
-                    html.Div(metric_card("Warning", str(n_warn)), style={"flex": "1"}),
-                    html.Div(metric_card("Safe", str(n_safe)), style={"flex": "1"}),
+                    html.Div(metric_card("At Risk", str(n_atrisk)), className="dh-metric"),
+                    html.Div(metric_card("Warning", str(n_warn)), className="dh-metric"),
+                    html.Div(metric_card("Safe", str(n_safe)), className="dh-metric"),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
             status_legend(legend_html),
             row_count_line("SKUs", [
@@ -265,11 +328,11 @@ def layout(
                 (TEAL,   f"Safe (v ≥ {warn_upper:.2f}, or in band but stable)"),
             ]),
             dcc.Graph(figure=fig, id="shelf-defense-chart"),
-        ],
+        ] + trend_chart_elements,
         footer=[
             html.Button(
                 "Export to Excel", id="shelf-defense-export-btn", n_clicks=0,
-                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+                className="export-btn",
             ),
             dcc.Download(id="shelf-defense-download"),
             dcc.Store(

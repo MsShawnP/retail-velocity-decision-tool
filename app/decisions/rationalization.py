@@ -155,6 +155,24 @@ def layout(
             f"but none are also below the velocity threshold — pruning here would lose volume."
         )
 
+    # Insight
+    total_margin = int(df["weekly_total_margin"].sum())
+    cut_margin = int(cut_candidates["weekly_total_margin"].sum()) if n_cut_candidates > 0 else 0
+    if n_cut_candidates > 0:
+        insight = (
+            f"The portfolio generates ${total_margin:,}/week in gross margin. "
+            f"The {n_cut_candidates} cut candidate{'s' if n_cut_candidates != 1 else ''} "
+            f"contribute{'s' if n_cut_candidates == 1 else ''} only "
+            f"${cut_margin:,}/week — discontinuing them frees resources "
+            f"for the {n_winners} winners."
+        )
+    else:
+        insight = (
+            f"${total_margin:,}/week total gross margin across {n_total} SKUs. "
+            f"No clear cut candidates — every low-margin SKU still pulls enough "
+            f"velocity to justify its shelf space."
+        )
+
     # Quadrant label assignment
     def quadrant_label(row: pd.Series) -> str:
         if row["high_velocity"] and row["high_margin"]:
@@ -197,15 +215,16 @@ def layout(
     safe_pl = (product_line or "all").lower().replace(" ", "_")
 
     return html.Div(
-        style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},
+        className="dash-layout",
         children=[
         html.Div([
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.3rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
+            html.P(caption_text, className="dh-caption"),
             html.P(
                 f"Median velocity = {median_velocity:.2f}. Median margin/store-week = "
                 f"${median_margin:.2f}. Each SKU lands in one quadrant.",
-                style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"},
+                className="dh-caption",
             ),
             html.Div(
                 [
@@ -218,7 +237,7 @@ def layout(
                     _quadrant_card("Cut candidates", "Low velocity, low margin",
                                    n_cut, RED, RED_FAINT),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
         ]),
         html.Div(
@@ -235,11 +254,8 @@ def layout(
             "Export to Excel",
             id="rationalization-export-btn",
             n_clicks=0,
-            style={
-                "marginTop": "1rem",
-                "padding": "0.4rem 1.2rem",
-                "cursor": "pointer",
-            },
+            className="export-btn",
+            style={"marginTop": "1rem"},
         ),
         dcc.Download(id="rationalization-download"),
         dcc.Store(

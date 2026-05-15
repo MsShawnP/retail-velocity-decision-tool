@@ -16,12 +16,8 @@ import pandas as pd
 from dash import dcc, html
 
 from constants import (
-    GREY,
-    GREY_LIGHT,
-    NAVY,
     NAVY_MED,
     RED,
-    WHITE,
 )
 
 
@@ -41,44 +37,15 @@ def metric_card(
     border + shadow, label in muted grey, value in navy, delta underneath.
     """
     children = [
-        html.Div(
-            label,
-            style={
-                "fontSize": "0.85rem",
-                "color": GREY,
-                "marginBottom": "0.25rem",
-            },
-        ),
-        html.Div(
-            value,
-            style={
-                "fontSize": "1.5rem",
-                "fontWeight": "700",
-                "color": NAVY,
-            },
-        ),
+        html.Div(label, className="mc-label"),
+        html.Div(value, className="mc-value"),
     ]
     if delta is not None:
         children.append(
-            html.Div(
-                delta,
-                style={
-                    "fontSize": "0.8rem",
-                    "color": delta_color or NAVY_MED,
-                    "marginTop": "0.15rem",
-                },
-            )
+            html.Div(delta, className="mc-delta",
+                     style={"color": delta_color or NAVY_MED})
         )
-    return html.Div(
-        children,
-        style={
-            "backgroundColor": WHITE,
-            "border": f"1px solid {GREY_LIGHT}",
-            "borderRadius": "6px",
-            "padding": "0.85rem 1rem 0.75rem 1rem",
-            "boxShadow": "0 1px 2px rgba(27, 42, 74, 0.05)",
-        },
-    )
+    return html.Div(children, className="metric-card")
 
 
 # ============================================================
@@ -96,30 +63,14 @@ def chart_legend(items: list[tuple[str, str]]) -> html.Div:
         chips.append(
             html.Span(
                 [
-                    html.Span(
-                        style={
-                            "display": "inline-block",
-                            "width": "10px",
-                            "height": "10px",
-                            "background": color,
-                            "borderRadius": "2px",
-                            "marginRight": "5px",
-                            "verticalAlign": "middle",
-                        },
-                    ),
+                    html.Span(className="legend-swatch",
+                              style={"background": color}),
                     label,
                 ],
-                style={"marginRight": "1rem"},
+                className="legend-chip",
             )
         )
-    return html.Div(
-        chips,
-        style={
-            "color": GREY,
-            "fontSize": "12px",
-            "margin": "-0.4em 0 0.6em 0",
-        },
-    )
+    return html.Div(chips, className="chart-legend")
 
 
 # ============================================================
@@ -134,12 +85,7 @@ def status_legend(text: str) -> html.Div:
     app work without conversion.
     """
     return html.Div(
-        style={
-            "color": GREY,
-            "fontSize": "12px",
-            "lineHeight": "1.5",
-            "margin": "0.25em 0 0.6em 0",
-        },
+        className="status-legend",
         children=dcc.Markdown(text, dangerously_allow_html=True),
     )
 
@@ -157,11 +103,7 @@ def row_count_line(item_label: str, parts: list[tuple[int, str]]) -> html.Div:
     parts_text = " + ".join(f"{n} {label}" for n, label in parts)
     return html.Div(
         f"Showing {total} {item_label} | {parts_text} = {total} total",
-        style={
-            "color": GREY,
-            "fontSize": "0.85em",
-            "margin": "0.25em 0 0.75em 0",
-        },
+        className="row-count",
     )
 
 
@@ -203,10 +145,7 @@ def error_card(title: str, message: str) -> dbc.Card:
             html.H5(title, style={"color": RED, "fontWeight": "600"}),
             html.P(message, style={"color": NAVY_MED}),
         ]),
-        style={
-            "borderLeft": f"4px solid {RED}",
-            "marginBottom": "1rem",
-        },
+        className="error-card",
     )
 
 
@@ -216,15 +155,7 @@ def error_card(title: str, message: str) -> dbc.Card:
 
 def empty_state(message: str) -> html.Div:
     """Centered message for zero-row results."""
-    return html.Div(
-        message,
-        style={
-            "textAlign": "center",
-            "padding": "3rem 1rem",
-            "color": GREY,
-            "fontSize": "1.1rem",
-        },
-    )
+    return html.Div(message, className="empty-state")
 
 
 # ============================================================
@@ -288,22 +219,16 @@ def dashboard_layout(
     ``footer`` spans full width below (export button, stores, downloads).
     """
     return html.Div(
-        style={"display": "flex", "flexDirection": "column", "height": "calc(100vh - 2.5rem)"},
+        className="dash-layout",
         children=[
             html.Div(header),
             html.Div(
-                style={"display": "flex", "gap": "1.5rem", "flex": "1", "minHeight": "0"},
+                className="dash-body",
                 children=[
-                    html.Div(
-                        [grid],
-                        style={"flex": "1", "minWidth": "0", "overflow": "hidden"},
-                    ),
-                    html.Div(
-                        chart,
-                        style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
-                    ),
+                    html.Div([grid], className="dash-col"),
+                    html.Div(chart, className="dash-col--scroll"),
                 ],
             ),
-            html.Div(footer, style={"paddingTop": "0.5rem"}),
+            html.Div(footer, className="dash-footer"),
         ],
     )

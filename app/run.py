@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import pathlib
 import threading
+
+from dotenv import load_dotenv
+
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import dash_bootstrap_components as dbc
 from dash import Dash
@@ -10,7 +15,6 @@ from flask import jsonify
 
 from callbacks import register_callbacks
 from data import init_cache, warm_cache, warm_default_view
-from story import register_callbacks as story_cbs
 from decisions.shelf_defense import register_callbacks as shelf_cbs
 from decisions.production import register_callbacks as prod_cbs
 from decisions.promo_roi import register_callbacks as promo_cbs
@@ -37,7 +41,6 @@ def health():
 
 app.layout = create_layout()
 register_callbacks(app)
-story_cbs(app)
 shelf_cbs(app)
 prod_cbs(app)
 promo_cbs(app)

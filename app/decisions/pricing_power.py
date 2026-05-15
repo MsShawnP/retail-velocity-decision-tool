@@ -142,6 +142,27 @@ def layout(
     n_stop = int((df["verdict"] == "Stop promoting").sum())
     n_backfired = int((df["verdict"] == "Promo backfired").sum())
 
+    # Insight
+    if n_stop + n_backfired > 0:
+        insight = (
+            f"{n_stop + n_backfired} SKU{'s' if n_stop + n_backfired != 1 else ''} "
+            f"should stop being promoted — discounts erode margin without "
+            f"lasting lift. Redirect that trade spend to the "
+            f"{n_promote_again} with proven elasticity."
+        )
+    elif len(low_sensitivity) > 0:
+        insight = (
+            f"{len(low_sensitivity)} SKU{'s' if len(low_sensitivity) != 1 else ''} "
+            f"barely respond to discounts (elasticity ≤ 1.5) — "
+            f"these can likely absorb a price increase without losing volume."
+        )
+    else:
+        insight = (
+            f"Average elasticity of {avg_elast:.1f} across {n_total} SKUs. "
+            f"All show meaningful price sensitivity — promotions are "
+            f"an effective lever for this portfolio."
+        )
+
     # Status legend
     full_pct = THRESHOLDS["pricing_full_recovery"] * 100
     slow_pct = THRESHOLDS["pricing_slow_recovery"] * 100
@@ -302,16 +323,17 @@ def layout(
     # Assemble the full component tree
     return dashboard_layout(
         header=[
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
+            html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("Avg Elasticity", f"{avg_elast:.2f}"), style={"flex": "1"}),
-                    html.Div(metric_card("Avg Discount", f"{avg_disc:.2f}%"), style={"flex": "1"}),
-                    html.Div(metric_card("Promote-again SKUs", str(n_promote_again)), style={"flex": "1"}),
-                    html.Div(metric_card("Backfired Promos", str(n_backfired)), style={"flex": "1"}),
+                    html.Div(metric_card("Avg Elasticity", f"{avg_elast:.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Avg Discount", f"{avg_disc:.2f}%"), className="dh-metric"),
+                    html.Div(metric_card("Promote-again SKUs", str(n_promote_again)), className="dh-metric"),
+                    html.Div(metric_card("Backfired Promos", str(n_backfired)), className="dh-metric"),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
             status_legend(legend_html),
             row_count_line("SKUs", [
@@ -342,7 +364,7 @@ def layout(
         footer=[
             html.Button(
                 "Export to Excel", id="pricing-power-export-btn", n_clicks=0,
-                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+                className="export-btn",
             ),
             dcc.Download(id="pricing-power-download"),
             dcc.Store(
