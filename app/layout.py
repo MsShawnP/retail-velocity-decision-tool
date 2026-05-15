@@ -15,6 +15,7 @@ from constants import (
     ALL_PHYSICAL_OR_AGG,
     DECISIONS,
     PHYSICAL_RETAILERS,
+    PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
 )
 from data import get_product_lines
@@ -193,19 +194,36 @@ def _pitch_export_section(product_lines: list[str]) -> html.Div:
 # Sidebar assembly
 # ============================================================
 
+def _filters_portfolio() -> html.Div:
+    return html.Div(
+        id="filters-portfolio",
+        children=[
+            _caption(
+                "Portfolio-wide overview. Select a decision mode "
+                "above to drill into a specific area."
+            ),
+        ],
+    )
+
+
 def _sidebar() -> html.Div:
     product_lines = get_product_lines()
+    options = (
+        [{"label": PORTFOLIO_HEALTH, "value": PORTFOLIO_HEALTH}]
+        + [{"label": d, "value": d} for d in DECISIONS]
+    )
     return html.Div([
         _brand_header(),
-        _caption("Pick a decision you're trying to make, then set the filters below."),
+        _caption("Start with the portfolio overview, or pick a decision to drill in."),
         dcc.Dropdown(
             id="decision-picker",
-            options=[{"label": d, "value": d} for d in DECISIONS],
-            value=DECISIONS[0],
+            options=options,
+            value=PORTFOLIO_HEALTH,
             clearable=False,
             style={"marginBottom": "1rem"},
         ),
         html.Div("Filters", className="sidebar-section-title"),
+        _filters_portfolio(),
         _filters_shelf_defense(product_lines),
         _filters_production(product_lines),
         _filters_promo(),

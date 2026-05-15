@@ -14,10 +14,12 @@ from dash import Input, Output, State, ctx, dcc, no_update, html
 from constants import (
     DECISIONS,
     DECISION_TITLES,
+    PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
 )
 from data import get_promo_skus, get_product_lines, get_skus_for_line
 from pitch_export import build_pitch_excel, build_pitch_pdf
+from decisions.portfolio_health import layout as portfolio_layout
 from decisions.shelf_defense import layout as shelf_layout
 from decisions.production import layout as production_layout
 from decisions.promo_roi import layout as promo_layout
@@ -33,6 +35,7 @@ from decisions.pricing_power import layout as pricing_layout
 # ============================================================
 
 _FILTER_IDS = [
+    "filters-portfolio",          # Portfolio Health (no inputs)
     "filters-shelf-defense",      # 0 — Shelf Defense
     "filters-production",         # 1 — Production
     "filters-promo",              # 2 — Promo ROI
@@ -67,14 +70,16 @@ def register_callbacks(app) -> None:
         Input("decision-picker", "value"),
     )
     def toggle_filters(decision: str):
-        idx = DECISIONS.index(decision) if decision in DECISIONS else 0
-        styles = []
-        for i in range(len(_FILTER_IDS)):
-            if i == idx:
-                styles.append({"display": "block"})
-            else:
-                styles.append({"display": "none"})
-        return styles
+        if decision == PORTFOLIO_HEALTH:
+            idx = 0
+        elif decision in DECISIONS:
+            idx = DECISIONS.index(decision) + 1
+        else:
+            idx = 0
+        return [
+            {"display": "block"} if i == idx else {"display": "none"}
+            for i in range(len(_FILTER_IDS))
+        ]
 
     # ----------------------------------------------------------
     # b) Dispatcher: single callback that owns main-content
@@ -121,6 +126,9 @@ def register_callbacks(app) -> None:
         rat_ret, rat_pl,
         price_ret, price_scope, price_pl, price_sku,
     ):
+        if decision == PORTFOLIO_HEALTH:
+            return portfolio_layout()
+
         idx = DECISIONS.index(decision) if decision in DECISIONS else 0
 
         triggered = ctx.triggered_id

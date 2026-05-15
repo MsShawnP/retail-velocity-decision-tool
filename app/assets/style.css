@@ -317,3 +317,79 @@ body {
     border-left: 4px solid #C0221F;
     margin-bottom: 1rem;
 }
+
+/* ============================================================
+   Portfolio Health landing page
+   ============================================================ */
+
+.ph-layout {
+    padding: 0.5rem 0;
+    max-width: 1100px;
+    height: calc(100vh - 2.5rem);
+    overflow-y: auto;
+}
+
+.ph-subhead {
+    color: #3D5A80;
+    font-size: 1rem;
+    margin: 0 0 0.3rem;
+}
+
+.ph-risk-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.ph-risk-card {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1px solid #DFE6E9;
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 1px 2px rgba(27, 42, 74, 0.05);
+    cursor: default;
+}
+
+.ph-risk-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #636E72;
+    text-transform: uppercase;
+    letter-spacing: 0.04rem;
+    margin-bottom: 0.3rem;
+}
+
+.ph-risk-count {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.ph-risk-subtitle {
+    font-size: 0.82rem;
+    color: #636E72;
+    margin-bottom: 0.3rem;
+}
+
+.ph-risk-detail {
+    font-size: 0.78rem;
+    color: #3D5A80;
+    line-height: 1.4;
+}
+
+.ph-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ph-bar-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 0.78rem;
+    font-weight: 600;
+    min-width: 24px;
+}

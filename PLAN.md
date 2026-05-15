@@ -76,7 +76,7 @@ portfolio story.
     - Done when: A `get_portfolio_summary()` function returns a dict of
       portfolio-wide metrics. Unit tests verify the shape and types.
 
-- [ ] A3: Portfolio health landing page
+- [x] A3: Portfolio health landing page
     - Depends on: A1, A2
     - New `decisions/portfolio_health.py` module with a `layout()` function
       that renders: KPI row (total SKUs, total retailers, total doors,
