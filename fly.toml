@@ -19,8 +19,16 @@ primary_region = 'iad'
   source = "cache_data"
   destination = "/cache"
 
+[[checks]]
+  port = 8080
+  type = "http"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "60s"
+  method = "GET"
+  path = "/health"
+
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 1024
