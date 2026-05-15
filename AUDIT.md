@@ -22,7 +22,9 @@ Postgres (also on Fly.io). Modular codebase: ~7,600 lines across 15 modules.
 3. **No health check endpoint (MEDIUM).** Fly machine occasionally stops;
    no liveness signal for restart. **Fixed in Move 1.**
 4. **No tests (MEDIUM).** Zero test files, no pytest in requirements.
+   **Fixed in Move 2 — 26 tests across 4 test modules.**
 5. **No CI (MEDIUM).** No GitHub Actions, linting, or type checking.
+   **Fixed in Move 2 — lint + test jobs on push/PR to main.**
 6. **Inline styles everywhere (LOW-MEDIUM).** CSS classes exist in
    `assets/style.css` but most code sets styles inline.
 7. **License removed (LOW).** MIT LICENSE deleted in Dash migration.
@@ -50,5 +52,5 @@ No OSS project in the scan approaches this sophistication.
 | Move | Status | Description |
 |------|--------|-------------|
 | 1. Production fixes | **Done** | README, connection refactor, health check, license, fly.toml |
-| 2. Basic CI + tests | Planned | pytest + ruff + GitHub Actions |
+| 2. Basic CI + tests | **Done** | pytest (26 tests) + ruff + GitHub Actions CI |
 | 3. Retailer pitch export | Future | Export analysis as buyer deck |
