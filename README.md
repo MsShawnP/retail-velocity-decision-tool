@@ -1,6 +1,6 @@
 # Cinderhaven Velocity Decision Tool
 
-**Try it live → [https://velocity-tool.streamlit.app/](https://velocity-tool.streamlit.app/)**
+**Try it live → [https://retail-velocity-decision-tool.fly.dev](https://retail-velocity-decision-tool.fly.dev)**
 
 A prescriptive decision tool for specialty food CEOs who get velocity reports every Monday but don't know what decisions they should drive.
 
@@ -33,30 +33,43 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 - Data-quality-driven chargebacks traceable to product master defects
 - Seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
 
-> **Database source:** the dataset, generators, and build pipeline live in [`cinderhaven-data`](https://github.com/MsShawnP/cinderhaven-data), included here as a git submodule at `data/cinderhaven-data/`.
+> **Data source:** the Cinderhaven Data Platform — a Postgres database
+> with dbt-managed staging, intermediate, and mart tables, hosted on
+> Fly.io with local Docker for development.
 
 ## Running locally
 
 ```bash
-git clone --recurse-submodules https://github.com/MsShawnP/retail-velocity-decision-tool.git
+git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
 cd retail-velocity-decision-tool
-./setup.sh
 pip install -r app/requirements.txt
-streamlit run app/velocity_tool.py
+cp .env.example .env   # set DATABASE_URL
+cd app && python run.py
 ```
 
-`setup.sh` pulls the data generation submodule, creates a virtual environment, and builds the database (~5-10 minutes on first run). Subsequent starts are instant.
+The app connects to a Postgres database. To run locally, start the shared
+Docker Postgres from
+[refactor-older-cinderhaven-projects](https://github.com/MsShawnP/refactor-older-cinderhaven-projects):
+
+```bash
+# In the refactor-older-cinderhaven-projects repo:
+docker compose up
+
+# Then in this repo:
+cd app && python run.py
+```
 
 ## Built with
 
-- **Streamlit** — interactive decision tool
-- **Python + Pandas** — data generation and analysis
+- **Dash** — interactive decision tool
+- **Python + Pandas** — data analysis
 - **Plotly** — CEO-readable visualizations
-- **SQLite** — lightweight data storage
+- **Postgres** — Cinderhaven Data Platform
+- **Fly.io** — hosting and deployment
 
 ## Context
 
-This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M–$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), a GTIN Validator tool, and a 53-query SQL library for retail data analysis.
+This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M–$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), the [GTIN Validator](https://github.com/MsShawnP/gtin-validator), and a 53-query SQL library for retail data analysis.
 
 ---
 
