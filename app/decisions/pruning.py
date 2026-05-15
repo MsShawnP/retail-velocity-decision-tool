@@ -118,6 +118,20 @@ def layout(
             f"the {threshold:.2f} threshold."
         )
 
+    # Insight
+    if n_below > 0:
+        total_shelf_cost = int(pairs.loc[pairs["below_threshold"], "shelf_cost"].sum())
+        insight = (
+            f"Underperforming pairs represent ${total_shelf_cost:,}/week in "
+            f"unrealized margin vs the median. Pruning the weakest "
+            f"frees shelf space for higher-velocity SKUs."
+        )
+    else:
+        insight = (
+            f"All {n_pairs:,} active placements are above {threshold:.2f} "
+            f"units/store/week — the portfolio is earning its shelf space."
+        )
+
     # ---------- BY SKU tab ----------
     sku_tab_children = _build_sku_tab(pairs, threshold, retailer, product_line)
 
@@ -129,6 +143,7 @@ def layout(
         children=[
             html.Div([
                 html.H3(headline, className="dh-headline"),
+                html.P(insight, className="dh-insight"),
                 html.P(caption_text, className="dh-caption"),
                 html.Div(
                     [

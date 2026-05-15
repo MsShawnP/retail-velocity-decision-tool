@@ -138,6 +138,22 @@ def layout(
             f"at {retailer}. None lost money."
         )
 
+    # Insight
+    net = total_incr - total_cost
+    if n_negative > 0:
+        insight = (
+            f"These {n_total} promos generated ${total_incr:,.0f} in incremental "
+            f"revenue against ${total_cost:,.0f} in spend. "
+            f"{n_negative} promo{'s' if n_negative != 1 else ''} lost money — "
+            f"consider reallocating that spend to the {n_strong} that delivered."
+        )
+    else:
+        insight = (
+            f"${total_incr:,.0f} in incremental revenue on ${total_cost:,.0f} "
+            f"in promo spend — a net return of ${net:,.0f}. "
+            f"Average lift was {avg_lift:.1f}% across {n_total} promos."
+        )
+
     # Status legend
     legend_html = (
         f"<b>ROI</b> = (incremental revenue − promo cost) ÷ promo cost × 100.  "
@@ -296,6 +312,7 @@ def layout(
     return dashboard_layout(
         header=[
             html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
             html.P(caption_text, className="dh-caption"),
             html.Div(
                 [

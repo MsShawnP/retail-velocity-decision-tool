@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, State, callback_context, dcc, html, no_update
 
-from charts import add_vline_at_date, apply_hbar_layout, text_annotation
+from charts import add_vline_at_date, apply_hbar_layout, base_chart_layout, text_annotation
 from components import (
     chart_legend,
     dashboard_layout,
@@ -38,7 +38,7 @@ from constants import (
     THRESHOLDS,
     WHITE,
 )
-from data import get_latest_week, get_launch_data, get_launch_weekly
+from data import get_latest_week, get_launch_data, get_launch_velocity_curve, get_launch_weekly
 
 
 # ============================================================
@@ -110,6 +110,24 @@ def layout() -> html.Div:
         headline = (
             f"{n_total} SKUs launched in the last 52 weeks. "
             f"{n_track} on track, {n_attn} need attention, none currently failing."
+        )
+
+    # Insight
+    if n_fail > 0:
+        insight = (
+            f"{n_fail} launch{'es' if n_fail != 1 else ''} falling below "
+            f"the velocity benchmark — act now before retailers "
+            f"question the placement. {n_track} are building momentum."
+        )
+    elif n_attn > 0:
+        insight = (
+            f"No launches are failing, but {n_attn} need a velocity boost "
+            f"to stay on track. Early intervention prevents delisting conversations."
+        )
+    else:
+        insight = (
+            f"All {n_total} recent launches are on track — "
+            f"velocity is meeting or exceeding the benchmark across the board."
         )
 
     # Caption
@@ -246,6 +264,49 @@ def layout() -> html.Div:
         left_margin=200,
     )
 
+    # Velocity curve overview for failing / needs-attention launches
+    trend_chart_elements = []
+    watch_skus = df.loc[df["status"].isin(["Failing", "Needs Attention"]), "sku"].tolist()
+    if watch_skus:
+        trend_fig = go.Figure()
+        status_map = dict(zip(df["sku"], df["status"]))
+        name_map = dict(zip(df["sku"], df["product_name"]))
+        for sku in watch_skus:
+            curve = get_launch_velocity_curve(sku)
+            if curve.empty:
+                continue
+            color = LAUNCH_STATUS_COLORS.get(status_map.get(sku, "Needs Attention"), ORANGE)
+            trend_fig.add_trace(go.Scatter(
+                x=curve["weeks_since_launch"],
+                y=curve["avg_velocity"],
+                mode="lines+markers",
+                name=f"{sku} — {name_map.get(sku, '')}",
+                line=dict(color=color, width=2),
+                marker=dict(size=5),
+            ))
+        trend_fig.add_hline(
+            y=threshold, line_dash="dash", line_color=GREY, line_width=2,
+            annotation_text=f"Benchmark {threshold:.2f}",
+            annotation_position="top left",
+        )
+        layout_kw = base_chart_layout(
+            height=340, x_title="Weeks since launch", y_title="Avg units/store/week",
+            show_legend=True,
+        )
+        layout_kw["yaxis"]["autorange"] = True
+        layout_kw["legend"] = dict(
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="left", x=0, font=dict(size=11),
+        )
+        trend_fig.update_layout(**layout_kw)
+        trend_chart_elements = [
+            html.H4(
+                "Velocity since launch — failing & needs-attention SKUs",
+                style={"marginTop": "1.5rem"},
+            ),
+            dcc.Graph(figure=trend_fig, id="launch-trend-chart"),
+        ]
+
     # Build dropdown options for drilldown
     drill_df = display_df.copy()
     drill_df["label"] = (
@@ -269,6 +330,7 @@ def layout() -> html.Div:
     return dashboard_layout(
         header=[
             html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
             html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
@@ -296,6 +358,7 @@ def layout() -> html.Div:
                 (TEAL,   "On Track"),
             ]),
             dcc.Graph(figure=fig, id="launch-health-chart"),
+        ] + trend_chart_elements + [
             html.H4("Drill into one launch", style={"marginTop": "1rem"}),
             html.P(
                 "Pick a launched SKU to see weekly velocity since launch:",

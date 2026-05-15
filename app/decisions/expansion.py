@@ -257,9 +257,17 @@ def layout(
         f"{product_name} yet — here are the strongest fits."
     )
 
+    n_strongest = int((df["score"] >= strongest_floor).sum())
+    insight = (
+        f"{n_strongest} of {n_opps} opportunities score in the top tier. "
+        f"Prioritize stores where peer SKUs already perform — "
+        f"those buyers have proven category demand."
+    )
+
     return dashboard_layout(
         header=[
             html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
             html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
