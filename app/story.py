@@ -12,7 +12,7 @@ from __future__ import annotations
 import dash_ag_grid as dag
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, State, ctx, dcc, html, no_update
+from dash import Input, Output, ctx, dcc, html, no_update
 
 from charts import add_vline_at_date
 from components import chart_legend, metric_card
@@ -33,7 +33,6 @@ from constants import (
 )
 from data import (
     get_bottom_stores_below_threshold,
-    get_category_avg_velocity,
     get_monday_morning_summary,
     get_promo_hangover_data,
     get_sku_costs,
@@ -643,7 +642,6 @@ def _section_5(
     # If rev wasn't computed in section 4, fetch it fresh
     if rev is None:
         rev = get_sku_revenue_at_risk(PROTAGONIST_SKU)
-    cat_avg = get_category_avg_velocity("Specialty Condiments")
     walmart_doors = rev["walmart_doors"]
     margin_per_unit = max(rev["wholesale_walmart"] - rev["cogs"], 0.0)
 
