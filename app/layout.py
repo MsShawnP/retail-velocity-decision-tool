@@ -250,6 +250,54 @@ def _deep_dive_section() -> html.Div:
 
 
 # ============================================================
+# Pitch export section
+# ============================================================
+
+_EXPORT_BTN = {
+    "display": "inline-block",
+    "width": "48%",
+    "padding": "0.4rem 0.5rem",
+    "fontSize": "0.78rem",
+    "fontWeight": "600",
+    "color": WHITE,
+    "backgroundColor": NAVY,
+    "border": "none",
+    "borderRadius": "6px",
+    "cursor": "pointer",
+    "textAlign": "center",
+}
+
+
+def _pitch_export_section(product_lines: list[str]) -> html.Div:
+    return html.Div([
+        html.Hr(style={"borderColor": GREY_LIGHT, "margin": "1.25rem 0"}),
+        html.Div(
+            "PITCH EXPORT",
+            style={
+                "fontSize": "0.7rem",
+                "fontWeight": "600",
+                "color": GREY,
+                "letterSpacing": "0.05rem",
+                "marginBottom": "0.5rem",
+            },
+        ),
+        _filter_dropdown("pitch-retailer", PHYSICAL_RETAILERS, label="Retailer"),
+        _filter_dropdown("pitch-product-line", ["All"] + product_lines, label="Product Line"),
+        html.Div([
+            html.Button("Excel", id="pitch-excel-btn", n_clicks=0, style=_EXPORT_BTN),
+            html.Button("PDF", id="pitch-pdf-btn", n_clicks=0,
+                        style={**_EXPORT_BTN, "marginLeft": "4%"}),
+        ], style={"marginTop": "0.4rem"}),
+        _caption(
+            "Bundles Shelf Defense, Production Planning, SKU Rationalization, "
+            "and Launch Health into a buyer-ready document."
+        ),
+        dcc.Download(id="pitch-excel-download"),
+        dcc.Download(id="pitch-pdf-download"),
+    ])
+
+
+# ============================================================
 # Sidebar assembly
 # ============================================================
 
@@ -283,6 +331,7 @@ def _sidebar() -> html.Div:
         _filters_launch(),
         _filters_pricing(),
         _deep_dive_section(),
+        _pitch_export_section(product_lines),
     ], style={
         "padding": "1.25rem 1rem",
         "backgroundColor": WHITE,
