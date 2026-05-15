@@ -6,22 +6,21 @@ A prescriptive decision tool for specialty food CEOs who get velocity reports ev
 
 ## What this is
 
-Most velocity reports tell you what happened. This tool tells you what to do next. The CEO picks a decision they're trying to make, and the tool surfaces the right velocity view to answer it.
+Most velocity reports tell you what happened. This tool tells you what to do next. The default view is a portfolio health dashboard that surfaces risk indicators across every decision area. The CEO sees what needs attention immediately, then drills into the decision mode that answers it.
 
-**Eight decisions velocity should drive:**
+**Nine decision views:**
 
-1. **Shelf Defense** — Is this SKU about to get delisted?
-2. **Production Planning** — How much should I produce over the next 4 weeks?
-3. **Promo ROI** — Should I run that promotion again?
-4. **Distribution Expansion** — Which stores should I pitch next?
-5. **Distribution Pruning** — Which stores aren't earning their shelf space?
-6. **SKU Rationalization** — Which SKUs should I cut or keep?
-7. **Launch Trajectory** — Is my new product on track?
-8. **Pricing Power** — Should I promote this SKU again?
+1. **Portfolio Health** — What needs my attention right now? (default landing page)
+2. **Shelf Defense** — Is this SKU about to get delisted?
+3. **Production Planning** — How much should I produce over the next 4 weeks?
+4. **Promo ROI** — Should I run that promotion again?
+5. **Distribution Expansion** — Which stores should I pitch next?
+6. **Distribution Pruning** — Which stores aren't earning their shelf space?
+7. **SKU Rationalization** — Which SKUs should I cut or keep?
+8. **Launch Trajectory** — Is my new product on track?
+9. **Pricing Power** — Should I promote this SKU again?
 
-## The Deep Dive: The Charred Scallion Relish Problem
-
-The app includes a narrative case study that traces one SKU — Charred Scallion Relish (CHP-0044) — through four decision modes. What looks like a healthy +15% YoY growth story in the Monday morning report turns out to be a SKU buying revenue at a loss: baseline velocity declining 25%, promotional intensity tripled to mask it, $24,686 in trade spend burned, and $723,842 in total value being destroyed — invisible to every pivot table in the building. Click "The Charred Scallion Relish problem" in the sidebar to read it.
+Each decision mode includes a data grid, a chart, and a narrative "so what" insight. Shelf Defense, Production Planning, and Launch Trajectory also include time-series trend views.
 
 ## The dataset
 
@@ -62,10 +61,14 @@ cd app && python run.py
 ## Built with
 
 - **Dash** — interactive decision tool
-- **Python + Pandas** — data analysis
+- **Dash Bootstrap Components** — layout grid, cards, tabs
+- **AG Grid** — sortable, filterable data tables
 - **Plotly** — CEO-readable visualizations
-- **Postgres** — Cinderhaven Data Platform
-- **Fly.io** — hosting and deployment
+- **Python + Pandas** — data analysis
+- **Postgres** — Cinderhaven Data Platform (psycopg2, ThreadedConnectionPool)
+- **flask-caching** — FileSystemCache on a persistent Fly volume
+- **Gunicorn** — 1 worker, 4 gthread threads, 120s timeout
+- **Fly.io** — hosting (shared-cpu-1x, 1GB RAM, always-on)
 
 ## Context
 
