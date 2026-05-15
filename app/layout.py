@@ -166,28 +166,6 @@ def _filters_pricing() -> html.Div:
 
 
 # ============================================================
-# Story entry button + deep dive section
-# ============================================================
-
-def _deep_dive_section() -> html.Div:
-    return html.Div([
-        html.Hr(className="sidebar-divider"),
-        html.Div("DEEP DIVE · 2 MIN", className="sidebar-section-tag"),
-        html.Button(
-            "The Charred Scallion Relish problem",
-            id="story-entry-btn",
-            n_clicks=0,
-            className="story-entry-btn",
-        ),
-        _caption(
-            "A single-SKU case study that walks through all eight "
-            "decisions -- from a Monday-morning sales report to a "
-            "board-ready recommendation."
-        ),
-    ])
-
-
-# ============================================================
 # Pitch export section
 # ============================================================
 
@@ -236,7 +214,6 @@ def _sidebar() -> html.Div:
         _filters_rationalization(product_lines),
         _filters_launch(),
         _filters_pricing(),
-        _deep_dive_section(),
         _pitch_export_section(product_lines),
     ], className="sidebar")
 
@@ -247,9 +224,6 @@ def _sidebar() -> html.Div:
 
 def _main_content() -> html.Div:
     return html.Div([
-        dcc.Store(id="view-store", data="decision"),
-        dcc.Store(id="came-from-story", data=False),
-        dcc.Store(id="scroll-to-section-5", data=False),
         dcc.Loading(
             id="main-loading",
             type="default",
