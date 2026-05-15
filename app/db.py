@@ -1,8 +1,8 @@
 """Database connection for the Cinderhaven Data Platform (Postgres).
 
 Fork-safe connection pool: each PID gets its own ThreadedConnectionPool so
-gunicorn pre-fork workers don't share sockets. pd.read_sql needs a raw
-psycopg2 connection (not a cursor), hence the separate get_raw_conn().
+gunicorn pre-fork workers don't share sockets. All callers use the
+``get_conn()`` context manager which guarantees connections are returned.
 """
 
 from __future__ import annotations
@@ -81,16 +81,3 @@ def get_conn():
         pool.putconn(conn)
 
 
-def get_raw_conn():
-    """Return a raw psycopg2 connection for pd.read_sql.
-
-    The caller is responsible for returning it via ``get_pool().putconn(conn)``
-    when finished, or — more commonly — used inside a ``with get_conn()`` block
-    where the context manager handles cleanup. For one-shot pd.read_sql calls
-    that live outside a ``with`` block, the connection will be returned to the
-    pool on garbage collection, but explicit return is preferred.
-    """
-    pool = get_pool()
-    conn = pool.getconn()
-    conn.autocommit = True
-    return conn
