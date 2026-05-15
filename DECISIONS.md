@@ -47,3 +47,19 @@
 **Why:** User feedback — charts and insights were below the fold, requiring scrolling. The tool's value is the insight paired with the data; both need to be visible simultaneously.
 
 **Tradeoff:** Less vertical space for each panel. AG Grid now uses internal scrollbars (`domLayout: "normal"`) instead of expanding to show all rows.
+
+## 2026-05-15: Replace Story mode with portfolio health dashboard
+
+**Decision:** Deleted the 5-section Story mode entirely and replaced it with a portfolio health landing page that aggregates risk indicators across all decision areas. Decision modes became the narrative building blocks — each got a "so what" insight and (where applicable) trend charts.
+
+**Why:** The Story mode was a guided walkthrough of one protagonist SKU. A cold-landing CEO doesn't want a tour — they want to see their portfolio's health instantly and drill into what matters. The decision modes already had the data; they just needed narrative framing.
+
+**Tradeoff:** Lost the linear storytelling arc. Gained a tool that hooks within 30 seconds by surfacing what's interesting (at-risk clusters, production spikes, launch failures) and letting the user pull rather than push.
+
+## 2026-05-15: Trend charts use base_chart_layout with yaxis autorange override
+
+**Decision:** Reused the existing `base_chart_layout()` helper for all 3 new trend charts but overrode `yaxis.autorange = True` in each.
+
+**Why:** `base_chart_layout` defaults to `autorange="reversed"` because it was designed for horizontal bar charts (labels top-to-bottom). Time-series charts need standard ascending y-axis. Overriding one property is simpler than creating a second layout helper.
+
+**Tradeoff:** Each trend chart needs a 1-line override. Acceptable until there are enough time-series charts to justify a `time_series_layout()` helper.
