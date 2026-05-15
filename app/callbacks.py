@@ -1,8 +1,7 @@
 """Cinderhaven Velocity Tool -- top-level Dash callbacks.
 
 Central nervous system for the app: filter visibility, the main-content
-dispatcher, dependent dropdown chains, story/decision toggling, and
-threshold defaults.
+dispatcher, dependent dropdown chains, and threshold defaults.
 
 All callbacks are registered via ``register_callbacks(app)`` so the module
 never touches a module-level app instance.
@@ -10,18 +9,17 @@ never touches a module-level app instance.
 
 from __future__ import annotations
 
-from dash import Input, Output, State, ctx, dcc, no_update, html
+from dash import ALL, Input, Output, State, ctx, dcc, no_update, html
 
 from constants import (
     DECISIONS,
     DECISION_TITLES,
-    NAVY,
+    PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
-    WHITE,
 )
 from data import get_promo_skus, get_product_lines, get_skus_for_line
 from pitch_export import build_pitch_excel, build_pitch_pdf
-from story import layout as story_layout
+from decisions.portfolio_health import layout as portfolio_layout
 from decisions.shelf_defense import layout as shelf_layout
 from decisions.production import layout as production_layout
 from decisions.promo_roi import layout as promo_layout
@@ -37,6 +35,7 @@ from decisions.pricing_power import layout as pricing_layout
 # ============================================================
 
 _FILTER_IDS = [
+    "filters-portfolio",          # Portfolio Health (no inputs)
     "filters-shelf-defense",      # 0 — Shelf Defense
     "filters-production",         # 1 — Production
     "filters-promo",              # 2 — Promo ROI
@@ -71,23 +70,44 @@ def register_callbacks(app) -> None:
         Input("decision-picker", "value"),
     )
     def toggle_filters(decision: str):
-        idx = DECISIONS.index(decision) if decision in DECISIONS else 0
-        styles = []
-        for i in range(len(_FILTER_IDS)):
-            if i == idx:
-                styles.append({"display": "block"})
-            else:
-                styles.append({"display": "none"})
-        return styles
+        if decision == PORTFOLIO_HEALTH:
+            idx = 0
+        elif decision in DECISIONS:
+            idx = DECISIONS.index(decision) + 1
+        else:
+            idx = 0
+        return [
+            {"display": "block"} if i == idx else {"display": "none"}
+            for i in range(len(_FILTER_IDS))
+        ]
+
+    # ----------------------------------------------------------
+    # a2) Portfolio drill-down: risk card click → decision picker
+    # ----------------------------------------------------------
+    _RISK_TO_DECISION = {
+        "shelf": DECISIONS[0],
+        "production-decel": DECISIONS[1],
+        "production-accel": DECISIONS[1],
+        "launch": DECISIONS[6],
+    }
+
+    @app.callback(
+        Output("decision-picker", "value"),
+        Input({"type": "ph-risk-card", "decision": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def drill_down(n_clicks_list):
+        if not ctx.triggered_id or not any(n_clicks_list):
+            return no_update
+        decision_key = ctx.triggered_id["decision"]
+        return _RISK_TO_DECISION.get(decision_key, no_update)
 
     # ----------------------------------------------------------
     # b) Dispatcher: single callback that owns main-content
     # ----------------------------------------------------------
     @app.callback(
         Output("main-content", "children"),
-        # Global inputs
         Input("decision-picker", "value"),
-        Input("view-store", "data"),
         # Mode 0 — Shelf Defense
         Input("shelf-retailer", "value"),
         Input("shelf-threshold", "value"),
@@ -115,12 +135,10 @@ def register_callbacks(app) -> None:
         Input("pricing-scope", "value"),
         Input("pricing-product-line", "value"),
         Input("pricing-sku", "value"),
-        # Story provenance
-        State("came-from-story", "data"),
         prevent_initial_call=False,
     )
     def dispatch(
-        decision, view,
+        decision,
         shelf_ret, shelf_thr, shelf_pl,
         prod_ret, prod_pl,
         promo_ret, promo_sku,
@@ -128,25 +146,18 @@ def register_callbacks(app) -> None:
         prune_ret, prune_thr, prune_pl,
         rat_ret, rat_pl,
         price_ret, price_scope, price_pl, price_sku,
-        came_from_story,
     ):
-        # Story mode
-        if view == "story":
-            return story_layout()
+        if decision == PORTFOLIO_HEALTH:
+            return portfolio_layout()
 
-        # Determine active mode index
         idx = DECISIONS.index(decision) if decision in DECISIONS else 0
 
-        # Short-circuit: if a filter from a non-active mode triggered
-        # this callback, skip the re-render.
         triggered = ctx.triggered_id
-        if triggered and triggered not in ("decision-picker", "view-store"):
+        if triggered and triggered != "decision-picker":
             active_ids = _MODE_INPUTS.get(idx, set())
             if triggered not in active_ids:
                 return no_update
 
-        # Normalise sentinel dropdown values to None so data functions
-        # skip the filter instead of matching the literal string.
         def _none_if(val: str | None, sentinel: str) -> str | None:
             return None if val == sentinel else val
 
@@ -158,51 +169,28 @@ def register_callbacks(app) -> None:
         promo_sku = _none_if(promo_sku, "All SKUs")
         exp_ret = _none_if(exp_ret, "All Retailers")
 
-        # Modes 0-7: real layouts
         if idx == 0:
-            content = shelf_layout(shelf_ret, shelf_thr, shelf_pl)
+            return shelf_layout(shelf_ret, shelf_thr, shelf_pl)
         elif idx == 1:
-            content = production_layout(prod_ret, prod_pl)
+            return production_layout(prod_ret, prod_pl)
         elif idx == 2:
-            content = promo_layout(promo_ret, promo_sku)
+            return promo_layout(promo_ret, promo_sku)
         elif idx == 3:
-            content = expansion_layout(exp_pl, exp_sku, exp_ret)
+            return expansion_layout(exp_pl, exp_sku, exp_ret)
         elif idx == 4:
-            content = pruning_layout(prune_ret, prune_thr, prune_pl)
+            return pruning_layout(prune_ret, prune_thr, prune_pl)
         elif idx == 5:
-            content = rationalization_layout(rat_ret, rat_pl)
+            return rationalization_layout(rat_ret, rat_pl)
         elif idx == 6:
-            content = launch_layout()
+            return launch_layout()
         elif idx == 7:
-            content = pricing_layout(price_ret, price_scope, price_pl, price_sku)
-        else:
-            title = DECISION_TITLES.get(decision, decision)
-            content = html.Div(
-                f"Decision mode: {title} — unknown mode index {idx}",
-                style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
-            )
+            return pricing_layout(price_ret, price_scope, price_pl, price_sku)
 
-        # "Back to Deep Dive" button when arrived from Story jump buttons
-        if came_from_story:
-            back_btn = html.Button(
-                "← Back to the Deep Dive",
-                id="back-to-story-btn",
-                n_clicks=0,
-                style={
-                    "padding": "0.4rem 1rem",
-                    "fontSize": "0.82rem",
-                    "fontWeight": "600",
-                    "color": WHITE,
-                    "backgroundColor": NAVY,
-                    "border": "none",
-                    "borderRadius": "6px",
-                    "cursor": "pointer",
-                    "marginBottom": "1rem",
-                },
-            )
-            return html.Div([back_btn, content])
-
-        return content
+        title = DECISION_TITLES.get(decision, decision)
+        return html.Div(
+            f"Decision mode: {title} — unknown mode index {idx}",
+            style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
+        )
 
     # ----------------------------------------------------------
     # c) Dependent dropdown: Promo ROI SKU list
@@ -283,28 +271,6 @@ def register_callbacks(app) -> None:
         skus = get_promo_skus(retailer)
         value = skus[0] if skus else None
         return skus, value
-
-    # ----------------------------------------------------------
-    # d) Story toggle: button click -> "story" view
-    # ----------------------------------------------------------
-    @app.callback(
-        Output("view-store", "data", allow_duplicate=True),
-        Input("story-entry-btn", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def enter_story(_n_clicks):
-        return "story"
-
-    # ----------------------------------------------------------
-    # e) Decision picker resets view to "decision"
-    # ----------------------------------------------------------
-    @app.callback(
-        Output("view-store", "data", allow_duplicate=True),
-        Input("decision-picker", "value"),
-        prevent_initial_call=True,
-    )
-    def reset_to_decision(_decision):
-        return "decision"
 
     # ----------------------------------------------------------
     # f) Threshold defaults: Shelf Defense

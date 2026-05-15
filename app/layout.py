@@ -14,13 +14,9 @@ from dash import dcc, html
 from constants import (
     ALL_PHYSICAL_OR_AGG,
     DECISIONS,
-    GREY,
-    GREY_LIGHT,
-    NAVY,
-    NAVY_MED,
     PHYSICAL_RETAILERS,
+    PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
-    WHITE,
 )
 from data import get_product_lines
 
@@ -32,33 +28,9 @@ from data import get_product_lines
 def _brand_header() -> html.Div:
     """CINDERHAVEN / P R O V I S I O N S / Velocity Tool."""
     return html.Div([
-        html.Div(
-            "CINDERHAVEN",
-            style={
-                "fontFamily": "Georgia, serif",
-                "fontSize": "1.55rem",
-                "fontWeight": "bold",
-                "color": NAVY,
-                "lineHeight": "1.2",
-            },
-        ),
-        html.Div(
-            "P R O V I S I O N S",
-            style={
-                "fontSize": "0.78rem",
-                "letterSpacing": "0.32rem",
-                "color": NAVY_MED,
-                "marginTop": "0.15rem",
-            },
-        ),
-        html.Div(
-            "Velocity Tool",
-            style={
-                "fontSize": "0.72rem",
-                "color": GREY,
-                "marginTop": "0.25rem",
-            },
-        ),
+        html.Div("CINDERHAVEN", className="brand-name"),
+        html.Div("P R O V I S I O N S", className="brand-sub"),
+        html.Div("Velocity Tool", className="brand-tool"),
     ], style={"marginBottom": "1.25rem"})
 
 
@@ -67,15 +39,11 @@ def _filter_dropdown(component_id: str, options: list, value=None,
     """Labelled dropdown used throughout the sidebar filter groups."""
     children = []
     if label:
-        children.append(html.Label(
-            label,
-            style={"fontSize": "0.82rem", "color": NAVY_MED, "marginBottom": "0.2rem"},
-        ))
+        children.append(html.Label(label, className="sidebar-label"))
     dd_kwargs = dict(id=component_id, options=options, clearable=False)
     if value is not None:
         dd_kwargs["value"] = value
     elif options:
-        # default to first option
         first = options[0]
         dd_kwargs["value"] = first["value"] if isinstance(first, dict) else first
     dd_kwargs.update(kwargs)
@@ -84,20 +52,13 @@ def _filter_dropdown(component_id: str, options: list, value=None,
 
 
 def _caption(text: str) -> html.Div:
-    return html.Div(
-        text,
-        style={"fontSize": "0.75rem", "color": GREY, "marginBottom": "0.5rem",
-               "lineHeight": "1.4"},
-    )
+    return html.Div(text, className="sidebar-caption")
 
 
 def _threshold_input(component_id: str, value: float, label: str | None = None) -> html.Div:
     children = []
     if label:
-        children.append(html.Label(
-            label,
-            style={"fontSize": "0.82rem", "color": NAVY_MED, "marginBottom": "0.2rem"},
-        ))
+        children.append(html.Label(label, className="sidebar-label"))
     children.append(dbc.Input(
         id=component_id,
         type="number",
@@ -206,87 +167,19 @@ def _filters_pricing() -> html.Div:
 
 
 # ============================================================
-# Story entry button + deep dive section
-# ============================================================
-
-def _deep_dive_section() -> html.Div:
-    return html.Div([
-        html.Hr(style={"borderColor": GREY_LIGHT, "margin": "1.25rem 0"}),
-        html.Div(
-            "DEEP DIVE · 2 MIN",
-            style={
-                "fontSize": "0.7rem",
-                "fontWeight": "600",
-                "color": GREY,
-                "letterSpacing": "0.05rem",
-                "marginBottom": "0.5rem",
-            },
-        ),
-        html.Button(
-            "The Charred Scallion Relish problem",
-            id="story-entry-btn",
-            n_clicks=0,
-            style={
-                "display": "block",
-                "width": "100%",
-                "padding": "0.45rem 0.75rem",
-                "fontSize": "0.82rem",
-                "fontWeight": "600",
-                "color": WHITE,
-                "backgroundColor": NAVY,
-                "border": "none",
-                "borderRadius": "999px",
-                "cursor": "pointer",
-                "marginBottom": "0.5rem",
-                "textAlign": "center",
-            },
-        ),
-        _caption(
-            "A single-SKU case study that walks through all eight "
-            "decisions -- from a Monday-morning sales report to a "
-            "board-ready recommendation."
-        ),
-    ])
-
-
-# ============================================================
 # Pitch export section
 # ============================================================
 
-_EXPORT_BTN = {
-    "display": "inline-block",
-    "width": "48%",
-    "padding": "0.4rem 0.5rem",
-    "fontSize": "0.78rem",
-    "fontWeight": "600",
-    "color": WHITE,
-    "backgroundColor": NAVY,
-    "border": "none",
-    "borderRadius": "6px",
-    "cursor": "pointer",
-    "textAlign": "center",
-}
-
-
 def _pitch_export_section(product_lines: list[str]) -> html.Div:
     return html.Div([
-        html.Hr(style={"borderColor": GREY_LIGHT, "margin": "1.25rem 0"}),
-        html.Div(
-            "PITCH EXPORT",
-            style={
-                "fontSize": "0.7rem",
-                "fontWeight": "600",
-                "color": GREY,
-                "letterSpacing": "0.05rem",
-                "marginBottom": "0.5rem",
-            },
-        ),
+        html.Hr(className="sidebar-divider"),
+        html.Div("PITCH EXPORT", className="sidebar-section-tag"),
         _filter_dropdown("pitch-retailer", PHYSICAL_RETAILERS, label="Retailer"),
         _filter_dropdown("pitch-product-line", ["All"] + product_lines, label="Product Line"),
         html.Div([
-            html.Button("Excel", id="pitch-excel-btn", n_clicks=0, style=_EXPORT_BTN),
+            html.Button("Excel", id="pitch-excel-btn", n_clicks=0, className="pitch-btn"),
             html.Button("PDF", id="pitch-pdf-btn", n_clicks=0,
-                        style={**_EXPORT_BTN, "marginLeft": "4%"}),
+                        className="pitch-btn pitch-btn--right"),
         ], style={"marginTop": "0.4rem"}),
         _caption(
             "Bundles Shelf Defense, Production Planning, SKU Rationalization, "
@@ -301,27 +194,36 @@ def _pitch_export_section(product_lines: list[str]) -> html.Div:
 # Sidebar assembly
 # ============================================================
 
+def _filters_portfolio() -> html.Div:
+    return html.Div(
+        id="filters-portfolio",
+        children=[
+            _caption(
+                "Portfolio-wide overview. Select a decision mode "
+                "above to drill into a specific area."
+            ),
+        ],
+    )
+
+
 def _sidebar() -> html.Div:
     product_lines = get_product_lines()
+    options = (
+        [{"label": PORTFOLIO_HEALTH, "value": PORTFOLIO_HEALTH}]
+        + [{"label": d, "value": d} for d in DECISIONS]
+    )
     return html.Div([
         _brand_header(),
-        _caption("Pick a decision you're trying to make, then set the filters below."),
+        _caption("Start with the portfolio overview, or pick a decision to drill in."),
         dcc.Dropdown(
             id="decision-picker",
-            options=[{"label": d, "value": d} for d in DECISIONS],
-            value=DECISIONS[0],
+            options=options,
+            value=PORTFOLIO_HEALTH,
             clearable=False,
             style={"marginBottom": "1rem"},
         ),
-        html.Div(
-            "Filters",
-            style={
-                "fontSize": "0.85rem",
-                "fontWeight": "600",
-                "color": NAVY_MED,
-                "marginBottom": "0.5rem",
-            },
-        ),
+        html.Div("Filters", className="sidebar-section-title"),
+        _filters_portfolio(),
         _filters_shelf_defense(product_lines),
         _filters_production(product_lines),
         _filters_promo(),
@@ -330,15 +232,8 @@ def _sidebar() -> html.Div:
         _filters_rationalization(product_lines),
         _filters_launch(),
         _filters_pricing(),
-        _deep_dive_section(),
         _pitch_export_section(product_lines),
-    ], style={
-        "padding": "1.25rem 1rem",
-        "backgroundColor": WHITE,
-        "borderRight": f"1px solid {GREY_LIGHT}",
-        "height": "100vh",
-        "overflowY": "auto",
-    })
+    ], className="sidebar")
 
 
 # ============================================================
@@ -347,9 +242,6 @@ def _sidebar() -> html.Div:
 
 def _main_content() -> html.Div:
     return html.Div([
-        dcc.Store(id="view-store", data="decision"),
-        dcc.Store(id="came-from-story", data=False),
-        dcc.Store(id="scroll-to-section-5", data=False),
         dcc.Loading(
             id="main-loading",
             type="default",

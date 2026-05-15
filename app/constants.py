@@ -57,14 +57,10 @@ THRESHOLDS = {
 }
 
 # ============================================================
-# Story protagonist
-# ============================================================
-
-PROTAGONIST_SKU = "CHP-0044"
-
-# ============================================================
 # Decisions
 # ============================================================
+
+PORTFOLIO_HEALTH = "How healthy is my portfolio?"
 
 DECISIONS = [
     "Is this SKU at risk of being delisted?",

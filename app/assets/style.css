@@ -19,8 +19,9 @@ body {
 .sidebar {
     background-color: #FFFFFF;
     border-right: 1px solid #DFE6E9;
-    padding: 1.5rem 1.25rem;
-    min-height: 100vh;
+    padding: 1.25rem 1rem;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 /* Brand header (Georgia serif) */
@@ -98,73 +99,6 @@ body {
 }
 
 /* ============================================================
-   Story entry button (navy pill)
-   ============================================================ */
-
-.story-entry-btn {
-    background-color: #3D5A80;
-    border-color: #3D5A80;
-    color: #FFFFFF;
-    font-weight: 600;
-    text-align: left;
-    padding: 0.7rem 0.9rem;
-    line-height: 1.3;
-    box-shadow: 0 2px 6px rgba(61, 90, 128, 0.22);
-    border-radius: 6px;
-    width: 100%;
-    cursor: pointer;
-    border: none;
-    font-size: 0.9rem;
-}
-
-.story-entry-btn:hover {
-    background-color: #1B2A4A;
-    border-color: #1B2A4A;
-    box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
-}
-
-/* ============================================================
-   Jump buttons (Section 5 of Story)
-   ============================================================ */
-
-.jump-btn {
-    background-color: #3D5A80;
-    border: none;
-    color: #FFFFFF;
-    font-weight: 600;
-    padding: 0.6rem 1.2rem;
-    border-radius: 6px;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(61, 90, 128, 0.22);
-    font-size: 0.85rem;
-}
-
-.jump-btn:hover {
-    background-color: #1B2A4A;
-    box-shadow: 0 3px 8px rgba(27, 42, 74, 0.32);
-}
-
-/* ============================================================
-   Back-to-story button
-   ============================================================ */
-
-.back-to-story-btn {
-    background-color: #3D5A80;
-    border: none;
-    color: #FFFFFF;
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.82rem;
-    margin-bottom: 1rem;
-}
-
-.back-to-story-btn:hover {
-    background-color: #1B2A4A;
-}
-
-/* ============================================================
    Loading spinner
    ============================================================ */
 
@@ -184,4 +118,290 @@ body {
 
 .nav-tabs .nav-link {
     color: #636E72;
+}
+
+/* ============================================================
+   Metric cards (components.py metric_card)
+   ============================================================ */
+
+.mc-label {
+    font-size: 0.85rem;
+    color: #636E72;
+    margin-bottom: 0.25rem;
+}
+
+.mc-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1B2A4A;
+}
+
+.mc-delta {
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+}
+
+/* ============================================================
+   Chart + status legends
+   ============================================================ */
+
+.chart-legend {
+    color: #636E72;
+    font-size: 12px;
+    margin: -0.4em 0 0.6em 0;
+}
+
+.legend-chip {
+    margin-right: 1rem;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.status-legend {
+    color: #636E72;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0.25em 0 0.6em 0;
+}
+
+.row-count {
+    color: #636E72;
+    font-size: 0.85em;
+    margin: 0.25em 0 0.75em 0;
+}
+
+/* ============================================================
+   Empty state
+   ============================================================ */
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #636E72;
+    font-size: 1.1rem;
+}
+
+/* ============================================================
+   Dashboard layout (components.py dashboard_layout)
+   ============================================================ */
+
+.dash-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 2.5rem);
+}
+
+.dash-body {
+    display: flex;
+    gap: 1.5rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.dash-col {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.dash-col--scroll {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+}
+
+.dash-footer {
+    padding-top: 0.5rem;
+}
+
+/* ============================================================
+   Decision mode headers (shared across all 8 modes)
+   ============================================================ */
+
+.dh-headline {
+    margin-bottom: 0.3rem;
+}
+
+.dh-insight {
+    color: #2D3436;
+    font-size: 0.95rem;
+    margin: 0.15rem 0 0.4rem;
+    line-height: 1.45;
+}
+
+.dh-caption {
+    color: #636E72;
+    font-size: 0.85rem;
+    margin: 0 0 0.5rem;
+}
+
+.dh-metrics {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.dh-metric {
+    flex: 1;
+}
+
+/* ============================================================
+   Export button
+   ============================================================ */
+
+.export-btn {
+    padding: 0.4rem 1.2rem;
+    cursor: pointer;
+}
+
+/* ============================================================
+   Sidebar UI
+   ============================================================ */
+
+.sidebar-caption {
+    font-size: 0.75rem;
+    color: #636E72;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+.sidebar-label {
+    font-size: 0.82rem;
+    color: #3D5A80;
+    margin-bottom: 0.2rem;
+}
+
+.sidebar-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #3D5A80;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-section-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #636E72;
+    letter-spacing: 0.05rem;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-divider {
+    border-color: #DFE6E9;
+    margin: 1.25rem 0;
+}
+
+.pitch-btn {
+    display: inline-block;
+    width: 48%;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    background-color: #1B2A4A;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.pitch-btn--right {
+    margin-left: 4%;
+}
+
+/* ============================================================
+   Error card
+   ============================================================ */
+
+.error-card {
+    border-left: 4px solid #C0221F;
+    margin-bottom: 1rem;
+}
+
+/* ============================================================
+   Portfolio Health landing page
+   ============================================================ */
+
+.ph-layout {
+    padding: 0.5rem 0;
+    max-width: 1100px;
+    height: calc(100vh - 2.5rem);
+    overflow-y: auto;
+}
+
+.ph-subhead {
+    color: #3D5A80;
+    font-size: 1rem;
+    margin: 0 0 0.3rem;
+}
+
+.ph-risk-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.ph-risk-card {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1px solid #DFE6E9;
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 1px 2px rgba(27, 42, 74, 0.05);
+    cursor: pointer;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+.ph-risk-card:hover {
+    border-color: #1B2A4A;
+    box-shadow: 0 2px 6px rgba(27, 42, 74, 0.12);
+}
+
+.ph-risk-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #636E72;
+    text-transform: uppercase;
+    letter-spacing: 0.04rem;
+    margin-bottom: 0.3rem;
+}
+
+.ph-risk-count {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.ph-risk-subtitle {
+    font-size: 0.82rem;
+    color: #636E72;
+    margin-bottom: 0.3rem;
+}
+
+.ph-risk-detail {
+    font-size: 0.78rem;
+    color: #3D5A80;
+    line-height: 1.4;
+}
+
+.ph-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ph-bar-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 0.78rem;
+    font-weight: 600;
+    min-width: 24px;
 }

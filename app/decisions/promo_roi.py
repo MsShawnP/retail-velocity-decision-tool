@@ -138,6 +138,22 @@ def layout(
             f"at {retailer}. None lost money."
         )
 
+    # Insight
+    net = total_incr - total_cost
+    if n_negative > 0:
+        insight = (
+            f"These {n_total} promos generated ${total_incr:,.0f} in incremental "
+            f"revenue against ${total_cost:,.0f} in spend. "
+            f"{n_negative} promo{'s' if n_negative != 1 else ''} lost money — "
+            f"consider reallocating that spend to the {n_strong} that delivered."
+        )
+    else:
+        insight = (
+            f"${total_incr:,.0f} in incremental revenue on ${total_cost:,.0f} "
+            f"in promo spend — a net return of ${net:,.0f}. "
+            f"Average lift was {avg_lift:.1f}% across {n_total} promos."
+        )
+
     # Status legend
     legend_html = (
         f"<b>ROI</b> = (incremental revenue − promo cost) ÷ promo cost × 100.  "
@@ -295,16 +311,17 @@ def layout(
     # Assemble the full component tree
     return dashboard_layout(
         header=[
-            html.H3(headline, style={"marginBottom": "0.3rem"}),
-            html.P(caption_text, style={"color": GREY, "fontSize": "0.85rem", "margin": "0 0 0.5rem"}),
+            html.H3(headline, className="dh-headline"),
+            html.P(insight, className="dh-insight"),
+            html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("Avg lift", f"{avg_lift:+.2f}%"), style={"flex": "1"}),
-                    html.Div(metric_card("Incremental revenue", f"${total_incr:,.2f}"), style={"flex": "1"}),
-                    html.Div(metric_card("Total promo cost", f"${total_cost:,.2f}"), style={"flex": "1"}),
-                    html.Div(metric_card("Strong ROI promos", f"{n_strong} / {n_total}"), style={"flex": "1"}),
+                    html.Div(metric_card("Avg lift", f"{avg_lift:+.2f}%"), className="dh-metric"),
+                    html.Div(metric_card("Incremental revenue", f"${total_incr:,.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Total promo cost", f"${total_cost:,.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Strong ROI promos", f"{n_strong} / {n_total}"), className="dh-metric"),
                 ],
-                style={"display": "flex", "gap": "1rem", "marginBottom": "0.5rem"},
+                className="dh-metrics",
             ),
             status_legend(legend_html),
             row_count_line("promos", [
@@ -344,7 +361,7 @@ def layout(
         footer=[
             html.Button(
                 "Export to Excel", id="promo-roi-export-btn", n_clicks=0,
-                style={"padding": "0.4rem 1.2rem", "cursor": "pointer"},
+                className="export-btn",
             ),
             dcc.Download(id="promo-roi-download"),
             dcc.Store(
