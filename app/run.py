@@ -18,9 +18,9 @@ if os.environ.get("SENTRY_DSN"):
         traces_sample_rate=0.1,
     )
 
-import dash_bootstrap_components as dbc
-from dash import Dash
-from flask import jsonify
+import dash_bootstrap_components as dbc  # noqa: E402
+from dash import Dash, Input, Output, State  # noqa: E402
+from flask import jsonify  # noqa: E402
 
 from callbacks import register_callbacks
 from data import init_cache, warm_cache, warm_default_view
@@ -58,6 +58,14 @@ pruning_cbs(app)
 rationalization_cbs(app)
 launch_cbs(app)
 pricing_cbs(app)
+
+app.clientside_callback(
+    "function(n, is_open) { return !is_open; }",
+    Output("sidebar-collapse", "is_open"),
+    Input("sidebar-toggle", "n_clicks"),
+    State("sidebar-collapse", "is_open"),
+    prevent_initial_call=True,
+)
 
 warm_default_view()
 threading.Thread(target=warm_cache, daemon=True).start()

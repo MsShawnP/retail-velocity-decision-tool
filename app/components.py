@@ -196,7 +196,7 @@ def make_grid(
         "rowData": df.to_dict("records"),
         "columnDefs": column_defs,
         "dashGridOptions": grid_options,
-        "style": {"width": "100%", "height": "100%"},
+        "style": {"width": "100%", "height": "100%", "minHeight": "300px"},
         "className": "ag-theme-alpine",
     }
     defaults.update(kwargs)
