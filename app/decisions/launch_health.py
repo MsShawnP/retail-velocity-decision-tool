@@ -237,8 +237,8 @@ def layout() -> html.Div:
         fig.add_trace(go.Bar(
             y=sub["SKU"], x=sub["Current Vel"], orientation="h",
             marker_color=LAUNCH_STATUS_COLORS[status_val],
-            text=sub["Current Vel"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["Current Vel"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["Product Name", "Wks 1-4 Vel", "Weeks Since"]].values,
             hovertemplate=(

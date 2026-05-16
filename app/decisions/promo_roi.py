@@ -256,8 +256,8 @@ def layout(
         fig = go.Figure(go.Bar(
             y=bars["label"], x=bars["ROI %"], orientation="h",
             marker_color=colors,
-            text=bars["ROI %"].map(lambda v: f"{v:+.2f}%"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=bars["ROI %"].map(lambda v: f"{v:+.0f}%"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=list(zip(
                 bars["Product Name"],

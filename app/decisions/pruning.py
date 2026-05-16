@@ -283,8 +283,8 @@ def _build_sku_tab(
             y=sub["sku"] + "  ·  " + sub["product_name"].str.slice(0, 28),
             x=sub["pct_below"], orientation="h",
             marker_color=PRUNING_SEVERITY_COLORS[sev],
-            text=sub["pct_below"].map(lambda v: f"{v:.2f}%"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["pct_below"].map(lambda v: f"{v:.0f}%"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["stores_below", "total_stores", "avg_velocity"]].values,
             hovertemplate=(
