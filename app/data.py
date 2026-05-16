@@ -898,6 +898,7 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
     # Category benchmarks (8-week avg)
     # Use retailer name directly for the benchmark table (handles Regional
     # by matching individual chain names — fall back to overall avg).
+    # Wrapped in try/except because the table may not exist yet.
     cat_sql = """
         SELECT category,
                AVG(avg_velocity) AS category_avg
@@ -906,22 +907,23 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
           AND (%s::date - week_ending::date) < 56
         GROUP BY category
     """
-    # For "Regional", benchmark may be stored under individual chain names.
-    # Try exact retailer first; if empty, try any retailer in the table.
-    with get_conn() as conn:
-        cat_df = pd.read_sql(cat_sql, conn, params=[retailer, latest])
-        if cat_df.empty and retailer == "Regional":
-            cat_df = pd.read_sql(
-                """
-                SELECT category,
-                       AVG(avg_velocity) AS category_avg
-                FROM stg_category_benchmarks
-                WHERE (%s::date - week_ending::date) < 56
-                GROUP BY category
-                """,
-                conn,
-                params=[latest],
-            )
+    try:
+        with get_conn() as conn:
+            cat_df = pd.read_sql(cat_sql, conn, params=[retailer, latest])
+            if cat_df.empty and retailer == "Regional":
+                cat_df = pd.read_sql(
+                    """
+                    SELECT category,
+                           AVG(avg_velocity) AS category_avg
+                    FROM stg_category_benchmarks
+                    WHERE (%s::date - week_ending::date) < 56
+                    GROUP BY category
+                    """,
+                    conn,
+                    params=[latest],
+                )
+    except Exception:
+        cat_df = pd.DataFrame()
 
     if cat_df.empty:
         return ch_df.assign(category_avg=pd.NA, vs_category_pct=pd.NA)
@@ -954,8 +956,11 @@ def get_category_benchmark_weekly(
           AND week_ending > (%s::date - interval '%s days')::date
         ORDER BY week_ending
     """
-    with get_conn() as conn:
-        return pd.read_sql(sql, conn, params=[retailer, category, latest, weeks * 7])
+    try:
+        with get_conn() as conn:
+            return pd.read_sql(sql, conn, params=[retailer, category, latest, weeks * 7])
+    except Exception:
+        return pd.DataFrame()
 
 
 # ============================================================
