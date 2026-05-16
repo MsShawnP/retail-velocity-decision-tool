@@ -259,8 +259,8 @@ def layout(
             trend_fig = go.Figure()
             # Distinct palette so each SKU line is visually separable
             _TREND_PALETTE = [
-                "#C0221F", "#E17055", "#0984E3", "#6C5CE7",
-                "#00B894", "#FDCB6E", "#E84393", "#2D3436",
+                "#C0221F", "#0984E3", "#6C5CE7", "#00B894",
+                "#E84393", "#FDCB6E", "#2D3436", "#E17055",
             ]
             for i, sku in enumerate(watch_skus):
                 s = trend_df[trend_df["sku"] == sku]
