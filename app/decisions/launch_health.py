@@ -268,20 +268,32 @@ def layout() -> html.Div:
     watch_skus = df.loc[df["status"].isin(["Failing", "Needs Attention"]), "sku"].tolist()
     if watch_skus:
         trend_fig = go.Figure()
-        status_map = dict(zip(df["sku"], df["status"]))
         name_map = dict(zip(df["sku"], df["product_name"]))
-        for sku in watch_skus:
+        # Distinct palette so each SKU is visually separable
+        _TREND_PALETTE = [
+            "#C0221F", "#E17055", "#0984E3", "#6C5CE7",
+            "#00B894", "#FDCB6E", "#E84393", "#2D3436",
+        ]
+        _DASH_STYLES = [
+            "solid", "dash", "dot", "dashdot",
+            "solid", "dash", "dot", "dashdot",
+        ]
+        for i, sku in enumerate(watch_skus):
             curve = get_launch_velocity_curve(sku)
             if curve.empty:
                 continue
-            color = LAUNCH_STATUS_COLORS.get(status_map.get(sku, "Needs Attention"), ORANGE)
+            color = _TREND_PALETTE[i % len(_TREND_PALETTE)]
             trend_fig.add_trace(go.Scatter(
                 x=curve["weeks_since_launch"],
                 y=curve["avg_velocity"],
                 mode="lines+markers",
                 name=f"{sku} — {name_map.get(sku, '')}",
-                line=dict(color=color, width=2),
-                marker=dict(size=5),
+                line=dict(color=color, width=2.5, dash=_DASH_STYLES[i % len(_DASH_STYLES)]),
+                marker=dict(size=4, color=color),
+                hovertemplate=(
+                    "<b>%{fullData.name}</b><br>"
+                    "Week %{x}: %{y:.2f} units/store<extra></extra>"
+                ),
             ))
         trend_fig.add_hline(
             y=threshold, line_dash="dash", line_color=GREY, line_width=2,
@@ -289,13 +301,13 @@ def layout() -> html.Div:
             annotation_position="top left",
         )
         layout_kw = base_chart_layout(
-            height=340, x_title="Weeks since launch", y_title="Avg units/store/week",
+            height=420, x_title="Weeks since launch", y_title="Avg units/store/week",
             show_legend=True,
         )
         layout_kw["yaxis"]["autorange"] = True
         layout_kw["legend"] = dict(
-            orientation="h", yanchor="bottom", y=1.02,
-            xanchor="left", x=0, font=dict(size=11),
+            orientation="h", yanchor="bottom", y=1.05,
+            xanchor="left", x=0, font=dict(size=10),
         )
         trend_fig.update_layout(**layout_kw)
         trend_chart_elements = [
