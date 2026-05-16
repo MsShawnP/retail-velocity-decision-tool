@@ -279,7 +279,7 @@ def layout(
                 (NAVY_MED, f"Solid ({solid_floor:.2f}–{strongest_floor:.2f})"),
                 (GREY,     f"Worth considering (< {solid_floor:.2f})"),
             ]),
-            dcc.Graph(figure=fig, id="expansion-chart"),
+            dcc.Graph(figure=fig, id="expansion-chart", responsive=True, style={"width": "100%"}),
         ],
         footer=[
             html.Button(

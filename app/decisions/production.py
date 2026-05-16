@@ -247,7 +247,7 @@ def layout(
                 "Weekly demand trend",
                 style={"marginTop": "1.5rem"},
             ),
-            dcc.Graph(figure=trend_fig, id="production-trend-chart"),
+            dcc.Graph(figure=trend_fig, id="production-trend-chart", responsive=True, style={"width": "100%"}),
         ]
 
     # Excel export filename parts
@@ -285,7 +285,7 @@ def layout(
                 (RED,      f"Decelerating (trend < {decel_pct:+.2f}%)"),
                 (NAVY_MED, f"Stable (±{accel_pct:.2f}%)"),
             ]),
-            dcc.Graph(figure=fig, id="production-chart"),
+            dcc.Graph(figure=fig, id="production-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements,
         footer=[
             html.Button(

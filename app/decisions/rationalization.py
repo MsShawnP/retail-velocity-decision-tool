@@ -442,7 +442,7 @@ def _build_cut_tab(
         children=[
             html.Div([cut_grid], style={"flex": "1", "minWidth": "0", "overflow": "hidden"}),
             html.Div(
-                [dcc.Graph(figure=fig_cut, id="rationalization-cut-chart")],
+                [dcc.Graph(figure=fig_cut, id="rationalization-cut-chart", responsive=True, style={"width": "100%"})],
                 style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
             ),
         ],
@@ -635,7 +635,7 @@ def _build_portfolio_tab(
                         (ORANGE,   "Niche / slow (low velocity, high margin)"),
                         (RED,      "Cut candidate (below both medians)"),
                     ]),
-                    dcc.Graph(figure=fig, id="rationalization-portfolio-chart"),
+                    dcc.Graph(figure=fig, id="rationalization-portfolio-chart", responsive=True, style={"width": "100%"}),
                 ],
                 style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
             ),
