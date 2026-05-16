@@ -298,7 +298,7 @@ def layout(
     df_d["label"] = (
         df_d["promo_id"] + "  ·  " + df_d["sku"]
         + "  ·  " + df_d["promo_type"]
-        + "  ·  " + df_d["start_week"]
+        + "  ·  " + df_d["start_week"].astype(str)
     )
     promo_options = [
         {"label": lbl, "value": lbl} for lbl in df_d["label"].tolist()
