@@ -405,3 +405,99 @@ body {
     font-weight: 600;
     min-width: 24px;
 }
+
+/* ============================================================
+   Sidebar toggle (mobile only)
+   ============================================================ */
+
+.sidebar-toggle {
+    display: none;
+    width: 100%;
+    padding: 0.5rem;
+    margin-bottom: 0.75rem;
+    background: #1B2A4A;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ============================================================
+   Mobile responsive — max-width: 767.98px
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+    .sidebar {
+        height: auto;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid #DFE6E9;
+        padding: 0.75rem 1rem;
+    }
+
+    .sidebar-toggle {
+        display: block;
+    }
+
+    .main-content {
+        height: auto !important;
+        overflow: visible !important;
+        padding: 1rem;
+    }
+
+    .dash-layout {
+        height: auto;
+        overflow-y: auto;
+    }
+
+    .dash-body {
+        flex-direction: column;
+    }
+
+    .dash-col,
+    .dash-col--scroll {
+        overflow: visible;
+        min-height: 300px;
+    }
+
+    .dh-metrics {
+        flex-wrap: wrap;
+    }
+
+    .dh-metric {
+        flex: 1 1 45%;
+        min-width: 140px;
+    }
+
+    .ph-risk-row {
+        flex-wrap: wrap;
+    }
+
+    .ph-risk-card {
+        flex: 1 1 45%;
+        min-width: 140px;
+    }
+
+    .ph-layout {
+        height: auto;
+    }
+
+    .ag-theme-alpine {
+        min-height: 300px;
+        height: auto !important;
+    }
+
+    .brand-name {
+        font-size: 1.3rem;
+    }
+
+    .mc-value {
+        font-size: 1.2rem;
+    }
+
+    .ph-risk-count {
+        font-size: 1.5rem;
+    }
+}

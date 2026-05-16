@@ -57,18 +57,16 @@ latency on first daily visit.
       so the landing page is pre-cached before the app serves traffic
 - [ ] Verify first-visitor load time is <3 seconds with warm cache (requires deploy)
 
-### Move 7: Mobile Responsiveness
+### Move 7: Mobile Responsiveness — DONE ✓
 
-Medium effort. Closes the one gap shared with every competitor.
-
-- [ ] Add `@media (max-width: 768px)` breakpoints to `assets/style.css`
-- [ ] Stack `.dash-body` vertically on narrow screens (chart below grid)
-- [ ] Collapse sidebar into a top bar or hamburger on mobile widths
-- [ ] Set AG Grid `domLayout: "autoHeight"` on narrow screens
-- [ ] Test on iPhone SE / Pixel viewport sizes
-
-Done when: The tool is readable and navigable on a phone — not a full
-responsive redesign, just "not broken."
+- [x] Add `@media (max-width: 767.98px)` breakpoints to `assets/style.css`
+- [x] Stack `.dash-body` vertically on narrow screens (chart below grid)
+- [x] Collapse sidebar into toggle button on mobile widths
+      (dbc.Collapse + clientside callback)
+- [x] AG Grid height auto on narrow screens via CSS override
+- [x] Bootstrap responsive columns: `xs=12, md=3` / `xs=12, md=9`
+- [x] Metric cards + risk cards wrap into 2×2 grid on mobile
+- [ ] Verify on iPhone SE / Pixel viewport sizes (requires deploy)
 
 ### Move 8: Competitive Benchmarking
 
