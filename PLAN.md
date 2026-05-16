@@ -68,21 +68,25 @@ latency on first daily visit.
 - [x] Metric cards + risk cards wrap into 2×2 grid on mobile
 - [ ] Verify on iPhone SE / Pixel viewport sizes (requires deploy)
 
-### Move 8: Competitive Benchmarking
+### Move 8: Competitive Benchmarking — DONE ✓
 
 Large effort, very high impact. Transforms the tool from "here's your data"
 to "here's your data in context" — the #1 thing every paid tool charges for.
 
-- [ ] Design `dim_categories` or category field in `dim_products`
-- [ ] Generate synthetic category-level velocity averages (by retailer × week)
-- [ ] New data function: `get_category_benchmark(retailer, category)`
-- [ ] Add benchmark reference lines to Shelf Defense chart ("category avg")
-- [ ] Add benchmark comparison to Production Planning
-- [ ] Consider standalone "How do I compare?" decision mode
+- [x] Design category field in `dim_products` (product_line → market category)
+- [x] Generate synthetic category-level velocity averages (by retailer × week)
+      `stg_category_benchmarks` table: 2,492 rows across 3 categories × 8 retailers
+- [x] New data function: `get_category_benchmark(retailer, product_line)`
+      Plus `get_category_benchmark_weekly(retailer, category, weeks)` for trends
+- [x] Add benchmark reference lines to Shelf Defense chart ("category avg")
+      Blue dotted vline on bar chart, hline on trend chart, metric card, insight text
+- [x] Add benchmark comparison to Production Planning (metric card)
+- [x] Add benchmark KPI card to Portfolio Health landing page
+- [ ] Consider standalone "How do I compare?" decision mode (deferred — Move 10)
 
 Done when: At-risk SKUs in Shelf Defense show whether they're below the
 category average too (not just below the retailer threshold). A prospect
-sees how Cinderhaven performs relative to its competitive set.
+sees how Cinderhaven performs relative to its competitive set. ✓ DONE
 
 ### Move 9: Test Coverage Expansion
 
