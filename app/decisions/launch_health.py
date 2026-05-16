@@ -271,8 +271,8 @@ def layout() -> html.Div:
         name_map = dict(zip(df["sku"], df["product_name"]))
         # Distinct palette so each SKU is visually separable
         _TREND_PALETTE = [
-            "#C0221F", "#0984E3", "#6C5CE7", "#00B894",
-            "#E84393", "#FDCB6E", "#2D3436", "#E17055",
+            "#0984E3", "#6C5CE7", "#00856A", "#E84393",
+            "#2D3436", "#C27A00", "#1B2A4A", "#0097A7",
         ]
         for i, sku in enumerate(watch_skus):
             curve = get_launch_velocity_curve(sku)
