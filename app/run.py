@@ -60,8 +60,12 @@ launch_cbs(app)
 pricing_cbs(app)
 
 app.clientside_callback(
-    "function(n, is_open) { return !is_open; }",
-    Output("sidebar-collapse", "is_open"),
+    """function(n, is_open) {
+        var next = !is_open;
+        var label = next ? '☰ Hide Filters' : '☰ Show Filters & Navigation';
+        return [next, label];
+    }""",
+    [Output("sidebar-collapse", "is_open"), Output("sidebar-toggle", "children")],
     Input("sidebar-toggle", "n_clicks"),
     State("sidebar-collapse", "is_open"),
     prevent_initial_call=True,
