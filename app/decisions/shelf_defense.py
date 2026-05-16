@@ -330,6 +330,14 @@ def layout(
                 annotation_text=f"Threshold {threshold:.2f}",
                 annotation_position="top left",
             )
+            # Category benchmark reference line on trend chart
+            if pd.notna(bench_avg):
+                trend_fig.add_hline(
+                    y=float(bench_avg), line_dash="dot",
+                    line_color=BENCHMARK_BLUE, line_width=2,
+                    annotation_text=f"Category avg {bench_avg:.2f}",
+                    annotation_position="bottom left",
+                )
             layout_kw = base_chart_layout(
                 height=480, x_title="Week", y_title="Avg units/store/week",
                 show_legend=True,
