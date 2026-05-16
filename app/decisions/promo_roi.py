@@ -155,15 +155,16 @@ def layout(
         )
 
     # Status legend
-    legend_html = (
-        f"<b>ROI</b> = (incremental revenue − promo cost) ÷ promo cost × 100.  "
-        f"<b style='color:{TEAL}'>Strong</b> (&gt;{roi_strong_pct:.2f}%) = "
-        f"earned back more than double the spend.  "
-        f"<b style='color:{ORANGE}'>Marginal</b> (0–{roi_strong_pct:.2f}%) = "
-        f"covered costs but modest return.  "
-        f"<b style='color:{RED}'>Negative</b> (&lt;0%) = lost money.  "
-        f"Baseline = 4 weeks pre-promo at the same retailer."
-    )
+    legend_children = [
+        html.B("ROI"),
+        " = (incremental revenue − promo cost) ÷ promo cost × 100. ",
+        html.B("Strong", style={"color": TEAL}),
+        f" (>{roi_strong_pct:.2f}%) = earned back more than double the spend. ",
+        html.B("Marginal", style={"color": ORANGE}),
+        f" (0–{roi_strong_pct:.2f}%) = covered costs but modest return. ",
+        html.B("Negative", style={"color": RED}),
+        " (<0%) = lost money. Baseline = 4 weeks pre-promo at the same retailer.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -323,7 +324,7 @@ def layout(
                 ],
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("promos", [
                 (n_strong, "Strong ROI"),
                 (n_marginal, "Marginal ROI"),

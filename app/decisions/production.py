@@ -116,15 +116,16 @@ def layout(
     # Status legend
     accel_pct = THRESHOLDS["production_trend_accel"] * 100
     decel_pct = THRESHOLDS["production_trend_decel"] * 100
-    legend_html = (
-        f"<b>Status definitions</b> (4-week trend vs prior 4 weeks): "
-        f"<b style='color:{TEAL}'>Accelerating</b> = trend &gt; "
-        f"{accel_pct:+.2f}% (good — raise production).  "
-        f"<b style='color:{RED}'>Decelerating</b> = trend &lt; "
-        f"{decel_pct:+.2f}% (bad — consider trimming).  "
-        f"<b style='color:{NAVY_MED}'>Stable</b> = trend within "
-        f"±{accel_pct:.2f}%."
-    )
+    legend_children = [
+        html.B("Status definitions"),
+        " (4-week trend vs prior 4 weeks): ",
+        html.B("Accelerating", style={"color": TEAL}),
+        f" = trend > {accel_pct:+.2f}% (good — raise production). ",
+        html.B("Decelerating", style={"color": RED}),
+        f" = trend < {decel_pct:+.2f}% (bad — consider trimming). ",
+        html.B("Stable", style={"color": NAVY_MED}),
+        f" = trend within ±{accel_pct:.2f}%.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -268,7 +269,7 @@ def layout(
                 ],
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("SKUs", [
                 (n_accel, "Accelerating"),
                 (n_decel, "Decelerating"),

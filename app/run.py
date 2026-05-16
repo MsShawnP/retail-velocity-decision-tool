@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import threading
 
 from dotenv import load_dotenv
 
 load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
+
+import sentry_sdk  # noqa: E402
+
+if os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN"],
+        traces_sample_rate=0.1,
+    )
 
 import dash_bootstrap_components as dbc
 from dash import Dash

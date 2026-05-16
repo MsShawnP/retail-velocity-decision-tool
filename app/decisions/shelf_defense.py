@@ -134,16 +134,16 @@ def layout(
     # Status legend
     warn_mult = THRESHOLDS["shelf_warning_mult"]
     warn_upper = threshold * warn_mult
-    legend_html = (
-        f"<b>Status definitions:</b> "
-        f"<b style='color:{RED}'>At Risk</b> = current velocity below "
-        f"{threshold:.2f} (strictly less than).  "
-        f"<b style='color:{ORANGE}'>Warning</b> = velocity {threshold:.2f} or "
-        f"above, but below {warn_upper:.2f}, <i>and</i> trailing higher than "
-        f"current (declining toward threshold).  "
-        f"<b style='color:{TEAL}'>Safe</b> = velocity {warn_upper:.2f} or "
-        f"above, or in the warning band but not declining."
-    )
+    legend_children = [
+        html.B("Status definitions: "),
+        html.B("At Risk", style={"color": RED}),
+        f" = current velocity below {threshold:.2f} (strictly less than). ",
+        html.B("Warning", style={"color": ORANGE}),
+        f" = velocity {threshold:.2f} or above, but below {warn_upper:.2f}, ",
+        html.I("and"), " trailing higher than current (declining toward threshold). ",
+        html.B("Safe", style={"color": TEAL}),
+        f" = velocity {warn_upper:.2f} or above, or in the warning band but not declining.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -311,7 +311,7 @@ def layout(
                 ],
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("SKUs", [
                 (n_atrisk, "At Risk"),
                 (n_warn, "Warning"),

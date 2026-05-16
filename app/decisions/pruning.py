@@ -319,14 +319,16 @@ def _build_sku_tab(
     safe_pl = (product_line or "all").lower().replace(" ", "_")
 
     return [
-        status_legend(
-            f"<b>Severity</b> = % of this SKU's stores below the "
-            f"{threshold:.2f} threshold.  "
-            f"<b style='color:{RED}'>Critical</b> ≥ {crit_pct:.2f}%.  "
-            f"<b style='color:{ORANGE}'>Concerning</b> = "
-            f"{conc_pct:.2f}% to &lt; {crit_pct:.2f}%.  "
-            f"<b style='color:{NAVY_MED}'>Mild</b> &lt; {conc_pct:.2f}%."
-        ),
+        status_legend([
+            html.B("Severity"),
+            f" = % of this SKU's stores below the {threshold:.2f} threshold. ",
+            html.B("Critical", style={"color": RED}),
+            f" ≥ {crit_pct:.2f}%. ",
+            html.B("Concerning", style={"color": ORANGE}),
+            f" = {conc_pct:.2f}% to < {crit_pct:.2f}%. ",
+            html.B("Mild", style={"color": NAVY_MED}),
+            f" < {conc_pct:.2f}%.",
+        ]),
         row_count_line("SKUs", [
             (n_crit, "Critical"),
             (n_conc, "Concerning"),
@@ -459,14 +461,16 @@ def _build_store_tab(
     safe_pl = (product_line or "all").lower().replace(" ", "_")
 
     return [
-        status_legend(
-            f"<b>Severity</b> = number of SKUs at this store below the "
-            f"{threshold:.2f} threshold.  "
-            f"<b style='color:{RED}'>Critical</b> ≥ {store_crit} SKUs.  "
-            f"<b style='color:{ORANGE}'>Concerning</b> = "
-            f"{store_conc}–{store_crit - 1} SKUs.  "
-            f"<b style='color:{NAVY_MED}'>Mild</b> = 0 SKUs below threshold."
-        ),
+        status_legend([
+            html.B("Severity"),
+            f" = number of SKUs at this store below the {threshold:.2f} threshold. ",
+            html.B("Critical", style={"color": RED}),
+            f" ≥ {store_crit} SKUs. ",
+            html.B("Concerning", style={"color": ORANGE}),
+            f" = {store_conc}–{store_crit - 1} SKUs. ",
+            html.B("Mild", style={"color": NAVY_MED}),
+            " = 0 SKUs below threshold.",
+        ]),
         row_count_line("stores", [
             (n_crit, "Critical"),
             (n_conc, "Concerning"),
