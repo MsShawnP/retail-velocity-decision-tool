@@ -219,14 +219,14 @@ def _sidebar() -> html.Div:
     return html.Div([
         _brand_header(),
         html.Button(
-            "Filters & Navigation",
+            "☰ Show Filters & Navigation",
             id="sidebar-toggle",
             n_clicks=0,
             className="sidebar-toggle",
         ),
         dbc.Collapse(
             id="sidebar-collapse",
-            is_open=True,
+            is_open=False,
             children=[
                 _caption("Start with the portfolio overview, or pick a decision to drill in."),
                 dcc.Dropdown(
