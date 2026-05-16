@@ -454,11 +454,14 @@ body {
 
     .dash-body {
         flex-direction: column;
+        flex: none;
     }
 
     .dash-col,
     .dash-col--scroll {
+        flex: none;
         overflow: visible;
+        width: 100%;
         min-height: 300px;
     }
 
