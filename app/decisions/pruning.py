@@ -297,11 +297,11 @@ def _build_sku_tab(
         ))
     apply_hbar_layout(
         fig,
-        labels=(top["sku"] + "  ·  " + top["product_name"].str.slice(0, 28)).tolist(),
+        labels=(top["sku"] + " · " + top["product_name"].str.slice(0, 18)).tolist(),
         height=max(420, 34 * n_show + 120),
         x_title="% of stores below delisting threshold",
-        label_pad_px=320,
-        left_margin=340,
+        label_pad_px=160,
+        left_margin=180,
     )
 
     chart_title = (

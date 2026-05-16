@@ -226,8 +226,8 @@ def layout(
         labels=top["label"].tolist(),
         height=max(420, 32 * n_show + 120),
         x_title="Expansion score (peer velocity × tier multiplier)",
-        label_pad_px=240,
-        left_margin=260,
+        label_pad_px=130,
+        left_margin=150,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=top["label"].tolist())
 

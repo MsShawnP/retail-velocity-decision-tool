@@ -367,7 +367,7 @@ def _build_cut_tab(
     n_chart = min(20, len(cut_df))
     cut_chart = cut_df.head(n_chart).copy()
     cut_labels = (
-        cut_chart["SKU"] + "  ·  " + cut_chart["Product Name"].str.slice(0, 26)
+        cut_chart["SKU"] + " · " + cut_chart["Product Name"].str.slice(0, 18)
     ).tolist()
 
     fig_cut = go.Figure()
@@ -400,8 +400,8 @@ def _build_cut_tab(
         labels=cut_labels,
         height=max(420, 34 * n_chart + 120),
         x_title="Total weekly gross margin ($)",
-        label_pad_px=320,
-        left_margin=340,
+        label_pad_px=160,
+        left_margin=180,
     )
     fig_cut.update_yaxes(categoryorder="array", categoryarray=cut_labels)
 
@@ -592,14 +592,14 @@ def _build_portfolio_tab(
                 f"Chart bucket: {bucket}<extra></extra>"
             ),
         ))
-    bottom_labels = (bottom["SKU"] + "  ·  " + bottom["Product Name"].str.slice(0, 26)).tolist()
+    bottom_labels = (bottom["SKU"] + " · " + bottom["Product Name"].str.slice(0, 18)).tolist()
     apply_hbar_layout(
         fig,
         labels=bottom_labels,
         height=max(420, 34 * n_show + 120),
         x_title="Total weekly gross margin ($)",
-        label_pad_px=320,
-        left_margin=340,
+        label_pad_px=160,
+        left_margin=180,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=bottom_labels)
 

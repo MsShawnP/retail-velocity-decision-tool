@@ -259,8 +259,8 @@ def layout() -> html.Div:
         labels=chart_df["SKU"].tolist(),
         height=max(380, 32 * n_show + 120),
         x_title="Units per store per week (current 4-week average)",
-        label_pad_px=180,
-        left_margin=200,
+        label_pad_px=110,
+        left_margin=130,
     )
 
     # Velocity curve overview for failing / needs-attention launches
