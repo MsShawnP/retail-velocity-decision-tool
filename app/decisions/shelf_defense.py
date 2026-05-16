@@ -284,13 +284,14 @@ def layout(
                 annotation_position="top left",
             )
             layout_kw = base_chart_layout(
-                height=420, x_title="Week", y_title="Avg units/store/week",
+                height=480, x_title="Week", y_title="Avg units/store/week",
                 show_legend=True,
             )
             layout_kw["yaxis"]["autorange"] = True
+            layout_kw["margin"] = dict(l=50, r=10, t=10, b=100)
             layout_kw["legend"] = dict(
-                orientation="h", yanchor="bottom", y=1.05,
-                xanchor="left", x=0, font=dict(size=10),
+                orientation="h", yanchor="top", y=-0.18,
+                xanchor="center", x=0.5, font=dict(size=11),
             )
             trend_fig.update_layout(**layout_kw)
             trend_chart_elements = [
