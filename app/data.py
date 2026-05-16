@@ -14,6 +14,7 @@ import pandas as pd
 from flask_caching import Cache
 
 from constants import (
+    CATEGORY_MAP,
     PHYSICAL_RETAILERS,
     REGIONAL_CHAINS,
     RETAILER_THRESHOLDS,
@@ -851,6 +852,115 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
     df["recovery_status"] = df["recovery_ratio"].apply(recovery_label)
     df = df.sort_values("elasticity", ascending=False).reset_index(drop=True)
     return df
+
+
+# ============================================================
+# Category benchmark data
+# ============================================================
+
+@cache.memoize(timeout=3600)
+def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd.DataFrame:
+    """Category avg velocity per product line at a retailer (last 8 weeks).
+
+    Returns columns: product_line, category, cinderhaven_avg, category_avg,
+                     vs_category_pct.
+
+    Uses the stg_category_benchmarks table (seeded by seed_benchmarks.py)
+    for category-level averages, and computes Cinderhaven's own average
+    from stg_scan_data for comparison.
+    """
+    ret_sql, ret_params = retailer_clause(retailer)
+    latest = get_latest_week()
+
+    # Cinderhaven's 8-week avg by product line
+    ch_sql = f"""
+        WITH ret_stores AS (
+            SELECT store_id FROM stg_stores s
+            WHERE {ret_sql} AND s.is_aggregated_channel = false
+        )
+        SELECT pm.product_line,
+               AVG(d.units_sold) AS cinderhaven_avg
+        FROM stg_scan_data d
+        JOIN ret_stores rs ON d.store_id = rs.store_id
+        JOIN dim_products pm ON d.sku = pm.sku
+        WHERE (%s::date - d.week_ending::date) < 56
+        GROUP BY pm.product_line
+    """
+    with get_conn() as conn:
+        ch_df = pd.read_sql(ch_sql, conn, params=ret_params + [latest])
+
+    if ch_df.empty:
+        return ch_df
+
+    # Map product_line to category
+    ch_df["category"] = ch_df["product_line"].map(CATEGORY_MAP)
+
+    # Category benchmarks (8-week avg)
+    # Use retailer name directly for the benchmark table (handles Regional
+    # by matching individual chain names — fall back to overall avg).
+    # Wrapped in try/except because the table may not exist yet.
+    cat_sql = """
+        SELECT category,
+               AVG(avg_velocity) AS category_avg
+        FROM stg_category_benchmarks
+        WHERE retailer = %s
+          AND (%s::date - week_ending::date) < 56
+        GROUP BY category
+    """
+    try:
+        with get_conn() as conn:
+            cat_df = pd.read_sql(cat_sql, conn, params=[retailer, latest])
+            if cat_df.empty and retailer == "Regional":
+                cat_df = pd.read_sql(
+                    """
+                    SELECT category,
+                           AVG(avg_velocity) AS category_avg
+                    FROM stg_category_benchmarks
+                    WHERE (%s::date - week_ending::date) < 56
+                    GROUP BY category
+                    """,
+                    conn,
+                    params=[latest],
+                )
+    except Exception:
+        cat_df = pd.DataFrame()
+
+    if cat_df.empty:
+        return ch_df.assign(category_avg=pd.NA, vs_category_pct=pd.NA)
+
+    result = ch_df.merge(cat_df, on="category", how="left")
+    result["vs_category_pct"] = (
+        (result["cinderhaven_avg"] - result["category_avg"])
+        / result["category_avg"] * 100
+    ).round(1)
+
+    if product_line:
+        result = result[result["product_line"] == product_line]
+
+    return result.reset_index(drop=True)
+
+
+@cache.memoize(timeout=3600)
+def get_category_benchmark_weekly(
+    retailer: str, category: str, weeks: int = 12,
+) -> pd.DataFrame:
+    """Weekly category avg velocity for the trend chart overlay.
+
+    Returns columns: week_ending, category_avg.
+    """
+    latest = get_latest_week()
+    sql = """
+        SELECT week_ending, avg_velocity AS category_avg
+        FROM stg_category_benchmarks
+        WHERE retailer = %s AND category = %s
+          AND week_ending > (%s::date - interval '%s days')::date
+        ORDER BY week_ending
+    """
+    try:
+        with get_conn() as conn:
+            return pd.read_sql(sql, conn, params=[retailer, category, latest, weeks * 7])
+    except Exception:
+        return pd.DataFrame()
 
 
 # ============================================================

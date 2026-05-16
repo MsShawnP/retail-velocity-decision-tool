@@ -259,8 +259,8 @@ def layout() -> html.Div:
         labels=chart_df["SKU"].tolist(),
         height=max(380, 32 * n_show + 120),
         x_title="Units per store per week (current 4-week average)",
-        label_pad_px=180,
-        left_margin=200,
+        label_pad_px=110,
+        left_margin=130,
     )
 
     # Velocity curve overview for failing / needs-attention launches
@@ -312,7 +312,7 @@ def layout() -> html.Div:
                 "Velocity since launch — failing & needs-attention SKUs",
                 style={"marginTop": "1.5rem"},
             ),
-            dcc.Graph(figure=trend_fig, id="launch-trend-chart"),
+            dcc.Graph(figure=trend_fig, id="launch-trend-chart", responsive=True, style={"width": "100%"}),
         ]
 
     # Build dropdown options for drilldown
@@ -365,7 +365,7 @@ def layout() -> html.Div:
                 (ORANGE, "Needs Attention"),
                 (TEAL,   "On Track"),
             ]),
-            dcc.Graph(figure=fig, id="launch-health-chart"),
+            dcc.Graph(figure=fig, id="launch-health-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements + [
             html.H4("Drill into one launch", style={"marginTop": "1rem"}),
             html.P(
@@ -529,5 +529,5 @@ def register_callbacks(app) -> None:
                 header_children,
                 style={"marginBottom": "0.5rem"},
             ),
-            dcc.Graph(figure=fig, id="launch-detail-chart"),
+            dcc.Graph(figure=fig, id="launch-detail-chart", responsive=True, style={"width": "100%"}),
         ])

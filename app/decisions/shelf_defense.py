@@ -24,6 +24,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BENCHMARK_BLUE,
     GREY,
     NAVY,
     ORANGE,
@@ -35,7 +36,12 @@ from constants import (
     TEAL,
     THRESHOLDS,
 )
-from data import get_latest_week, get_shelf_defense_data, get_weekly_velocity_trend
+from data import (
+    get_category_benchmark,
+    get_latest_week,
+    get_shelf_defense_data,
+    get_weekly_velocity_trend,
+)
 
 
 # ============================================================
@@ -92,6 +98,36 @@ def layout(
     n_warn = int((df["status"] == "Warning").sum())
     n_safe = int((df["status"] == "Safe").sum())
 
+    # Category benchmark context
+    bench_df = get_category_benchmark(retailer, product_line)
+    bench_context = ""
+    bench_avg = None
+    bench_vs_pct = None
+    if not bench_df.empty and "category_avg" in bench_df.columns:
+        row = bench_df.iloc[0] if len(bench_df) == 1 else bench_df
+        if len(bench_df) == 1:
+            bench_avg = row.get("category_avg")
+            bench_vs_pct = row.get("vs_category_pct")
+            cat_name = row.get("category", "category")
+            if pd.notna(bench_avg) and pd.notna(bench_vs_pct):
+                direction = "above" if bench_vs_pct > 0 else "below"
+                bench_context = (
+                    f" The {cat_name} category averages "
+                    f"{bench_avg:.2f} units/store/week — Cinderhaven is "
+                    f"{abs(bench_vs_pct):.1f}% {direction}."
+                )
+        else:
+            # Multiple product lines — compute weighted average
+            valid = bench_df.dropna(subset=["category_avg", "vs_category_pct"])
+            if not valid.empty:
+                bench_avg = valid["category_avg"].mean()
+                bench_vs_pct = valid["vs_category_pct"].mean()
+                direction = "above" if bench_vs_pct > 0 else "below"
+                bench_context = (
+                    f" Across categories, Cinderhaven averages "
+                    f"{abs(bench_vs_pct):.1f}% {direction} category benchmarks."
+                )
+
     # Headline
     if n_atrisk > 0:
         headline = (
@@ -113,16 +149,19 @@ def layout(
             f"Losing shelf placement on {n_atrisk} SKU{'s' if n_atrisk != 1 else ''} "
             f"shifts that volume to competitors. Another {n_warn} in the warning "
             f"zone could tip with one slow week."
+            + bench_context
         )
     elif n_warn > 0:
         insight = (
             f"{n_warn} of {total} SKUs are close enough to the threshold "
             f"that a single slow week could trigger a delisting conversation."
+            + bench_context
         )
     else:
         insight = (
             f"All {total} SKUs are comfortably above threshold — "
             f"focus shelf conversations on expansion rather than defense."
+            + bench_context
         )
 
     # Caption
@@ -241,13 +280,21 @@ def layout(
         annotation=text_annotation(f"Delisting threshold {threshold:.2f}"),
         annotation_position="top",
     )
+    # Category benchmark reference line
+    if pd.notna(bench_avg):
+        fig.add_vline(
+            x=float(bench_avg), line_dash="dot", line_color=BENCHMARK_BLUE,
+            line_width=2,
+            annotation=text_annotation(f"Category avg {bench_avg:.2f}"),
+            annotation_position="bottom",
+        )
     apply_hbar_layout(
         fig,
         labels=weakest["SKU"].tolist(),
         height=max(380, 32 * n_show + 120),
         x_title="Units per store per week (last 8 weeks)",
-        label_pad_px=180,
-        left_margin=200,
+        label_pad_px=110,
+        left_margin=130,
     )
 
     # Velocity trend chart for at-risk + warning SKUs
@@ -283,6 +330,14 @@ def layout(
                 annotation_text=f"Threshold {threshold:.2f}",
                 annotation_position="top left",
             )
+            # Category benchmark reference line on trend chart
+            if pd.notna(bench_avg):
+                trend_fig.add_hline(
+                    y=float(bench_avg), line_dash="dot",
+                    line_color=BENCHMARK_BLUE, line_width=2,
+                    annotation_text=f"Category avg {bench_avg:.2f}",
+                    annotation_position="bottom left",
+                )
             layout_kw = base_chart_layout(
                 height=480, x_title="Week", y_title="Avg units/store/week",
                 show_legend=True,
@@ -299,7 +354,7 @@ def layout(
                     "Velocity trend — at-risk & warning SKUs",
                     style={"marginTop": "1.5rem"},
                 ),
-                dcc.Graph(figure=trend_fig, id="shelf-trend-chart"),
+                dcc.Graph(figure=trend_fig, id="shelf-trend-chart", responsive=True, style={"width": "100%"}),
             ]
 
     # Excel export filename parts
@@ -317,7 +372,13 @@ def layout(
                     html.Div(metric_card("At Risk", str(n_atrisk)), className="dh-metric"),
                     html.Div(metric_card("Warning", str(n_warn)), className="dh-metric"),
                     html.Div(metric_card("Safe", str(n_safe)), className="dh-metric"),
-                ],
+                ] + (
+                    [html.Div(metric_card(
+                        "vs. Category Avg",
+                        f"{bench_vs_pct:+.1f}%",
+                    ), className="dh-metric")]
+                    if pd.notna(bench_vs_pct) else []
+                ),
                 className="dh-metrics",
             ),
             status_legend(legend_children),
@@ -335,8 +396,11 @@ def layout(
                 (RED,    f"At Risk (<{threshold:.2f})"),
                 (ORANGE, f"Warning ({threshold:.2f} ≤ v < {warn_upper:.2f}, declining)"),
                 (TEAL,   f"Safe (v ≥ {warn_upper:.2f}, or in band but stable)"),
-            ]),
-            dcc.Graph(figure=fig, id="shelf-defense-chart"),
+            ] + (
+                [(BENCHMARK_BLUE, f"Category avg ({bench_avg:.2f})")]
+                if pd.notna(bench_avg) else []
+            )),
+            dcc.Graph(figure=fig, id="shelf-defense-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements,
         footer=[
             html.Button(

@@ -59,9 +59,9 @@ def apply_hbar_layout(
     height: int,
     x_title: str | None = None,
     show_legend: bool = False,
-    label_pad_px: int = 305,
-    left_margin: int = 325,
-    label_font_size: int = 14,
+    label_pad_px: int = 130,
+    left_margin: int = 150,
+    label_font_size: int = 12,
     x_pad_pct: float = 0.20,
 ) -> None:
     """Apply consistent horizontal-bar styling with left-aligned y-axis labels.

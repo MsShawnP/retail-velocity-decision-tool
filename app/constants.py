@@ -108,6 +108,18 @@ REGIONAL_CHAINS = (
 VOLUME_TIER_MULT = {"A": 1.3, "B": 1.0, "C": 0.7}
 
 # ============================================================
+# Category mapping (product_line → market category)
+# ============================================================
+
+CATEGORY_MAP = {
+    "Artisan Sauces":        "Sauces & Marinades",
+    "Specialty Condiments":  "Condiments & Dressings",
+    "Pantry Staples":        "Dry Grocery & Baking",
+}
+
+BENCHMARK_BLUE = "#2196F3"   # category benchmark reference color
+
+# ============================================================
 # Status -> bar/line/text color
 # ============================================================
 # Universal color rule across the app:

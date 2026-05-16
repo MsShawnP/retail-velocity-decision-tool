@@ -252,7 +252,7 @@ def layout(
         .reset_index(drop=True)
     )
     chart_top["label"] = (
-        chart_top["sku"] + "  ·  " + chart_top["product_name"].str.slice(0, 26)
+        chart_top["sku"] + " · " + chart_top["product_name"].str.slice(0, 18)
     )
     chart_top["recovery_pct"] = chart_top["recovery_ratio"] * 100
     chart_top["avg_disc_pct"] = chart_top["avg_discount"] * 100
@@ -311,8 +311,8 @@ def layout(
         labels=top_labels,
         height=max(420, 38 * n_show + 120),
         x_title="Elasticity (% lift per 1% of discount — negative means velocity dropped)",
-        label_pad_px=320,
-        left_margin=340,
+        label_pad_px=160,
+        left_margin=180,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=top_labels)
 
@@ -353,7 +353,7 @@ def layout(
                 (RED,      "Stop promoting (lift + slow recovery)"),
                 (DARK_RED, "Promo backfired (velocity dropped)"),
             ]),
-            dcc.Graph(figure=fig, id="pricing-power-chart"),
+            dcc.Graph(figure=fig, id="pricing-power-chart", responsive=True, style={"width": "100%"}),
             html.Div(
                 "Negative elasticity can indicate failed promo execution (item not "
                 "properly set up at POS), poor price perception, or brand damage "

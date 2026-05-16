@@ -9,14 +9,17 @@ from __future__ import annotations
 
 from dash import html
 
+import pandas as pd
+
 from components import error_card, metric_card
 from constants import (
+    BENCHMARK_BLUE,
     NAVY_MED,
     ORANGE,
     RED,
     TEAL,
 )
-from data import get_portfolio_summary
+from data import get_category_benchmark, get_portfolio_summary
 
 
 def _risk_card(
@@ -114,7 +117,15 @@ def layout() -> html.Div:
     else:
         subhead = "All clear this week — portfolio is running healthy."
 
-    kpi_row = html.Div([
+    # Category benchmark (portfolio-wide)
+    bench_df = get_category_benchmark("Walmart")  # largest retailer as proxy
+    bench_vs_pct = None
+    if not bench_df.empty and "vs_category_pct" in bench_df.columns:
+        valid = bench_df.dropna(subset=["vs_category_pct"])
+        if not valid.empty:
+            bench_vs_pct = valid["vs_category_pct"].mean()
+
+    kpi_cards = [
         html.Div(
             metric_card("Active SKUs", str(s["total_skus"])),
             className="dh-metric",
@@ -138,7 +149,13 @@ def layout() -> html.Div:
             metric_card("4-Wk Forecast", f"{s['forecast_4w_cases']:,} cs"),
             className="dh-metric",
         ),
-    ], className="dh-metrics")
+    ]
+    if pd.notna(bench_vs_pct):
+        kpi_cards.append(html.Div(
+            metric_card("vs. Category Avg", f"{bench_vs_pct:+.1f}%"),
+            className="dh-metric",
+        ))
+    kpi_row = html.Div(kpi_cards, className="dh-metrics")
 
     shelf_total = s["shelf_at_risk"] + s["shelf_warning"] + (
         s["total_skus"] - s["shelf_at_risk"] - s["shelf_warning"]
