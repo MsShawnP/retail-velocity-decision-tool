@@ -291,7 +291,7 @@ def layout(
             label_pad_px=300,
             left_margin=320,
         )
-        chart_children.append(dcc.Graph(figure=fig, id="promo-roi-chart"))
+        chart_children.append(dcc.Graph(figure=fig, id="promo-roi-chart", responsive=True, style={"width": "100%"}))
 
     # Promo detail dropdown: list all promos
     df_d = df.copy()
@@ -530,5 +530,5 @@ def register_callbacks(app) -> None:
                 (TEAL, "Positive ROI (made money)"),
                 (RED,  "Negative ROI (lost money)"),
             ]),
-            dcc.Graph(figure=fig, id="promo-detail-chart"),
+            dcc.Graph(figure=fig, id="promo-detail-chart", responsive=True, style={"width": "100%"}),
         ])

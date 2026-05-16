@@ -299,7 +299,7 @@ def layout(
                     "Velocity trend — at-risk & warning SKUs",
                     style={"marginTop": "1.5rem"},
                 ),
-                dcc.Graph(figure=trend_fig, id="shelf-trend-chart"),
+                dcc.Graph(figure=trend_fig, id="shelf-trend-chart", responsive=True, style={"width": "100%"}),
             ]
 
     # Excel export filename parts
@@ -336,7 +336,7 @@ def layout(
                 (ORANGE, f"Warning ({threshold:.2f} ≤ v < {warn_upper:.2f}, declining)"),
                 (TEAL,   f"Safe (v ≥ {warn_upper:.2f}, or in band but stable)"),
             ]),
-            dcc.Graph(figure=fig, id="shelf-defense-chart"),
+            dcc.Graph(figure=fig, id="shelf-defense-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements,
         footer=[
             html.Button(

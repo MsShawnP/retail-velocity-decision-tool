@@ -353,7 +353,7 @@ def layout(
                 (RED,      "Stop promoting (lift + slow recovery)"),
                 (DARK_RED, "Promo backfired (velocity dropped)"),
             ]),
-            dcc.Graph(figure=fig, id="pricing-power-chart"),
+            dcc.Graph(figure=fig, id="pricing-power-chart", responsive=True, style={"width": "100%"}),
             html.Div(
                 "Negative elasticity can indicate failed promo execution (item not "
                 "properly set up at POS), poor price perception, or brand damage "

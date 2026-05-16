@@ -346,7 +346,7 @@ def _build_sku_tab(
                         (ORANGE,   f"Concerning ({conc_pct:.2f}% to <{crit_pct:.2f}%)"),
                         (NAVY_MED, f"Mild (<{conc_pct:.2f}%)"),
                     ]),
-                    dcc.Graph(figure=fig, id="pruning-sku-chart"),
+                    dcc.Graph(figure=fig, id="pruning-sku-chart", responsive=True, style={"width": "100%"}),
                 ], style={"flex": "1", "minWidth": "0", "overflowY": "auto"}),
             ],
         ),

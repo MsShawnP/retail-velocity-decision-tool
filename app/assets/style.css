@@ -463,6 +463,18 @@ body {
         overflow: visible;
         width: 100%;
         min-height: 300px;
+        max-width: 100vw;
+    }
+
+    /* Force Plotly charts to fill mobile width */
+    .js-plotly-plot,
+    .plot-container,
+    .plotly {
+        width: 100% !important;
+    }
+
+    .dash-graph {
+        width: 100% !important;
     }
 
     .dh-metrics {
@@ -490,6 +502,11 @@ body {
     .ag-theme-alpine {
         min-height: 300px;
         height: auto !important;
+    }
+
+    /* Plotly horizontal bar charts: reduce left margin on mobile */
+    .js-plotly-plot .plotly .main-svg .plot-container {
+        overflow: visible;
     }
 
     .brand-name {
