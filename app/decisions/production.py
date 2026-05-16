@@ -217,8 +217,8 @@ def layout(
         fig.add_trace(go.Bar(
             y=sub["SKU"], x=sub["Next 4-Wk Production Target (cases)"], orientation="h",
             marker_color=PRODUCTION_STATUS_COLORS[status],
-            text=sub["Next 4-Wk Production Target (cases)"].map(lambda v: f"{v:.2f}"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["Next 4-Wk Production Target (cases)"].map(lambda v: f"{v:.0f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["Product Name", "Trend %", "Doors"]].values,
             hovertemplate=(
