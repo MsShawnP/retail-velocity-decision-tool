@@ -262,10 +262,6 @@ def layout(
                 "#C0221F", "#E17055", "#0984E3", "#6C5CE7",
                 "#00B894", "#FDCB6E", "#E84393", "#2D3436",
             ]
-            _DASH_STYLES = [
-                "solid", "dash", "dot", "dashdot",
-                "solid", "dash", "dot", "dashdot",
-            ]
             for i, sku in enumerate(watch_skus):
                 s = trend_df[trend_df["sku"] == sku]
                 if s.empty:
@@ -275,8 +271,7 @@ def layout(
                 trend_fig.add_trace(go.Scatter(
                     x=s["week_ending"], y=s["avg_velocity"],
                     mode="lines+markers", name=f"{sku} — {name}",
-                    line=dict(color=color, width=2.5,
-                              dash=_DASH_STYLES[i % len(_DASH_STYLES)]),
+                    line=dict(color=color, width=2.5),
                     marker=dict(size=4, color=color),
                     hovertemplate=(
                         "<b>%{fullData.name}</b><br>"

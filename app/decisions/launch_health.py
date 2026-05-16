@@ -274,10 +274,6 @@ def layout() -> html.Div:
             "#C0221F", "#E17055", "#0984E3", "#6C5CE7",
             "#00B894", "#FDCB6E", "#E84393", "#2D3436",
         ]
-        _DASH_STYLES = [
-            "solid", "dash", "dot", "dashdot",
-            "solid", "dash", "dot", "dashdot",
-        ]
         for i, sku in enumerate(watch_skus):
             curve = get_launch_velocity_curve(sku)
             if curve.empty:
@@ -288,7 +284,7 @@ def layout() -> html.Div:
                 y=curve["avg_velocity"],
                 mode="lines+markers",
                 name=f"{sku} — {name_map.get(sku, '')}",
-                line=dict(color=color, width=2.5, dash=_DASH_STYLES[i % len(_DASH_STYLES)]),
+                line=dict(color=color, width=2.5),
                 marker=dict(size=4, color=color),
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
