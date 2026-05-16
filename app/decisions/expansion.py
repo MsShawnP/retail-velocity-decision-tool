@@ -207,8 +207,8 @@ def layout(
         fig.add_trace(go.Bar(
             y=sub["label"], x=sub["score"], orientation="h",
             marker_color=EXPANSION_TIER_COLORS[tier_name],
-            text=sub["score"].map(lambda v: f"{v:.2f}"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["score"].map(lambda v: f"{v:.1f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["retailer", "n_similar", "avg_velocity", "volume_tier"]].values,
             hovertemplate=(
@@ -228,6 +228,7 @@ def layout(
         x_title="Expansion score (peer velocity × tier multiplier)",
         label_pad_px=130,
         left_margin=150,
+        x_pad_pct=0.30,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=top["label"].tolist())
 
