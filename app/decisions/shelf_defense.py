@@ -342,8 +342,16 @@ def layout(
                 height=480, x_title="Week", y_title="Avg units/store/week",
                 show_legend=True,
             )
-            layout_kw["yaxis"]["autorange"] = True
-            layout_kw["margin"] = dict(l=50, r=10, t=10, b=100)
+            # Compute y range that includes data AND reference lines
+            _yvals = list(trend_df["avg_velocity"].dropna())
+            _yvals.append(threshold)
+            if pd.notna(bench_avg):
+                _yvals.append(float(bench_avg))
+            _ymin, _ymax = min(_yvals), max(_yvals)
+            _ypad = max((_ymax - _ymin) * 0.10, 0.2)
+            layout_kw["yaxis"]["range"] = [max(0, _ymin - _ypad), _ymax + _ypad]
+            layout_kw["yaxis"]["autorange"] = False
+            layout_kw["margin"] = dict(l=50, r=10, t=40, b=100)
             layout_kw["legend"] = dict(
                 orientation="h", yanchor="top", y=-0.18,
                 xanchor="center", x=0.5, font=dict(size=11),
