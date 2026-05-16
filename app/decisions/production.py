@@ -24,6 +24,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BENCHMARK_BLUE,
     GREEN_FAINT,
     GREY,
     GREY_BG,
@@ -35,7 +36,12 @@ from constants import (
     TEAL,
     THRESHOLDS,
 )
-from data import get_latest_week, get_production_data, get_weekly_total_units
+from data import (
+    get_category_benchmark,
+    get_latest_week,
+    get_production_data,
+    get_weekly_total_units,
+)
 
 
 # ============================================================
@@ -67,6 +73,14 @@ def layout(
     n_accel = int((df["status"] == "Accelerating").sum())
     n_decel = int((df["status"] == "Decelerating").sum())
     n_stable = n_total - n_accel - n_decel
+
+    # Category benchmark context
+    bench_df = get_category_benchmark(retailer, product_line)
+    bench_vs_pct = None
+    if not bench_df.empty and "vs_category_pct" in bench_df.columns:
+        valid = bench_df.dropna(subset=["vs_category_pct"])
+        if not valid.empty:
+            bench_vs_pct = valid["vs_category_pct"].mean()
 
     # Headline
     if n_accel > 0:
@@ -266,7 +280,13 @@ def layout(
                     html.Div(metric_card("Weekly demand (cases)", f"{total_cases:,}"), className="dh-metric"),
                     html.Div(metric_card("4-wk target (cases)", f"{forecast_cases:,}"), className="dh-metric"),
                     html.Div(metric_card("Accelerating SKUs", str(n_accel)), className="dh-metric"),
-                ],
+                ] + (
+                    [html.Div(metric_card(
+                        "vs. Category Avg",
+                        f"{bench_vs_pct:+.1f}%",
+                    ), className="dh-metric")]
+                    if pd.notna(bench_vs_pct) else []
+                ),
                 className="dh-metrics",
             ),
             status_legend(legend_children),
