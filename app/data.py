@@ -82,6 +82,18 @@ def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
 
 
 @cache.memoize(timeout=3600)
+def get_sku_meta(sku: str) -> tuple[str, str] | None:
+    """Return (product_name, product_line) for a SKU, or None."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT product_name, product_line FROM dim_products WHERE sku = %s",
+            (sku,),
+        )
+        return cur.fetchone()
+
+
+@cache.memoize(timeout=3600)
 def get_latest_week() -> str:
     with get_conn() as conn:
         cur = conn.cursor()
@@ -846,14 +858,15 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
 # ============================================================
 
 def warm_default_view() -> None:
-    """Synchronously warm the default view (Shelf Defense + Walmart) so the
-    first page load has data immediately.  Called before the background thread."""
+    """Synchronously warm the default view so the first page load has data
+    immediately.  Called before the background thread."""
     import logging
     log = logging.getLogger("warm_cache")
 
     get_product_lines()
     get_latest_week()
     get_shelf_defense_data("Walmart", None)
+    get_portfolio_summary()
     log.info("default view warmed")
 
 

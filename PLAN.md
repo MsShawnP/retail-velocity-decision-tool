@@ -1,136 +1,110 @@
 # Plan — Cinderhaven Velocity Decision Tool
 
-## Goal (2026-05-15)
+## Current Goal (2026-05-16)
 
-Replace the Story mode with a portfolio health dashboard as the default landing
-page, and enhance the decision modes to tell a more compelling story when
-prospects drill in.
+Harden the live demo and close universal gaps vs. competitors, then build
+the highest-leverage feature (competitive benchmarking).
 
-**Audience:** Cold-landing CEO of a $20-25M food company. Lean org, velocity-
-minded, zero onboarding tolerance. Already uses velocity for production planning
-but is data-hungry for shelf defense, promo ROI, and other areas their current
-system can't serve.
+**Audience:** Cold-landing CEO of a $20-25M food company checking the link
+from their phone or laptop after receiving a pitch email. Zero onboarding
+tolerance. Needs to see portfolio health in <30 seconds.
 
-**Scope:**
-- Remove story.py and all story UI (deep dive sidebar section, callbacks, etc.)
-- Build a portfolio health overview as the new landing view: business-wide
-  metrics, time-series trends, risk indicators across the portfolio
-- Enhance decision modes with time-series charts, contextual insights, and
-  "so what" narrative framing — the decision modes ARE the story chapters
-- Clear drill-down paths from portfolio health into the relevant decision modes
-- Existing Cinderhaven dataset only (no new synthetic data)
-
-**Out of scope:**
-- Competitive benchmarking (requires new synthetic data — separate workstream)
-- New decision modes
-
-**Done looks like:**
-The tool tells a portfolio story from the moment you land. The health overview
-hooks you by surfacing what's interesting (at-risk clusters, production spikes,
-promo patterns). Each decision mode delivers a clear "here's what's happening
-and what to do about it" narrative. No separate story mode needed because the
-whole tool IS the story. A prospect walks away thinking "I need this for my
-data."
-
-**Key assumptions:**
-- The Cinderhaven dataset was purpose-built for this tool and has realistic
-  patterns worth discovering at the portfolio level (confirmed)
-- Decision modes are narrative building blocks, not frozen — they can and
-  should be enhanced to be more compelling (confirmed)
+**Strategic position:** Only open-source prescriptive decision tool in the
+retail/CPG analytics space. Broadest decision coverage at any price point.
+Main vulnerabilities: no mobile support, no category benchmarking, cold-load
+latency on first daily visit.
 
 ---
 
-## Decomposition: Portfolio Health Dashboard
+## Completed Work
 
-Goal: Replace Story mode with a portfolio health landing page and enhance
-decision modes as narrative building blocks — so the whole tool tells the
-portfolio story.
-
-### Track A — Landing page (sequential)
+### Portfolio Health Dashboard (2026-05-15) ✓
 
 - [x] A1: Remove Story mode
-    - Depends on: none
-    - Delete story.py. Remove all story references from callbacks.py
-      (story_layout import, view=="story" branch, came-from-story back-button
-      logic, enter_story callback), layout.py (_deep_dive_section, view-store
-      "story" handling, came-from-story/scroll-to-section-5 stores), run.py
-      (story_cbs import + registration), constants.py (PROTAGONIST_SKU), and
-      CSS (.story-entry-btn, .back-to-story-btn). Remove story-only data
-      functions from data.py (get_monday_morning_summary,
-      get_sku_weekly_velocity, get_promo_hangover_data, get_sku_trade_spend,
-      get_walmart_trajectory, get_sku_revenue_at_risk, get_sku_costs,
-      get_category_avg_velocity, get_top_demand_4wk, get_top_velocity_per_door,
-      get_bottom_stores_below_threshold, get_top_elasticity_skus).
-    - Done when: story.py is gone, app starts cleanly, all 8 decision modes
-      still work, no import errors.
-
-- [x] A2: Portfolio health data layer
-    - Depends on: none
-    - New functions in data.py that aggregate across decision areas to produce
-      portfolio-level metrics. Compose from existing queries where possible:
-      get_shelf_defense_data("All Retailers"), get_production_data("All
-      Retailers"), get_rationalization_data("All Retailers"),
-      get_launch_data(). Return: total active SKUs, retailer count, at-risk
-      counts by area (shelf-risk, decelerating, low-rationalization-score),
-      accelerating counts, launch health summary. No new SQL if avoidable.
-    - Done when: A `get_portfolio_summary()` function returns a dict of
-      portfolio-wide metrics. Unit tests verify the shape and types.
-
-- [x] A3: Portfolio health landing page
-    - Depends on: A1, A2
-    - New `decisions/portfolio_health.py` module with a `layout()` function
-      that renders: KPI row (total SKUs, total retailers, total doors,
-      latest week), risk indicator cards by decision area (at-risk shelf SKUs,
-      decelerating production SKUs, underperforming rationalization scores,
-      recent launches needing attention), and status distribution summary.
-      Wire as the default view: dispatcher renders portfolio health when
-      decision-picker value is a new "Portfolio Health" entry at index 0
-      (existing modes shift to indices 1-8).
-    - Done when: App launches to the portfolio health page. KPIs and risk
-      cards render with real Cinderhaven data. Decision picker still switches
-      to all 8 existing modes.
-
-- [x] A4: Drill-down navigation
-    - Depends on: A3
-    - Risk indicator cards on the portfolio health page are clickable. Clicking
-      one sets the decision-picker to the corresponding mode (e.g., clicking
-      "3 at-risk SKUs" navigates to Shelf Defense). Use clientside callback
-      or regular callback to update the decision-picker value.
-    - Done when: Each risk card navigates to the correct decision mode.
-      Browser test confirms the round-trip: land on portfolio → click a
-      risk card → arrive at the right decision mode with data loaded.
-
-### Track B — Decision mode enhancements (parallel, independent of A)
-
-- [x] B1: Decision mode narrative framing
-    - Depends on: none
-    - Add a "so what" insight section to each of the 8 decision modes: a
-      1-2 sentence contextual interpretation below the headline that frames
-      the business implication. Example: Shelf Defense currently says "12 of
-      45 SKUs are at risk" — add "These 12 SKUs represent $X in weekly
-      revenue. Losing shelf space here shifts volume to competitors." Derive
-      from existing data already available in each layout function.
-    - Done when: Each mode shows a contextual insight that references
-      specific numbers from the current filter selection. Visual QA confirms
-      readability.
-
-- [x] B2: Decision mode time-series additions
-    - Depends on: none
-    - Add trend visualizations to decision modes that currently show only
-      point-in-time data. Candidates: Shelf Defense (velocity trend over
-      last 12 weeks for at-risk SKUs), Production (trend line alongside
-      the bar chart), Rationalization (score trend). Use existing weekly
-      scan data — no new synthetic data.
-    - Done when: At least 3 decision modes gain a time-series chart that
-      uses real Cinderhaven data. Charts render without errors.
-
-### Integration
-
+- [x] A2: Portfolio health data layer (`get_portfolio_summary()`)
+- [x] A3: Portfolio health landing page (KPIs, risk cards, status bar)
+- [x] A4: Drill-down navigation (risk cards → decision modes)
+- [x] B1: Narrative "so what" insights on all 8 decision modes
+- [x] B2: Time-series trend charts (Shelf Defense, Production, Launch)
 - [x] C: End-to-end polish
-    - Depends on: A4, B1, B2
-    - Full flow verification in browser: land on portfolio health → read
-      the KPIs → click a risk card → arrive at decision mode with narrative
-      context → return to portfolio. Visual QA for layout consistency,
-      loading states, and mobile-width degradation. Fix any regressions.
-    - Done when: A prospect can walk through the tool cold and understand
-      what Cinderhaven's portfolio looks like within 30 seconds of landing.
+
+### Infrastructure (2026-05-13–15) ✓
+
+- [x] Connection management refactor (context manager)
+- [x] Health check endpoint + fly.toml check config
+- [x] CI pipeline (ruff lint + pytest, 26 tests)
+- [x] Retailer pitch export (Excel + PDF)
+- [x] README updated, LICENSE restored
+- [x] Persistent cache volume, single-worker config
+
+---
+
+## Next Moves (from Audit Phase 4)
+
+### Move 5: Production Hardening v2 — DONE ✓
+
+- [x] Pin all dependency versions with ceilings in `app/requirements.txt`
+- [x] Move `_get_sku_meta()` from `decisions/expansion.py` to `data.py` with
+      `@cache.memoize` — fixes architecture bypass + adds caching
+- [x] Replace `dangerously_allow_html` in all files with Dash `html.Span`/
+      `html.B` components (8 callers + 5 direct usages across 7 files)
+- [x] Add Sentry SDK integration (opt-in via SENTRY_DSN env var)
+- [x] Fix pre-existing bug: undefined `n_total` in rationalization.py
+
+### Move 6: Cold-Load Performance — DONE ✓
+
+- [x] Add `get_portfolio_summary()` to `warm_default_view()` in `data.py`
+      so the landing page is pre-cached before the app serves traffic
+- [ ] Verify first-visitor load time is <3 seconds with warm cache (requires deploy)
+
+### Move 7: Mobile Responsiveness
+
+Medium effort. Closes the one gap shared with every competitor.
+
+- [ ] Add `@media (max-width: 768px)` breakpoints to `assets/style.css`
+- [ ] Stack `.dash-body` vertically on narrow screens (chart below grid)
+- [ ] Collapse sidebar into a top bar or hamburger on mobile widths
+- [ ] Set AG Grid `domLayout: "autoHeight"` on narrow screens
+- [ ] Test on iPhone SE / Pixel viewport sizes
+
+Done when: The tool is readable and navigable on a phone — not a full
+responsive redesign, just "not broken."
+
+### Move 8: Competitive Benchmarking
+
+Large effort, very high impact. Transforms the tool from "here's your data"
+to "here's your data in context" — the #1 thing every paid tool charges for.
+
+- [ ] Design `dim_categories` or category field in `dim_products`
+- [ ] Generate synthetic category-level velocity averages (by retailer × week)
+- [ ] New data function: `get_category_benchmark(retailer, category)`
+- [ ] Add benchmark reference lines to Shelf Defense chart ("category avg")
+- [ ] Add benchmark comparison to Production Planning
+- [ ] Consider standalone "How do I compare?" decision mode
+
+Done when: At-risk SKUs in Shelf Defense show whether they're below the
+category average too (not just below the retailer threshold). A prospect
+sees how Cinderhaven performs relative to its competitive set.
+
+### Move 9: Test Coverage Expansion
+
+Medium effort. Strengthens "production-quality code" signal for technical
+evaluators.
+
+- [ ] Data function shape tests (mock DB, assert column names + types)
+- [ ] Callback dispatch tests (verify mode routing logic)
+- [ ] Pitch export tests (Excel + PDF generate without error)
+- [ ] Edge case tests (empty retailer, None product_line, zero-row data)
+
+Done when: Test count is 50+ with coverage on the surfaces where bugs
+historically appeared (data functions, callbacks, edge cases).
+
+---
+
+## Out of Scope
+
+- ML-based forecasting (seasonal factor is honest for synthetic data)
+- Alerting/notifications (pull-only is fine for portfolio demo)
+- Real data connectivity (productization decision, not portfolio decision)
+- New decision modes (9 is comprehensive enough)
+- Cache warming redesign (current pattern works)

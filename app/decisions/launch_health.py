@@ -140,17 +140,16 @@ def layout() -> html.Div:
     # Status legend
     on_track_pct = THRESHOLDS["launch_on_track"] * 100
     failing_pct = THRESHOLDS["launch_failing"] * 100
-    legend_html = (
-        f"<b>Status definitions</b> (current vs first-4-weeks velocity, "
-        f"benchmark = {threshold:.2f} units/store/week):  "
-        f"<b style='color:{TEAL}'>On Track</b> = current ≥ benchmark and "
-        f"holding ≥ {on_track_pct:.2f}% of initial.  "
-        f"<b style='color:{ORANGE}'>Needs Attention</b> = above benchmark but "
-        f"trending down, or modestly below benchmark.  "
-        f"<b style='color:{RED}'>Failing</b> = current &lt; {failing_pct:.2f}% of "
-        f"benchmark, or current &lt; {on_track_pct:.2f}% of initial AND below "
-        f"benchmark."
-    )
+    legend_children = [
+        html.B("Status definitions"),
+        f" (current vs first-4-weeks velocity, benchmark = {threshold:.2f} units/store/week): ",
+        html.B("On Track", style={"color": TEAL}),
+        f" = current ≥ benchmark and holding ≥ {on_track_pct:.2f}% of initial. ",
+        html.B("Needs Attention", style={"color": ORANGE}),
+        " = above benchmark but trending down, or modestly below benchmark. ",
+        html.B("Failing", style={"color": RED}),
+        f" = current < {failing_pct:.2f}% of benchmark, or current < {on_track_pct:.2f}% of initial AND below benchmark.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -341,7 +340,7 @@ def layout() -> html.Div:
                 ],
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("launches", [
                 (n_track, "On Track"),
                 (n_attn, "Needs Attention"),
@@ -462,10 +461,14 @@ def register_callbacks(app) -> None:
 
         threshold = 2.0
 
-        header_html = (
-            f"<b>{sku} — {pname}</b> launched on <b>{launch_d.date()}</b>, "
-            f"<span style='color:{color}; font-weight:600'>{status_val}</span>."
-        )
+        header_children = [
+            html.B(f"{sku} — {pname}"),
+            " launched on ",
+            html.B(str(launch_d.date())),
+            ", ",
+            html.Span(status_val, style={"color": color, "fontWeight": "600"}),
+            ".",
+        ]
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -514,7 +517,7 @@ def register_callbacks(app) -> None:
 
         return html.Div([
             html.Div(
-                dcc.Markdown(header_html, dangerously_allow_html=True),
+                header_children,
                 style={"marginBottom": "0.5rem"},
             ),
             dcc.Graph(figure=fig, id="launch-detail-chart"),

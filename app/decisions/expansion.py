@@ -29,23 +29,7 @@ from constants import (
     NAVY_MED,
     TEAL,
 )
-from data import get_expansion_data
-from db import get_conn
-
-
-# ============================================================
-# SKU metadata lookup
-# ============================================================
-
-def _get_sku_meta(focus_sku: str) -> tuple[str, str] | None:
-    """Return (product_name, product_line) for a SKU, or None."""
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT product_name, product_line FROM dim_products WHERE sku = %s",
-            (focus_sku,),
-        )
-        return cur.fetchone()
+from data import get_expansion_data, get_sku_meta
 
 
 # ============================================================
@@ -73,7 +57,7 @@ def layout(
         return empty_state("Select a product line and focus SKU to find expansion opportunities.")
 
     try:
-        sku_meta = _get_sku_meta(focus_sku)
+        sku_meta = get_sku_meta(focus_sku)
     except Exception as exc:
         return error_card(
             "Expansion metadata lookup failed",
@@ -277,12 +261,13 @@ def layout(
                 ],
                 className="dh-metrics",
             ),
-            status_legend(
-                "<b>Score</b> = average velocity of peer SKUs (same product line, "
+            status_legend([
+                html.B("Score"),
+                " = average velocity of peer SKUs (same product line, "
                 "already on shelf at that store) × volume-tier multiplier "
-                "(A = 1.3, B = 1.0, C = 0.7).  Higher score = stronger expansion fit. "
-                "Showing top 30 of all qualifying stores."
-            ),
+                "(A = 1.3, B = 1.0, C = 0.7). Higher score = stronger expansion fit. "
+                "Showing top 30 of all qualifying stores.",
+            ]),
             row_count_line("stores", bucket_parts),
         ],
         grid=grid,
