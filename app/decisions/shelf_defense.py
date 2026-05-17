@@ -50,7 +50,7 @@ from data import (
 
 def _classify_shelf_status(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
     df = df.copy()
-    df["trend_pct"] = (df["current_v"] - df["trailing_v"]) / df["trailing_v"] * 100
+    df["trend_pct"] = (df["current_v"] - df["trailing_v"]) / df["trailing_v"].replace(0, pd.NA) * 100
     warn_mult = THRESHOLDS["shelf_warning_mult"]
     warn_upper = threshold * warn_mult
 

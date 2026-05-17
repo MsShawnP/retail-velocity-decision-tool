@@ -15,6 +15,7 @@ from flask_caching import Cache
 
 from constants import (
     CATEGORY_MAP,
+    LAUNCH_BENCHMARK,
     PHYSICAL_RETAILERS,
     REGIONAL_CHAINS,
     RETAILER_THRESHOLDS,
@@ -32,7 +33,7 @@ _CACHE_DIR = "/cache/dash" if os.path.isdir("/cache") else "/tmp/dash-cache"
 cache = Cache(config={
     "CACHE_TYPE": "FileSystemCache",
     "CACHE_DIR": _CACHE_DIR,
-    "CACHE_DEFAULT_TIMEOUT": 86400,
+    "CACHE_DEFAULT_TIMEOUT": 21600,
 })
 
 
@@ -171,7 +172,7 @@ def get_portfolio_summary() -> dict:
     if not launches.empty:
         on_track_ret = THRESHOLDS["launch_on_track"]
         failing_floor = THRESHOLDS["launch_failing"]
-        launch_thr = 2.0
+        launch_thr = LAUNCH_BENCHMARK
         for _, row in launches.iterrows():
             initial, current = row["v_w14"], row["v_current"]
             if pd.isna(current):
@@ -403,8 +404,16 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
     df["weekly_cases"] = (df["weekly_units"] / df["case_pack_qty"]).round(2)
 
     sf = df["sum_ly_forward"] / df["sum_ly_current"].replace(0, pd.NA)
+    n_defaulted = int(sf.isna().sum())
     sf = sf.where(sf.notna(), 1.0).clip(lower=0.5, upper=2.0)
     df["seasonal_factor"] = sf
+    if n_defaulted > len(df) // 2:
+        import logging
+        logging.getLogger("data").warning(
+            "Seasonal adjustment inactive for %d/%d SKUs — "
+            "dataset may not span a full year",
+            n_defaulted, len(df),
+        )
     df["forecast_4w_units"] = (df["weekly_units"] * sf * 4).round(0)
     df["forecast_4w_cases"] = (df["forecast_4w_units"] / df["case_pack_qty"]).round(2)
 
@@ -492,6 +501,10 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     """
     with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + [is_agg, retailer] + sku_params)
+    if df.empty:
+        return df
+
+    df = df[df["baseline_v"] > 0].reset_index(drop=True)
     if df.empty:
         return df
 
