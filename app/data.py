@@ -14,6 +14,12 @@ import os
 import pandas as pd
 from flask_caching import Cache
 
+from calcs import (
+    apply_expansion_calcs,
+    apply_pricing_calcs,
+    apply_production_calcs,
+    apply_promo_calcs,
+)
 from constants import (
     CATEGORY_MAP,
     LAUNCH_BENCHMARK,
@@ -101,7 +107,8 @@ def get_latest_week() -> str:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("SELECT MAX(week_ending) FROM stg_scan_data")
-        return cur.fetchone()[0]
+        row = cur.fetchone()
+        return row[0] if row else None
 
 
 @cache.memoize(timeout=3600)
@@ -344,7 +351,8 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
         df = pd.read_sql(sql, conn, params=ret_params + [latest, latest, latest, latest])
     if product_line:
         df = df[df["product_line"] == product_line]
-    return df.dropna(subset=["current_v"]).reset_index(drop=True)
+    df["current_v"] = df["current_v"].fillna(0)
+    return df.reset_index(drop=True)
 
 
 @cache.memoize(timeout=3600)
@@ -401,39 +409,13 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
     if product_line:
         df = df[df["product_line"] == product_line].reset_index(drop=True)
 
-    df["weekly_units"] = (df["sum_recent"] / 4).round(0)
-    cpq = df["case_pack_qty"].replace(0, pd.NA)
-    df["weekly_cases"] = (df["weekly_units"] / cpq).round(2)
-
-    sf = df["sum_ly_forward"] / df["sum_ly_current"].replace(0, pd.NA)
-    n_defaulted = int(sf.isna().sum())
-    sf = sf.where(sf.notna(), 1.0).clip(lower=0.5, upper=2.0)
-    df["seasonal_factor"] = sf
+    df, n_defaulted = apply_production_calcs(df)
     if n_defaulted > len(df) // 2:
         logging.getLogger("data").warning(
             "Seasonal adjustment inactive for %d/%d SKUs — "
             "dataset may not span a full year",
             n_defaulted, len(df),
         )
-    df["forecast_4w_units"] = (df["weekly_units"] * sf * 4).round(0)
-    df["forecast_4w_cases"] = (df["forecast_4w_units"] / cpq).round(2)
-
-    trend = (df["phys_v_recent"] - df["phys_v_prior"]) / df["phys_v_prior"].replace(0, pd.NA) * 100
-    df["trend_pct"] = trend
-
-    accel_pct = THRESHOLDS["production_trend_accel"] * 100
-    decel_pct = THRESHOLDS["production_trend_decel"] * 100
-
-    def status(t: float) -> str:
-        if pd.isna(t):
-            return "Stable"
-        if t > accel_pct:
-            return "Accelerating"
-        if t < decel_pct:
-            return "Decelerating"
-        return "Stable"
-
-    df["status"] = df["trend_pct"].apply(status)
     return df
 
 
@@ -505,24 +487,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     if df.empty:
         return df
 
-    df = df[df["baseline_v"] > 0].reset_index(drop=True)
-    if df.empty:
-        return df
-
-    bv, pv, pov = df["baseline_v"], df["promo_v"], df["post_v"]
-    df["lift_pct"] = (pv - bv) / bv * 100
-    df["dip_pct"] = (pov - bv) / bv * 100
-    df["incremental_units"] = ((pv - bv) * df["doors"] * df["duration_weeks"]).round(0)
-    df["incremental_revenue"] = (
-        df["incremental_units"] * df["wholesale_price"] * (1 - df["discount_depth_pct"])
-    ).round(0)
-    df["promo_cost"] = (
-        bv * df["doors"] * df["duration_weeks"] * df["wholesale_price"] * df["discount_depth_pct"]
-    ).round(0)
-    df["roi_pct"] = (
-        (df["incremental_revenue"] - df["promo_cost"]) / df["promo_cost"].replace(0, pd.NA) * 100
-    )
-    return df
+    return apply_promo_calcs(df)
 
 
 @cache.memoize(timeout=3600)
@@ -655,7 +620,8 @@ def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
     params = ret_params + [latest, latest] + pl_params
     with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=params)
-    return df.dropna(subset=["velocity"]).reset_index(drop=True)
+    df["velocity"] = df["velocity"].fillna(0)
+    return df.reset_index(drop=True)
 
 
 @cache.memoize(timeout=3600)
@@ -686,7 +652,8 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
 
     if product_line:
         df = df[df["product_line"] == product_line]
-    df = df.dropna(subset=["velocity"]).reset_index(drop=True)
+    df["velocity"] = df["velocity"].fillna(0)
+    df = df.reset_index(drop=True)
     if df.empty:
         return df
 
@@ -842,28 +809,10 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         return df
     if product_line_filter:
         df = df[df["product_line"] == product_line_filter].reset_index(drop=True)
-    df = df.dropna(subset=["baseline_v", "promo_v"])
-    df = df[df["baseline_v"] > 0].reset_index(drop=True)
+
+    df = apply_pricing_calcs(df)
     if df.empty:
         return df
-
-    df["lift_pct"] = (df["promo_v"] - df["baseline_v"]) / df["baseline_v"]
-    df["elasticity"] = df["lift_pct"] / df["avg_discount"].replace(0, pd.NA)
-    df["recovery_ratio"] = df["post_v"] / df["baseline_v"]
-
-    full_floor = THRESHOLDS["pricing_full_recovery"]
-    slow_floor = THRESHOLDS["pricing_slow_recovery"]
-
-    def recovery_label(r: float) -> str:
-        if pd.isna(r):
-            return "Slow Recovery"
-        if r >= full_floor:
-            return "Full Recovery"
-        if r >= slow_floor:
-            return "Partial Recovery"
-        return "Slow Recovery"
-
-    df["recovery_status"] = df["recovery_ratio"].apply(recovery_label)
     df = df.sort_values("elasticity", ascending=False).reset_index(drop=True)
     return df
 
