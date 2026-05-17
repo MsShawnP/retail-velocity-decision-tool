@@ -13,7 +13,7 @@ from io import BytesIO
 import pandas as pd
 from fpdf import FPDF
 
-from constants import NAVY
+from constants import LAUNCH_BENCHMARK, NAVY
 from data import (
     get_latest_week,
     get_launch_data,
@@ -58,7 +58,7 @@ def _gather(retailer: str, product_line: str | None, threshold: float) -> dict:
     launch_df = get_launch_data()
     if not launch_df.empty:
         launch_df["status"] = launch_df.apply(
-            lambda r: _classify_launch(r, threshold=2.0), axis=1
+            lambda r: _classify_launch(r, threshold=LAUNCH_BENCHMARK), axis=1
         )
 
     return {

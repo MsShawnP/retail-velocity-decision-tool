@@ -59,6 +59,10 @@ rationalization_cbs(app)
 launch_cbs(app)
 pricing_cbs(app)
 
+from validation import log_validation_results, validate_data_contract
+
+log_validation_results(validate_data_contract())
+
 app.clientside_callback(
     """function(n, is_open) {
         var next = !is_open;
