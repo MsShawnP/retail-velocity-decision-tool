@@ -19,9 +19,7 @@ from db import get_conn
 log = logging.getLogger("validation")
 
 EXPECTED_RETAILERS = (
-    set(PHYSICAL_RETAILERS)
-    | set(REGIONAL_CHAINS)
-    | {"UNFI", "DTC"}
+    (set(PHYSICAL_RETAILERS) | set(REGIONAL_CHAINS) | {"UNFI", "DTC"})
     - {"Regional"}
 )
 
