@@ -20,17 +20,7 @@ import sys
 
 import psycopg2
 
-# ============================================================
-# Category mapping
-# ============================================================
-# Cinderhaven's internal product lines map to broader market categories.
-# These categories represent competitive sets at the shelf level.
-
-CATEGORY_MAP = {
-    "Artisan Sauces":        "Sauces & Marinades",
-    "Specialty Condiments":  "Condiments & Dressings",
-    "Pantry Staples":        "Dry Grocery & Baking",
-}
+from constants import CATEGORY_MAP
 
 # Benchmark multipliers: category average velocity relative to Cinderhaven.
 # > 1.0 means the category average is higher (Cinderhaven underperforms).
@@ -61,102 +51,101 @@ def main() -> None:
         sys.exit(1)
 
     conn = psycopg2.connect(url)
-    conn.autocommit = True
-    cur = conn.cursor()
+    try:
+        conn.autocommit = True
+        cur = conn.cursor()
 
-    # ----------------------------------------------------------
-    # Step 1: Add category column to dim_products
-    # ----------------------------------------------------------
-    print("Adding category column to dim_products...")
-    cur.execute("""
-        ALTER TABLE dim_products ADD COLUMN IF NOT EXISTS category TEXT
-    """)
-    for product_line, category in CATEGORY_MAP.items():
-        cur.execute(
-            "UPDATE dim_products SET category = %s WHERE product_line = %s",
-            (category, product_line),
-        )
-        print(f"  {product_line} → {category}")
+        # ----------------------------------------------------------
+        # Step 1: Add category column to dim_products
+        # ----------------------------------------------------------
+        print("Adding category column to dim_products...")
+        cur.execute("""
+            ALTER TABLE dim_products ADD COLUMN IF NOT EXISTS category TEXT
+        """)
+        for product_line, category in CATEGORY_MAP.items():
+            cur.execute(
+                "UPDATE dim_products SET category = %s WHERE product_line = %s",
+                (category, product_line),
+            )
+            print(f"  {product_line} → {category}")
 
-    # ----------------------------------------------------------
-    # Step 2: Create stg_category_benchmarks table
-    # ----------------------------------------------------------
-    print("\nCreating stg_category_benchmarks table...")
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS stg_category_benchmarks (
-            category     TEXT    NOT NULL,
-            retailer     TEXT    NOT NULL,
-            week_ending  DATE    NOT NULL,
-            avg_velocity NUMERIC(10, 4) NOT NULL,
-            PRIMARY KEY (category, retailer, week_ending)
-        )
-    """)
-    cur.execute("DELETE FROM stg_category_benchmarks")
+        # ----------------------------------------------------------
+        # Step 2: Create stg_category_benchmarks table
+        # ----------------------------------------------------------
+        print("\nCreating stg_category_benchmarks table...")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS stg_category_benchmarks (
+                category     TEXT    NOT NULL,
+                retailer     TEXT    NOT NULL,
+                week_ending  DATE    NOT NULL,
+                avg_velocity NUMERIC(10, 4) NOT NULL,
+                PRIMARY KEY (category, retailer, week_ending)
+            )
+        """)
+        cur.execute("DELETE FROM stg_category_benchmarks")
 
-    # ----------------------------------------------------------
-    # Step 3: Compute Cinderhaven's velocity and scale to category
-    # ----------------------------------------------------------
-    print("Computing category benchmarks from Cinderhaven velocity data...")
+        # ----------------------------------------------------------
+        # Step 3: Compute Cinderhaven's velocity and scale to category
+        # ----------------------------------------------------------
+        print("Computing category benchmarks from Cinderhaven velocity data...")
 
-    # Get all physical retailer names
-    cur.execute("""
-        SELECT DISTINCT s.retailer
-        FROM stg_stores s
-        WHERE s.is_aggregated_channel = false
-          AND s.retailer NOT IN ('UNFI', 'DTC')
-    """)
-    retailers = [r[0] for r in cur.fetchall()]
+        cur.execute("""
+            SELECT DISTINCT s.retailer
+            FROM stg_stores s
+            WHERE s.is_aggregated_channel = false
+              AND s.retailer NOT IN ('UNFI', 'DTC')
+        """)
+        retailers = [r[0] for r in cur.fetchall()]
 
-    total_rows = 0
-    for category, mult in BENCHMARK_MULTIPLIERS.items():
-        for retailer in retailers:
-            ret_adj = RETAILER_ADJUSTMENTS.get(retailer, 1.05)
-            final_mult = mult * ret_adj
+        total_rows = 0
+        for category, mult in BENCHMARK_MULTIPLIERS.items():
+            for retailer in retailers:
+                ret_adj = RETAILER_ADJUSTMENTS.get(retailer, 1.05)
+                final_mult = mult * ret_adj
 
-            # Compute Cinderhaven's avg velocity per week for this
-            # category × retailer, then multiply to get "category avg".
-            cur.execute("""
-                INSERT INTO stg_category_benchmarks
-                    (category, retailer, week_ending, avg_velocity)
-                SELECT
-                    %s AS category,
-                    %s AS retailer,
-                    d.week_ending,
-                    AVG(d.units_sold) * %s AS avg_velocity
-                FROM stg_scan_data d
-                JOIN stg_stores s ON d.store_id = s.store_id
-                JOIN dim_products pm ON d.sku = pm.sku
-                WHERE pm.category = %s
-                  AND s.retailer = %s
-                  AND s.is_aggregated_channel = false
-                GROUP BY d.week_ending
-                ON CONFLICT (category, retailer, week_ending)
-                DO UPDATE SET avg_velocity = EXCLUDED.avg_velocity
-            """, (category, retailer, final_mult, category, retailer))
-            rows = cur.rowcount
-            total_rows += rows
-            print(f"  {category} × {retailer}: {rows} weeks")
+                cur.execute("""
+                    INSERT INTO stg_category_benchmarks
+                        (category, retailer, week_ending, avg_velocity)
+                    SELECT
+                        %s AS category,
+                        %s AS retailer,
+                        d.week_ending,
+                        AVG(d.units_sold) * %s AS avg_velocity
+                    FROM stg_scan_data d
+                    JOIN stg_stores s ON d.store_id = s.store_id
+                    JOIN dim_products pm ON d.sku = pm.sku
+                    WHERE pm.category = %s
+                      AND s.retailer = %s
+                      AND s.is_aggregated_channel = false
+                    GROUP BY d.week_ending
+                    ON CONFLICT (category, retailer, week_ending)
+                    DO UPDATE SET avg_velocity = EXCLUDED.avg_velocity
+                """, (category, retailer, final_mult, category, retailer))
+                rows = cur.rowcount
+                total_rows += rows
+                print(f"  {category} × {retailer}: {rows} weeks")
 
-    print(f"\nDone. Inserted {total_rows} benchmark rows.")
+        print(f"\nDone. Inserted {total_rows} benchmark rows.")
 
-    # ----------------------------------------------------------
-    # Verify
-    # ----------------------------------------------------------
-    cur.execute("SELECT COUNT(*) FROM stg_category_benchmarks")
-    print(f"Verification: {cur.fetchone()[0]} rows in stg_category_benchmarks")
+        # ----------------------------------------------------------
+        # Verify
+        # ----------------------------------------------------------
+        cur.execute("SELECT COUNT(*) FROM stg_category_benchmarks")
+        print(f"Verification: {cur.fetchone()[0]} rows in stg_category_benchmarks")
 
-    cur.execute("""
-        SELECT category, retailer, ROUND(AVG(avg_velocity), 2) AS avg_v
-        FROM stg_category_benchmarks
-        GROUP BY category, retailer
-        ORDER BY category, retailer
-    """)
-    print("\nCategory × Retailer averages:")
-    for row in cur.fetchall():
-        print(f"  {row[0]:30s}  {row[1]:15s}  {row[2]} units/store/wk")
+        cur.execute("""
+            SELECT category, retailer, ROUND(AVG(avg_velocity), 2) AS avg_v
+            FROM stg_category_benchmarks
+            GROUP BY category, retailer
+            ORDER BY category, retailer
+        """)
+        print("\nCategory × Retailer averages:")
+        for row in cur.fetchall():
+            print(f"  {row[0]:30s}  {row[1]:15s}  {row[2]} units/store/wk")
 
-    cur.close()
-    conn.close()
+        cur.close()
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

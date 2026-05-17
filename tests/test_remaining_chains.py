@@ -77,7 +77,7 @@ class TestPricingElasticity:
         df = _apply_pricing_calcs(pd.DataFrame([
             _pricing_row(baseline_v=10.0, promo_v=8.0, avg_discount=0.20)
         ]))
-        assert df["elasticity"].iloc[0] < 0
+        assert df["elasticity"].iloc[0] == pytest.approx(-1.0)
 
 
 class TestRecoveryStatus:
@@ -198,6 +198,7 @@ class TestExpansionTiers:
         ]
         df = _apply_expansion_calcs(pd.DataFrame(rows))
         assert len(df["tier"].unique()) == 1
+        assert df["tier"].iloc[0] == "Worth considering"
 
 
 # ============================================================
