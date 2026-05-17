@@ -10,31 +10,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from calcs import apply_promo_calcs as _apply_promo_calcs
 from constants import THRESHOLDS
 from decisions.promo_roi import _roi_tier
-
-
-def _apply_promo_calcs(df: pd.DataFrame) -> pd.DataFrame:
-    """Reproduce the post-SQL calculation chain from data.py get_promo_roi_data."""
-    df = df.copy()
-    df = df[df["baseline_v"] > 0].reset_index(drop=True)
-    if df.empty:
-        return df
-
-    bv, pv, pov = df["baseline_v"], df["promo_v"], df["post_v"]
-    df["lift_pct"] = (pv - bv) / bv * 100
-    df["dip_pct"] = (pov - bv) / bv * 100
-    df["incremental_units"] = ((pv - bv) * df["doors"] * df["duration_weeks"]).round(0)
-    df["incremental_revenue"] = (
-        df["incremental_units"] * df["wholesale_price"] * (1 - df["discount_depth_pct"])
-    ).round(0)
-    df["promo_cost"] = (
-        bv * df["doors"] * df["duration_weeks"] * df["wholesale_price"] * df["discount_depth_pct"]
-    ).round(0)
-    df["roi_pct"] = (
-        (df["incremental_revenue"] - df["promo_cost"]) / df["promo_cost"].replace(0, pd.NA) * 100
-    )
-    return df
 
 
 def _promo_row(**overrides) -> dict:
