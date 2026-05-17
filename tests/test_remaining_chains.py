@@ -9,6 +9,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from calcs import apply_expansion_calcs as _apply_expansion_calcs
+from calcs import apply_pricing_calcs as _apply_pricing_calcs
 from constants import THRESHOLDS, VOLUME_TIER_MULT
 from decisions.pricing_power import _verdict
 
@@ -16,33 +18,6 @@ from decisions.pricing_power import _verdict
 # ============================================================
 # Pricing Power chain
 # ============================================================
-
-def _apply_pricing_calcs(df: pd.DataFrame) -> pd.DataFrame:
-    """Reproduce the post-SQL chain from data.py get_pricing_data."""
-    df = df.copy()
-    df = df.dropna(subset=["baseline_v", "promo_v"])
-    df = df[df["baseline_v"] > 0].reset_index(drop=True)
-    if df.empty:
-        return df
-
-    df["lift_pct"] = (df["promo_v"] - df["baseline_v"]) / df["baseline_v"]
-    df["elasticity"] = df["lift_pct"] / df["avg_discount"].replace(0, pd.NA)
-    df["recovery_ratio"] = df["post_v"] / df["baseline_v"]
-
-    full_floor = THRESHOLDS["pricing_full_recovery"]
-    slow_floor = THRESHOLDS["pricing_slow_recovery"]
-
-    def recovery_label(r: float) -> str:
-        if pd.isna(r):
-            return "Slow Recovery"
-        if r >= full_floor:
-            return "Full Recovery"
-        if r >= slow_floor:
-            return "Partial Recovery"
-        return "Slow Recovery"
-
-    df["recovery_status"] = df["recovery_ratio"].apply(recovery_label)
-    return df
 
 
 def _pricing_row(**overrides) -> dict:
@@ -123,29 +98,6 @@ class TestVerdict:
 # ============================================================
 # Expansion scoring chain
 # ============================================================
-
-def _apply_expansion_calcs(df: pd.DataFrame) -> pd.DataFrame:
-    """Reproduce the post-SQL chain from data.py get_expansion_data."""
-    df = df.copy()
-    df["tier_mult"] = df["volume_tier"].map(VOLUME_TIER_MULT).fillna(1.0)
-    df["score"] = (df["avg_velocity"] * df["tier_mult"]).round(2)
-    df = df.sort_values("score", ascending=False).reset_index(drop=True)
-
-    score_min = df["score"].min()
-    score_max = df["score"].max()
-    score_span = max(score_max - score_min, 1e-9)
-    solid_floor = score_min + score_span / 3.0
-    strongest_floor = score_min + 2.0 * score_span / 3.0
-
-    def tier_label(s: float) -> str:
-        if s >= strongest_floor:
-            return "Strongest"
-        if s >= solid_floor:
-            return "Solid"
-        return "Worth considering"
-
-    df["tier"] = df["score"].apply(tier_label)
-    return df
 
 
 def _expansion_row(**overrides) -> dict:
