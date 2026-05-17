@@ -167,7 +167,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
 
 ### Batch 1 — Immediate fixes (no dependencies, all parallel)
 
-- [ ] B1-A: Fix division-by-zero in promo ROI
+- [x] B1-A: Fix division-by-zero in promo ROI
     - Depends on: none
     - In data.py:486, add `df = df[df["baseline_v"] > 0].reset_index(drop=True)`
       before the `lift_pct` calculation, matching the pattern already used in
@@ -176,7 +176,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
     - Done when: `get_promo_roi_data()` returns no inf/NaN in lift_pct when
       called with test data that includes baseline_v = 0. Existing tests pass.
 
-- [ ] B1-B: Fix division-by-zero in shelf defense trend
+- [x] B1-B: Fix division-by-zero in shelf defense trend
     - Depends on: none
     - In shelf_defense.py:47, change `/ df["trailing_v"]` to
       `/ df["trailing_v"].replace(0, pd.NA)`, matching the pattern in
@@ -186,7 +186,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
       doesn't affect status assignment because the classifier checks
       `pd.notna(t)` separately). Existing tests pass.
 
-- [ ] B1-C: Validate seasonal data coverage
+- [x] B1-C: Validate seasonal data coverage
     - Depends on: none
     - In data.py `get_production_data()`, after computing `seasonal_factor`,
       add a check: if more than 50% of rows have `sf == 1.0` (the NaN
@@ -197,7 +197,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
       produces a logged warning. Running against a full-year dataset produces
       no warning. No behavior change to existing forecasts.
 
-- [ ] B1-D: Consolidate hardcoded threshold = 2.0
+- [x] B1-D: Consolidate hardcoded threshold = 2.0
     - Depends on: none
     - Add `LAUNCH_BENCHMARK = 2.0` to constants.py (or reuse
       `RETAILER_THRESHOLDS["Walmart"]` — same value, but semantically it's
@@ -209,7 +209,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
     - Done when: `grep -rn "threshold = 2.0\|launch_thr = 2.0" app/` returns
       zero matches. All 3 files import from constants. App starts cleanly.
 
-- [ ] B1-E: Reduce cache TTL for validation period
+- [x] B1-E: Reduce cache TTL for validation period
     - Depends on: none
     - In data.py:34, change `CACHE_DEFAULT_TIMEOUT` from 86400 (24h) to
       21600 (6h). Add a comment noting this is reduced for the validation
@@ -218,7 +218,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
 
 ### Batch 2 — Data contract validation (sequential)
 
-- [ ] B2-A: Startup data contract check function
+- [x] B2-A: Startup data contract check function
     - Depends on: B1-E (cache reduction helps catch issues faster)
     - Create a new function `validate_data_contract()` in data.py (or a new
       `app/validation.py` module) that runs 7 SQL checks on boot:
@@ -235,7 +235,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
       all 7 checks. Each check independently reports pass or fail with a
       human-readable message.
 
-- [ ] B2-B: Wire validation into app startup
+- [x] B2-B: Wire validation into app startup
     - Depends on: B2-A
     - Call `validate_data_contract()` in run.py after cache init but before
       `warm_default_view()`. Log results at INFO level (passes) and WARNING
@@ -246,7 +246,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
     - Done when: App startup logs show validation results. A deliberately
       broken check (e.g., dropping a test table) produces a WARNING log.
 
-- [ ] B2-C: Threshold recalibration analysis
+- [x] B2-C: Threshold recalibration analysis
     - Depends on: B2-A (need the validation function to confirm data is
       queryable)
     - Run a one-time analysis (can be a script or notebook) against the
@@ -268,7 +268,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
 
 ### Batch 3 — Calculation chain tests
 
-- [ ] B3-A: Production forecast chain tests
+- [x] B3-A: Production forecast chain tests
     - Depends on: B1-A, B1-C (division fixes should be in place)
     - Add tests in tests/test_calculations.py (new file) covering:
       1. weekly_units = sum_recent / 4 (basic case)
@@ -281,7 +281,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
     - Done when: 6+ tests pass covering the full production chain. pytest
       output shows all green.
 
-- [ ] B3-B: Promo ROI chain tests
+- [x] B3-B: Promo ROI chain tests
     - Depends on: B1-A (division fix)
     - Add tests covering:
       1. lift_pct when baseline_v > 0 (normal case)
@@ -292,7 +292,7 @@ produces correct numbers — or fails loudly — with the rebuilt dataset.
       6. roi_tier classification at boundaries (0%, 100%)
     - Done when: 6+ tests pass. pytest output shows all green.
 
-- [ ] B3-C: Remaining chain tests (pricing, expansion, pruning, rationalization)
+- [x] B3-C: Remaining chain tests (pricing, expansion, pruning, rationalization)
     - Depends on: B1-B (shelf defense fix)
     - Add tests covering:
       1. Pricing: elasticity = lift_pct / avg_discount; recovery_ratio;

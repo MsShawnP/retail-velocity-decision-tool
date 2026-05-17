@@ -22,6 +22,25 @@ from constants import (
 
 
 # ============================================================
+# Number formatting
+# ============================================================
+
+def fmt_num(val: float, decimals: int = 2) -> str:
+    """Magnitude-aware number formatter for user-facing text.
+
+    Prevents false zeros (0.001 → "<0.01") and adds comma
+    grouping for large values (1234 → "1,234.00").
+    """
+    if pd.isna(val):
+        return "—"
+    if val == 0:
+        return f"0.{'0' * decimals}"
+    if 0 < abs(val) < 10 ** -decimals:
+        return f"<0.{'0' * (decimals - 1)}1"
+    return f"{val:,.{decimals}f}"
+
+
+# ============================================================
 # Metric card (replaces st.metric)
 # ============================================================
 

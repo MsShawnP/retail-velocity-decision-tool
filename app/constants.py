@@ -71,6 +71,7 @@ DECISIONS = [
     "Which SKUs should I cut or keep?",
     "Is my new launch on track?",
     "Do I have pricing power on this SKU?",
+    "Is my data trustworthy?",
 ]
 DECISION_TITLES = {
     DECISIONS[0]: "Shelf Defense",
@@ -81,6 +82,7 @@ DECISION_TITLES = {
     DECISIONS[5]: "SKU Rationalization",
     DECISIONS[6]: "Launch Health",
     DECISIONS[7]: "Pricing Power",
+    DECISIONS[8]: "Data Quality",
 }
 
 # ============================================================

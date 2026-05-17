@@ -36,6 +36,26 @@
 
 **Lesson:** When migrating from SQLite to Postgres, audit every column type before running queries. SQLite's dynamic typing masks type mismatches that Postgres enforces.
 
+## 2026-05-17: Fly Postgres OOM on analytical queries at 256MB
+
+**What happened:** Running a calibration script with correlated subqueries (`SELECT ... WHERE (SELECT MAX(week_ending) FROM stg_scan_data)::date - week_ending::date < 28`) against ~4200 rows OOM'd the 256MB shared-cpu Postgres instance. The server closed the connection mid-query, the connection pool was corrupted, and subsequent queries also failed.
+
+**Why it failed:** Correlated subqueries materialize intermediate results that don't fit in 256MB. The Fly shared-cpu tier has tight memory limits with no swap.
+
+**Fix:** Scaled DB to 1GB (`fly machines update --vm-memory 1024`). Required stop/start cycle and role recovery (error → primary).
+
+**Lesson:** Don't run ad-hoc analytical queries against the production DB at minimum memory. For one-time analysis, scale up first, run the query, then optionally scale back down.
+
+## 2026-05-17: Mock cursor shared-index bug in validation tests
+
+**What happened:** `test_validation.py` used separate `MagicMock(side_effect=...)` for `fetchone` and `fetchall`, each with its own internal counter through the response list. Three tests failed because the methods consumed responses out of order — `fetchone` grabbed a response meant for `fetchall` and vice versa.
+
+**Why it failed:** The validation function interleaves `fetchone` and `fetchall` calls on the same cursor. Two independent side_effect iterators meant each method had its own position, but they needed to share one position through a single ordered response list.
+
+**Fix:** Used a single `it = iter(responses)` shared by both methods: `cur.fetchone = MagicMock(side_effect=lambda: next(it))`.
+
+**Lesson:** When mocking a cursor that interleaves fetchone/fetchall, use a shared iterator, not separate counters.
+
 ## 2026-05-15: Expansion mode empty state on initial load
 
 **What happened:** Navigating to the Expansion decision mode shows an empty state ("Select a product line and focus SKU") even though "Artisan Sauces" is pre-selected as the product line. The focus SKU dropdown stays empty.

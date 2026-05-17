@@ -18,8 +18,8 @@ from constants import DECISIONS, DECISION_TITLES, PORTFOLIO_HEALTH
 class TestDecisionMapping:
     """Verify the DECISIONS list and supporting maps are consistent."""
 
-    def test_eight_decisions_in_list(self):
-        assert len(DECISIONS) == 8
+    def test_nine_decisions_in_list(self):
+        assert len(DECISIONS) == 9
 
     def test_every_decision_has_title(self):
         for d in DECISIONS:
@@ -39,8 +39,8 @@ class TestFilterIds:
 
     def test_filter_ids_length(self):
         from callbacks import _FILTER_IDS
-        # Portfolio (1) + 8 decision modes
-        assert len(_FILTER_IDS) == 9
+        # Portfolio (1) + 9 decision modes
+        assert len(_FILTER_IDS) == 10
 
     def test_filter_ids_are_unique(self):
         from callbacks import _FILTER_IDS

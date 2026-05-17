@@ -32,7 +32,7 @@ from constants import (
 from db import get_conn
 
 # ============================================================
-# Cache setup (FileSystemCache, 6-hour default)
+# Cache setup (FileSystemCache, 24-hour default)
 # ============================================================
 
 _CACHE_DIR = "/cache/dash" if os.path.isdir("/cache") else "/tmp/dash-cache"
@@ -40,7 +40,7 @@ _CACHE_DIR = "/cache/dash" if os.path.isdir("/cache") else "/tmp/dash-cache"
 cache = Cache(config={
     "CACHE_TYPE": "FileSystemCache",
     "CACHE_DIR": _CACHE_DIR,
-    "CACHE_DEFAULT_TIMEOUT": 21600,
+    "CACHE_DEFAULT_TIMEOUT": 86400,
 })
 
 
@@ -313,6 +313,115 @@ def get_launch_velocity_curve(sku: str) -> pd.DataFrame:
     """
     with get_conn() as conn:
         return pd.read_sql(sql, conn, params=[sku, sku])
+
+
+# ============================================================
+# Data quality summary
+# ============================================================
+
+@cache.memoize(timeout=3600)
+def get_data_quality_summary() -> dict:
+    """Run validation checks and gather data quality metrics.
+
+    Returns a dict with validation results, table stats, and
+    coverage metrics for the Data Quality Dashboard.
+    """
+    from validation import validate_data_contract
+
+    checks = validate_data_contract()
+    passed = sum(1 for ok, _ in checks.values() if ok)
+    total = len(checks)
+
+    table_stats = []
+    with get_conn() as conn:
+        cur = conn.cursor()
+
+        tables = [
+            ("stg_scan_data", "Scan Data", "Weekly velocity scans"),
+            ("stg_stores", "Stores", "Store dimension"),
+            ("dim_products", "Products", "Product dimension"),
+            ("stg_sku_costs", "SKU Costs", "Cost dimension"),
+            ("stg_promotions", "Promotions", "Promotion events"),
+            ("fct_distribution", "Distribution", "Store-SKU authorization"),
+        ]
+        for tbl, label, desc in tables:
+            try:
+                cur.execute(f"SELECT COUNT(*) FROM {tbl}")  # noqa: S608
+                count = cur.fetchone()[0]
+            except Exception:
+                count = 0
+            check_key = f"table_{tbl}"
+            ok = checks.get(check_key, (False, ""))[0]
+            table_stats.append({
+                "table": label,
+                "description": desc,
+                "rows": count,
+                "status": "Pass" if ok else "Fail",
+            })
+
+        cur.execute(
+            "SELECT MIN(week_ending)::text, MAX(week_ending)::text,"
+            " COUNT(DISTINCT week_ending),"
+            " COUNT(DISTINCT sku)"
+            " FROM stg_scan_data"
+        )
+        row = cur.fetchone()
+        min_date, max_date, n_weeks, n_skus = row
+
+        cur.execute(
+            "SELECT COUNT(DISTINCT store_id),"
+            " COUNT(DISTINCT retailer)"
+            " FROM stg_stores"
+            " WHERE is_aggregated_channel = false"
+        )
+        n_stores, n_retailers = cur.fetchone()
+
+        cur.execute(
+            "SELECT COUNT(*) FROM stg_scan_data WHERE units_sold IS NULL"
+        )
+        null_scans = cur.fetchone()[0]
+
+        cur.execute(
+            "SELECT COUNT(*) FROM stg_scan_data WHERE units_sold = 0"
+        )
+        zero_scans = cur.fetchone()[0]
+
+        cur.execute("SELECT COUNT(*) FROM stg_scan_data")
+        total_scans = cur.fetchone()[0]
+
+    check_details = []
+    friendly = {
+        "date_coverage": "Date Coverage",
+        "case_pack_qty": "Case Pack Qty",
+        "volume_tiers": "Volume Tiers",
+        "retailer_names": "Retailer Names",
+        "sku_cost_coverage": "SKU Cost Coverage",
+        "distribution_dates": "Distribution Dates",
+    }
+    for name, (ok, detail) in checks.items():
+        if name.startswith("table_"):
+            continue
+        check_details.append({
+            "check": friendly.get(name, name),
+            "status": "Pass" if ok else "Fail",
+            "detail": detail,
+        })
+
+    return {
+        "checks_passed": passed,
+        "checks_total": total,
+        "table_stats": table_stats,
+        "check_details": check_details,
+        "min_date": min_date,
+        "max_date": max_date,
+        "n_weeks": n_weeks,
+        "n_skus": n_skus,
+        "n_stores": n_stores,
+        "n_retailers": n_retailers,
+        "null_scans": null_scans,
+        "zero_scans": zero_scans,
+        "total_scans": total_scans,
+    }
 
 
 # ============================================================

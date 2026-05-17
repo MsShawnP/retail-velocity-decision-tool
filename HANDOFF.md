@@ -1,30 +1,27 @@
 # Handoff — Retail Velocity Decision Tool
 
-## Session ended: 2026-05-15
+## Session ended: 2026-05-17
 
-### Status: PLAN.md complete — PR #8 open, ready for merge
+### Status: Data Integrity Hardening COMPLETE — all 3 batches shipped and deployed
 
 ### What shipped this session
-- **A1: Removed Story mode** — deleted story.py and all story-specific code/callbacks/CSS/data functions
-- **A2: Portfolio health data layer** — `get_portfolio_summary()` aggregates across decision areas
-- **A3: Portfolio health landing page** — default view with KPIs, risk cards, status distribution
-- **A4: Drill-down navigation** — risk cards click through to the corresponding decision mode
-- **B1: Narrative insights** — all 8 decision modes now show a "so what" insight sentence
-- **B2: Time-series trend charts** — Shelf Defense (at-risk velocity trend), Production (weekly demand), Launch Health (velocity curves since launch)
-- **C: End-to-end polish** — full flow verified in browser, no regressions
+- **PR #13/#14** — Batch 1: div-by-zero fixes (promo ROI, shelf defense trend), seasonal validation warning, threshold consolidation (3 hardcoded 2.0 → `LAUNCH_BENCHMARK`), cache TTL reduced 24h → 6h
+- **PR #15** — Batch 2a + Batch 3 + review followups: startup data contract validation (7 SQL checks on boot), calculation chain tests (160 total), `calcs.py` extraction for testability, `dropna` → `fillna(0)` for zero-velocity SKU visibility, `get_latest_week()` empty-table guard
+- **PR #16** — Batch 2b: threshold recalibration based on live velocity distributions. Retailer thresholds: Walmart 2.0→5.0, Costco 5.0→27.0, Whole Foods 1.5→2.5, Regional 1.0→2.0. Production trend ±10%→±15%. Launch benchmark 2.0→4.0.
+- **DB scaled** from 256MB to 1GB to handle analytical queries
 
-### PR
-- [#8 — Replace Story mode with portfolio health dashboard](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/8)
-- Branch: `claude/elastic-kare-2125ea`
+### PRs (all merged)
+- [#13](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/13), [#14](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/14), [#15](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/15), [#16](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/16)
 
 ### What needs doing next
-1. **Merge PR #9** (expansion fix) and deploy both PRs to Fly.io
-2. **Competitive benchmarking** — explicitly out of scope (requires new synthetic data), but would be the natural next decision area
-3. **`base_chart_layout` time-series helper** — if more trend charts are added, extract a `time_series_layout()` to avoid repeating the yaxis autorange override
+1. **Verify live classifications** — spot-check the deployed app to confirm the recalibrated thresholds produce sensible At Risk / Safe / Warning distributions
+2. **Competitive benchmarking** — out of scope (requires new synthetic data), natural next decision area
+3. **`base_chart_layout` time-series helper** — extract if more trend charts are added
+4. **Cache TTL restoration** — currently 6h for validation period; return to 24h once data is confirmed stable
 
 ### Known risks
 - `fct_distribution` was created via direct SQL, not dbt. Won't auto-refresh.
-- Cache TTL is 24h. Persistent volume survives deploys but not TTL expiry.
+- Fly DB scaled to 1GB ($12/mo vs $3/mo) — could downscale once analytical queries are done.
 - Fly machine occasionally stops unexpectedly despite `auto_stop_machines = 'off'`.
 
 ### Architecture notes

@@ -170,6 +170,19 @@ def _filters_pricing() -> html.Div:
     ])
 
 
+def _filters_data_quality() -> html.Div:
+    return html.Div(
+        id="filters-data-quality",
+        style={"display": "none"},
+        children=[
+            _caption(
+                "Automated data contract checks — verifies the schema "
+                "and coverage assumptions every decision mode depends on."
+            ),
+        ],
+    )
+
+
 # ============================================================
 # Pitch export section
 # ============================================================
@@ -246,6 +259,7 @@ def _sidebar() -> html.Div:
                 _filters_rationalization(product_lines),
                 _filters_launch(),
                 _filters_pricing(),
+                _filters_data_quality(),
                 _pitch_export_section(product_lines),
             ],
         ),

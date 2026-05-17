@@ -241,10 +241,10 @@ def _build_sku_tab(
          "sortable": True, "filter": "agNumberColumnFilter", "width": 130},
         {"field": "% Below Threshold", "headerName": "% Below Threshold",
          "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "d3.format('.2f')(params.value) + '%'"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value) + '%'"}},
         {"field": "Avg Velocity", "headerName": "Avg Velocity",
          "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value)"}},
         {"field": "Severity", "headerName": "Severity", "sortable": True, "filter": True, "width": 110},
     ]
 
@@ -430,7 +430,7 @@ def _build_store_tab(
          "sortable": True, "filter": "agNumberColumnFilter", "width": 120},
         {"field": "Avg Velocity", "headerName": "Avg Velocity",
          "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value)"}},
         {"field": "Severity", "headerName": "Severity", "sortable": True, "filter": True, "width": 110},
     ]
 

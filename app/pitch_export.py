@@ -311,6 +311,11 @@ class _PitchPDF(FPDF):
                 text = "" if pd.isna(val) else str(val)
                 self.cell(col_widths[i], 6, text[:25], border=1)
             self.ln()
+
+        if len(df) > 50:
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 5, f"Showing 50 of {len(df)} rows", ln=True)
         self.ln(4)
 
 

@@ -18,6 +18,7 @@ from components import (
     empty_state,
     error_card,
     excel_download_data,
+    fmt_num,
     make_grid,
     metric_card,
     row_count_line,
@@ -114,7 +115,7 @@ def layout(
             third_value = tied["store_id"].iloc[0]
         else:
             third_label = "Top stores (tied)"
-            third_value = f"{n_tied} stores at {top_score:.2f}"
+            third_value = f"{n_tied} stores at {fmt_num(top_score)}"
 
     # Tier boundaries derived from the SCORE RANGE
     score_min = float(df["score"].min())
@@ -175,10 +176,10 @@ def layout(
          "sortable": True, "filter": "agNumberColumnFilter", "width": 200},
         {"field": "Their Avg Velocity", "headerName": "Their Avg Velocity",
          "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value)"}},
         {"field": "Expansion Score", "headerName": "Expansion Score",
          "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value)"}},
     ]
 
     grid = make_grid(
@@ -256,8 +257,8 @@ def layout(
             html.P(caption_text, className="dh-caption"),
             html.Div(
                 [
-                    html.Div(metric_card("Top opportunity score", f"{top_score:.2f}"), className="dh-metric"),
-                    html.Div(metric_card("Average score", f"{avg_score:.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Top opportunity score", fmt_num(top_score)), className="dh-metric"),
+                    html.Div(metric_card("Average score", fmt_num(avg_score)), className="dh-metric"),
                     html.Div(metric_card(third_label, str(third_value)), className="dh-metric"),
                 ],
                 className="dh-metrics",
@@ -276,9 +277,9 @@ def layout(
             html.H4(chart_title, style={"marginTop": "0"}),
             html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
             chart_legend([
-                (TEAL,     f"Strongest (score ≥ {strongest_floor:.2f})"),
-                (NAVY_MED, f"Solid ({solid_floor:.2f}–{strongest_floor:.2f})"),
-                (GREY,     f"Worth considering (< {solid_floor:.2f})"),
+                (TEAL,     f"Strongest (score ≥ {fmt_num(strongest_floor)})"),
+                (NAVY_MED, f"Solid ({fmt_num(solid_floor)}–{fmt_num(strongest_floor)})"),
+                (GREY,     f"Worth considering (< {fmt_num(solid_floor)})"),
             ]),
             dcc.Graph(figure=fig, id="expansion-chart", responsive=True, style={"width": "100%"}),
         ],
