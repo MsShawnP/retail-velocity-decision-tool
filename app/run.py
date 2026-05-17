@@ -61,7 +61,13 @@ pricing_cbs(app)
 
 from validation import log_validation_results, validate_data_contract
 
-log_validation_results(validate_data_contract())
+try:
+    log_validation_results(validate_data_contract())
+except Exception:
+    import logging
+    logging.getLogger("validation").warning(
+        "Data contract validation skipped — database unavailable at startup"
+    )
 
 app.clientside_callback(
     """function(n, is_open) {
