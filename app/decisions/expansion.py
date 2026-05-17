@@ -29,23 +29,7 @@ from constants import (
     NAVY_MED,
     TEAL,
 )
-from data import get_expansion_data
-from db import get_conn
-
-
-# ============================================================
-# SKU metadata lookup
-# ============================================================
-
-def _get_sku_meta(focus_sku: str) -> tuple[str, str] | None:
-    """Return (product_name, product_line) for a SKU, or None."""
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT product_name, product_line FROM dim_products WHERE sku = %s",
-            (focus_sku,),
-        )
-        return cur.fetchone()
+from data import get_expansion_data, get_sku_meta
 
 
 # ============================================================
@@ -73,7 +57,7 @@ def layout(
         return empty_state("Select a product line and focus SKU to find expansion opportunities.")
 
     try:
-        sku_meta = _get_sku_meta(focus_sku)
+        sku_meta = get_sku_meta(focus_sku)
     except Exception as exc:
         return error_card(
             "Expansion metadata lookup failed",
@@ -223,8 +207,8 @@ def layout(
         fig.add_trace(go.Bar(
             y=sub["label"], x=sub["score"], orientation="h",
             marker_color=EXPANSION_TIER_COLORS[tier_name],
-            text=sub["score"].map(lambda v: f"{v:.2f}"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["score"].map(lambda v: f"{v:.1f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["retailer", "n_similar", "avg_velocity", "volume_tier"]].values,
             hovertemplate=(
@@ -242,8 +226,9 @@ def layout(
         labels=top["label"].tolist(),
         height=max(420, 32 * n_show + 120),
         x_title="Expansion score (peer velocity × tier multiplier)",
-        label_pad_px=240,
-        left_margin=260,
+        label_pad_px=130,
+        left_margin=150,
+        x_pad_pct=0.30,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=top["label"].tolist())
 
@@ -277,12 +262,13 @@ def layout(
                 ],
                 className="dh-metrics",
             ),
-            status_legend(
-                "<b>Score</b> = average velocity of peer SKUs (same product line, "
+            status_legend([
+                html.B("Score"),
+                " = average velocity of peer SKUs (same product line, "
                 "already on shelf at that store) × volume-tier multiplier "
-                "(A = 1.3, B = 1.0, C = 0.7).  Higher score = stronger expansion fit. "
-                "Showing top 30 of all qualifying stores."
-            ),
+                "(A = 1.3, B = 1.0, C = 0.7). Higher score = stronger expansion fit. "
+                "Showing top 30 of all qualifying stores.",
+            ]),
             row_count_line("stores", bucket_parts),
         ],
         grid=grid,
@@ -294,7 +280,7 @@ def layout(
                 (NAVY_MED, f"Solid ({solid_floor:.2f}–{strongest_floor:.2f})"),
                 (GREY,     f"Worth considering (< {solid_floor:.2f})"),
             ]),
-            dcc.Graph(figure=fig, id="expansion-chart"),
+            dcc.Graph(figure=fig, id="expansion-chart", responsive=True, style={"width": "100%"}),
         ],
         footer=[
             html.Button(

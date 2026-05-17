@@ -141,17 +141,16 @@ def layout() -> html.Div:
     # Status legend
     on_track_pct = THRESHOLDS["launch_on_track"] * 100
     failing_pct = THRESHOLDS["launch_failing"] * 100
-    legend_html = (
-        f"<b>Status definitions</b> (current vs first-4-weeks velocity, "
-        f"benchmark = {threshold:.2f} units/store/week):  "
-        f"<b style='color:{TEAL}'>On Track</b> = current ≥ benchmark and "
-        f"holding ≥ {on_track_pct:.2f}% of initial.  "
-        f"<b style='color:{ORANGE}'>Needs Attention</b> = above benchmark but "
-        f"trending down, or modestly below benchmark.  "
-        f"<b style='color:{RED}'>Failing</b> = current &lt; {failing_pct:.2f}% of "
-        f"benchmark, or current &lt; {on_track_pct:.2f}% of initial AND below "
-        f"benchmark."
-    )
+    legend_children = [
+        html.B("Status definitions"),
+        f" (current vs first-4-weeks velocity, benchmark = {threshold:.2f} units/store/week): ",
+        html.B("On Track", style={"color": TEAL}),
+        f" = current ≥ benchmark and holding ≥ {on_track_pct:.2f}% of initial. ",
+        html.B("Needs Attention", style={"color": ORANGE}),
+        " = above benchmark but trending down, or modestly below benchmark. ",
+        html.B("Failing", style={"color": RED}),
+        f" = current < {failing_pct:.2f}% of benchmark, or current < {on_track_pct:.2f}% of initial AND below benchmark.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -239,8 +238,8 @@ def layout() -> html.Div:
         fig.add_trace(go.Bar(
             y=sub["SKU"], x=sub["Current Vel"], orientation="h",
             marker_color=LAUNCH_STATUS_COLORS[status_val],
-            text=sub["Current Vel"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["Current Vel"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["Product Name", "Wks 1-4 Vel", "Weeks Since"]].values,
             hovertemplate=(
@@ -261,8 +260,8 @@ def layout() -> html.Div:
         labels=chart_df["SKU"].tolist(),
         height=max(380, 32 * n_show + 120),
         x_title="Units per store per week (current 4-week average)",
-        label_pad_px=180,
-        left_margin=200,
+        label_pad_px=110,
+        left_margin=130,
     )
 
     # Velocity curve overview for failing / needs-attention launches
@@ -270,20 +269,28 @@ def layout() -> html.Div:
     watch_skus = df.loc[df["status"].isin(["Failing", "Needs Attention"]), "sku"].tolist()
     if watch_skus:
         trend_fig = go.Figure()
-        status_map = dict(zip(df["sku"], df["status"]))
         name_map = dict(zip(df["sku"], df["product_name"]))
-        for sku in watch_skus:
+        # Distinct palette so each SKU is visually separable
+        _TREND_PALETTE = [
+            "#0984E3", "#6C5CE7", "#00856A", "#E84393",
+            "#2D3436", "#C27A00", "#1B2A4A", "#0097A7",
+        ]
+        for i, sku in enumerate(watch_skus):
             curve = get_launch_velocity_curve(sku)
             if curve.empty:
                 continue
-            color = LAUNCH_STATUS_COLORS.get(status_map.get(sku, "Needs Attention"), ORANGE)
+            color = _TREND_PALETTE[i % len(_TREND_PALETTE)]
             trend_fig.add_trace(go.Scatter(
                 x=curve["weeks_since_launch"],
                 y=curve["avg_velocity"],
                 mode="lines+markers",
                 name=f"{sku} — {name_map.get(sku, '')}",
-                line=dict(color=color, width=2),
-                marker=dict(size=5),
+                line=dict(color=color, width=2.5),
+                marker=dict(size=4, color=color),
+                hovertemplate=(
+                    "<b>%{fullData.name}</b><br>"
+                    "Week %{x}: %{y:.2f} units/store<extra></extra>"
+                ),
             ))
         trend_fig.add_hline(
             y=threshold, line_dash="dash", line_color=GREY, line_width=2,
@@ -291,13 +298,23 @@ def layout() -> html.Div:
             annotation_position="top left",
         )
         layout_kw = base_chart_layout(
-            height=340, x_title="Weeks since launch", y_title="Avg units/store/week",
+            height=480, x_title="Weeks since launch", y_title="Avg units/store/week",
             show_legend=True,
         )
-        layout_kw["yaxis"]["autorange"] = True
+        # Compute y range that includes data AND the benchmark line
+        _yvals = []
+        for _t in trend_fig.data:
+            if hasattr(_t, "y") and _t.y is not None:
+                _yvals.extend([v for v in _t.y if v is not None])
+        _yvals.append(threshold)
+        _ymin, _ymax = min(_yvals), max(_yvals)
+        _ypad = max((_ymax - _ymin) * 0.10, 0.2)
+        layout_kw["yaxis"]["range"] = [max(0, _ymin - _ypad), _ymax + _ypad]
+        layout_kw["yaxis"]["autorange"] = False
+        layout_kw["margin"] = dict(l=50, r=10, t=40, b=100)
         layout_kw["legend"] = dict(
-            orientation="h", yanchor="bottom", y=1.02,
-            xanchor="left", x=0, font=dict(size=11),
+            orientation="h", yanchor="top", y=-0.18,
+            xanchor="center", x=0.5, font=dict(size=11),
         )
         trend_fig.update_layout(**layout_kw)
         trend_chart_elements = [
@@ -305,7 +322,7 @@ def layout() -> html.Div:
                 "Velocity since launch — failing & needs-attention SKUs",
                 style={"marginTop": "1.5rem"},
             ),
-            dcc.Graph(figure=trend_fig, id="launch-trend-chart"),
+            dcc.Graph(figure=trend_fig, id="launch-trend-chart", responsive=True, style={"width": "100%"}),
         ]
 
     # Build dropdown options for drilldown
@@ -342,7 +359,7 @@ def layout() -> html.Div:
                 ],
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("launches", [
                 (n_track, "On Track"),
                 (n_attn, "Needs Attention"),
@@ -358,7 +375,7 @@ def layout() -> html.Div:
                 (ORANGE, "Needs Attention"),
                 (TEAL,   "On Track"),
             ]),
-            dcc.Graph(figure=fig, id="launch-health-chart"),
+            dcc.Graph(figure=fig, id="launch-health-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements + [
             html.H4("Drill into one launch", style={"marginTop": "1rem"}),
             html.P(
@@ -463,10 +480,14 @@ def register_callbacks(app) -> None:
 
         threshold = LAUNCH_BENCHMARK
 
-        header_html = (
-            f"<b>{sku} — {pname}</b> launched on <b>{launch_d.date()}</b>, "
-            f"<span style='color:{color}; font-weight:600'>{status_val}</span>."
-        )
+        header_children = [
+            html.B(f"{sku} — {pname}"),
+            " launched on ",
+            html.B(str(launch_d.date())),
+            ", ",
+            html.Span(status_val, style={"color": color, "fontWeight": "600"}),
+            ".",
+        ]
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -515,8 +536,8 @@ def register_callbacks(app) -> None:
 
         return html.Div([
             html.Div(
-                dcc.Markdown(header_html, dangerously_allow_html=True),
+                header_children,
                 style={"marginBottom": "0.5rem"},
             ),
-            dcc.Graph(figure=fig, id="launch-detail-chart"),
+            dcc.Graph(figure=fig, id="launch-detail-chart", responsive=True, style={"width": "100%"}),
         ])
