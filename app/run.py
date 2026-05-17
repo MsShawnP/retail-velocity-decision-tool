@@ -66,7 +66,8 @@ try:
 except Exception:
     import logging
     logging.getLogger("validation").warning(
-        "Data contract validation skipped — database unavailable at startup"
+        "Data contract validation skipped — database unavailable at startup",
+        exc_info=True,
     )
 
 app.clientside_callback(

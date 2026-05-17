@@ -83,8 +83,6 @@ def status_legend(children) -> html.Div:
     Accepts either a list of Dash components (html.Span, html.B, str) or
     a plain string. Renders inline without dangerously_allow_html.
     """
-    if isinstance(children, str):
-        return html.Div(className="status-legend", children=children)
     return html.Div(className="status-legend", children=children)
 
 
