@@ -27,6 +27,7 @@ from constants import (
     GREY,
     GREY_LIGHT,
     GREEN_FAINT,
+    LAUNCH_BENCHMARK,
     NAVY,
     NAVY_MED,
     ORANGE,
@@ -80,7 +81,7 @@ LAUNCH_STATUS_COLORS = {
 
 def layout() -> html.Div:
     """Return the full Dash component tree for Launch Health."""
-    threshold = 2.0  # Walmart benchmark used as a generic launch signal
+    threshold = LAUNCH_BENCHMARK
     latest = get_latest_week()
 
     try:
@@ -460,7 +461,7 @@ def register_callbacks(app) -> None:
         weekly["week_ending"] = pd.to_datetime(weekly["week_ending"])
         weekly["weeks_since"] = ((weekly["week_ending"] - launch_d).dt.days // 7) + 1
 
-        threshold = 2.0
+        threshold = LAUNCH_BENCHMARK
 
         header_html = (
             f"<b>{sku} — {pname}</b> launched on <b>{launch_d.date()}</b>, "

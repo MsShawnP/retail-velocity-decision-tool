@@ -100,7 +100,7 @@ def layout(
     """Return the full Dash component tree for SKU Rationalization."""
     threshold = RETAILER_THRESHOLDS.get(retailer, 1.0)
     if retailer == "All Retailers":
-        threshold = 2.0
+        threshold = RETAILER_THRESHOLDS.get("Walmart", 2.0)
     latest = get_latest_week()
 
     caption_text = (
