@@ -91,10 +91,10 @@ PHYSICAL_RETAILERS = ["Walmart", "Costco", "Whole Foods", "Regional"]
 ALL_PHYSICAL_OR_AGG = ["Walmart", "Costco", "Whole Foods", "Regional", "UNFI", "DTC"]
 
 RETAILER_THRESHOLDS = {
-    "Walmart":     2.0,
-    "Costco":      5.0,
-    "Whole Foods": 1.5,
-    "Regional":    1.0,
+    "Walmart":     5.0,
+    "Costco":      27.0,
+    "Whole Foods": 2.5,
+    "Regional":    2.0,
 }
 
 REGIONAL_CHAINS = (
@@ -107,7 +107,7 @@ REGIONAL_CHAINS = (
 
 VOLUME_TIER_MULT = {"A": 1.3, "B": 1.0, "C": 0.7}
 
-LAUNCH_BENCHMARK = 2.0
+LAUNCH_BENCHMARK = 4.0
 
 # ============================================================
 # Category mapping (product_line → market category)
