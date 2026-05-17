@@ -36,8 +36,8 @@ PAGE_BG      = "#DADDE3"   # main content area
 
 THRESHOLDS = {
     # Production Planning: 4-week trend vs prior 4 weeks
-    "production_trend_accel":   0.10,   # > +10% -> Accelerating
-    "production_trend_decel":  -0.10,   # < -10% -> Decelerating
+    "production_trend_accel":   0.15,   # > +15% -> Accelerating
+    "production_trend_decel":  -0.15,   # < -15% -> Decelerating
     # Launch Health: current velocity vs initial-4-weeks and benchmark
     "launch_on_track":          0.85,   # >=85% retention required for On Track
     "launch_failing":           0.70,   # <70% of benchmark -> Failing
