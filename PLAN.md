@@ -134,3 +134,174 @@ portfolio story.
       loading states, and mobile-width degradation. Fix any regressions.
     - Done when: A prospect can walk through the tool cold and understand
       what Cinderhaven's portfolio looks like within 30 seconds of landing.
+
+---
+
+## Goal: Data Integrity Hardening (2026-05-17)
+
+**Source:** Audit Phase 4 (2026-05-17)
+**Category:** Foundational + Double down
+**Priority:** P0 — must complete before redeploying with rebuilt dataset
+
+### Objective
+
+Ensure the tool's math, classifiers, and thresholds produce correct results
+with the rebuilt dataset. Fix silent-failure paths, validate the data contract,
+and recalibrate thresholds if distributions shifted.
+
+### Success Criteria
+
+- App boots with rebuilt data and logs validation results (pass/fail per table)
+- No division-by-zero possible in any calculation path
+- All thresholds read from constants.py (zero hardcoded duplicates)
+- Seasonal factor is validated or explicitly disabled with a warning
+- Velocity distributions confirm thresholds produce sensible classifications
+- Tests cover the 6 previously untested calculation chains
+
+---
+
+## Decomposition: Data Integrity Hardening
+
+Goal: Fix every silent-failure path identified in the audit so the tool
+produces correct numbers — or fails loudly — with the rebuilt dataset.
+
+### Batch 1 — Immediate fixes (no dependencies, all parallel)
+
+- [ ] B1-A: Fix division-by-zero in promo ROI
+    - Depends on: none
+    - In data.py:486, add `df = df[df["baseline_v"] > 0].reset_index(drop=True)`
+      before the `lift_pct` calculation, matching the pattern already used in
+      get_pricing_data (line 819). Also add the same guard for `dip_pct` on
+      line 487 (same denominator).
+    - Done when: `get_promo_roi_data()` returns no inf/NaN in lift_pct when
+      called with test data that includes baseline_v = 0. Existing tests pass.
+
+- [ ] B1-B: Fix division-by-zero in shelf defense trend
+    - Depends on: none
+    - In shelf_defense.py:47, change `/ df["trailing_v"]` to
+      `/ df["trailing_v"].replace(0, pd.NA)`, matching the pattern in
+      data.py:398 (production trend).
+    - Done when: `_classify_shelf_status()` produces NaN (not inf) for
+      trend_pct when trailing_v is 0. Classification still works (NaN trend
+      doesn't affect status assignment because the classifier checks
+      `pd.notna(t)` separately). Existing tests pass.
+
+- [ ] B1-C: Validate seasonal data coverage
+    - Depends on: none
+    - In data.py `get_production_data()`, after computing `seasonal_factor`,
+      add a check: if more than 50% of rows have `sf == 1.0` (the NaN
+      fallback), log a warning: "Seasonal adjustment inactive for {n}/{total}
+      SKUs — dataset may not span a full year." This surfaces the silent
+      failure without changing behavior.
+    - Done when: Running the app against a dataset with <392 days of history
+      produces a logged warning. Running against a full-year dataset produces
+      no warning. No behavior change to existing forecasts.
+
+- [ ] B1-D: Consolidate hardcoded threshold = 2.0
+    - Depends on: none
+    - Add `LAUNCH_BENCHMARK = 2.0` to constants.py (or reuse
+      `RETAILER_THRESHOLDS["Walmart"]` — same value, but semantically it's
+      a launch benchmark, not a retailer threshold; use a new constant).
+    - Replace the 3 hardcoded values:
+      - launch_health.py:83 → read from constants
+      - pitch_export.py:61 → read from constants
+      - data.py:161 → read from constants
+    - Done when: `grep -rn "threshold = 2.0\|launch_thr = 2.0" app/` returns
+      zero matches. All 3 files import from constants. App starts cleanly.
+
+- [ ] B1-E: Reduce cache TTL for validation period
+    - Depends on: none
+    - In data.py:34, change `CACHE_DEFAULT_TIMEOUT` from 86400 (24h) to
+      21600 (6h). Add a comment noting this is reduced for the validation
+      period and can return to 86400 once data is confirmed stable.
+    - Done when: Cache config shows 21600. App restarts successfully.
+
+### Batch 2 — Data contract validation (sequential)
+
+- [ ] B2-A: Startup data contract check function
+    - Depends on: B1-E (cache reduction helps catch issues faster)
+    - Create a new function `validate_data_contract()` in data.py (or a new
+      `app/validation.py` module) that runs 7 SQL checks on boot:
+      1. All 6 tables exist and have >0 rows
+      2. stg_scan_data date range spans ≥392 days (for seasonal factor)
+      3. dim_products has no case_pack_qty = 0 or NULL
+      4. stg_stores volume_tier values are all in {A, B, C}
+      5. stg_stores retailer values include all PHYSICAL_RETAILERS +
+         REGIONAL_CHAINS + ["UNFI", "DTC"]
+      6. Every SKU in stg_scan_data has a matching row in stg_sku_costs
+      7. fct_distribution has >0 rows with non-null authorized_date
+    - Return a dict of {check_name: (pass/fail, detail_message)}.
+    - Done when: Function runs against the rebuilt DB and returns results for
+      all 7 checks. Each check independently reports pass or fail with a
+      human-readable message.
+
+- [ ] B2-B: Wire validation into app startup
+    - Depends on: B2-A
+    - Call `validate_data_contract()` in run.py after cache init but before
+      `warm_default_view()`. Log results at INFO level (passes) and WARNING
+      level (failures). Do NOT block startup on failures — log and continue
+      so the app is still accessible for debugging. Print a summary line:
+      "Data contract: 7/7 checks passed" or "Data contract: 5/7 checks
+      passed — see warnings above."
+    - Done when: App startup logs show validation results. A deliberately
+      broken check (e.g., dropping a test table) produces a WARNING log.
+
+- [ ] B2-C: Threshold recalibration analysis
+    - Depends on: B2-A (need the validation function to confirm data is
+      queryable)
+    - Run a one-time analysis (can be a script or notebook) against the
+      rebuilt dataset:
+      1. For each retailer in PHYSICAL_RETAILERS, query the velocity
+         distribution: p10, p25, median, p75, p90 of current_v from
+         get_shelf_defense_data().
+      2. Compare against RETAILER_THRESHOLDS. A threshold should land
+         roughly between p10 and p25 to flag the bottom ~15-25% as "At Risk."
+         If >50% of SKUs are "At Risk" or <5% are, the threshold is miscalibrated.
+      3. Check production trend distribution: what % are Accelerating /
+         Decelerating / Stable? Should be roughly 15-30% / 15-30% / rest.
+         If >80% are Stable, the ±10% threshold may be too loose.
+      4. Check launch health: how many launches exist? If 0, document why
+         (dataset may not have recent enough authorized_dates).
+    - Done when: A report (printed to console or written to a markdown file)
+      shows the distribution analysis for each retailer and decision area,
+      with a recommendation of "keep" or "adjust to X" for each threshold.
+
+### Batch 3 — Calculation chain tests
+
+- [ ] B3-A: Production forecast chain tests
+    - Depends on: B1-A, B1-C (division fixes should be in place)
+    - Add tests in tests/test_calculations.py (new file) covering:
+      1. weekly_units = sum_recent / 4 (basic case)
+      2. weekly_cases with case_pack_qty = 1, 6, 12
+      3. seasonal_factor when sum_ly_current = 0 (should be 1.0)
+      4. seasonal_factor clipping at 0.5 and 2.0 boundaries
+      5. trend_pct when phys_v_prior = 0 (should be NaN → "Stable")
+      6. forecast_4w_units = weekly_units × sf × 4
+    - Use synthetic DataFrames, no DB connection needed.
+    - Done when: 6+ tests pass covering the full production chain. pytest
+      output shows all green.
+
+- [ ] B3-B: Promo ROI chain tests
+    - Depends on: B1-A (division fix)
+    - Add tests covering:
+      1. lift_pct when baseline_v > 0 (normal case)
+      2. baseline_v = 0 rows are excluded (post-fix behavior)
+      3. incremental_units calculation (pv - bv) × doors × weeks
+      4. promo_cost calculation
+      5. roi_pct when promo_cost = 0 (should be NaN)
+      6. roi_tier classification at boundaries (0%, 100%)
+    - Done when: 6+ tests pass. pytest output shows all green.
+
+- [ ] B3-C: Remaining chain tests (pricing, expansion, pruning, rationalization)
+    - Depends on: B1-B (shelf defense fix)
+    - Add tests covering:
+      1. Pricing: elasticity = lift_pct / avg_discount; recovery_ratio;
+         verdict logic for negative elasticity
+      2. Expansion: score = avg_velocity × tier_mult; tertile bucketing
+         when all scores are identical
+      3. Pruning: p20 quantile; shelf_cost = (median - velocity) × price;
+         severity by SKU (≥50% → Critical) and by store (≥3 → Critical)
+      4. Rationalization: margin_per_unit = wholesale - cogs; quadrant
+         assignment using medians; cut candidate projection
+    - Done when: 12+ tests pass across the 4 chains. pytest output shows
+      all green. Total test count rises from 26 to ~50+.
