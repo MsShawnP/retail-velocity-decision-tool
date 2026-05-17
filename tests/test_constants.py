@@ -10,8 +10,8 @@ from constants import (
 )
 
 
-def test_eight_decisions():
-    assert len(DECISIONS) == 8
+def test_nine_decisions():
+    assert len(DECISIONS) == 9
 
 
 def test_every_decision_has_a_title():

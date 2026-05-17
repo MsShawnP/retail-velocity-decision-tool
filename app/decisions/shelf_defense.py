@@ -209,13 +209,13 @@ def layout(
         {"field": "Product Name", "headerName": "Product Name", "sortable": True, "filter": True, "flex": 1},
         {"field": "Product Line", "headerName": "Product Line", "sortable": True, "filter": True, "width": 130},
         {"field": "Current Velocity", "headerName": "Current Velocity", "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value)"}},
         {"field": "Trailing Velocity", "headerName": "Trailing Velocity", "sortable": True, "filter": "agNumberColumnFilter",
-         "valueFormatter": {"function": "params.value == null ? '—' : d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "params.value == null ? '—' : d3.format(',.2f')(params.value)"}},
         {"field": "Trend %", "headerName": "Trend %", "sortable": True, "filter": "agNumberColumnFilter",
          "valueFormatter": {"function": "params.value == null ? '—' : d3.format('+.2f')(params.value) + '%'"}},
         {"field": "Threshold", "headerName": "Threshold", "sortable": True,
-         "valueFormatter": {"function": "d3.format('.2f')(params.value)"}},
+         "valueFormatter": {"function": "d3.format(',.2f')(params.value)"}},
         {"field": "Status", "headerName": "Status", "sortable": True, "filter": True, "width": 100},
     ]
 

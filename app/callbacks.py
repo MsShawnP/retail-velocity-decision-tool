@@ -28,6 +28,7 @@ from decisions.pruning import layout as pruning_layout
 from decisions.rationalization import layout as rationalization_layout
 from decisions.launch_health import layout as launch_layout
 from decisions.pricing_power import layout as pricing_layout
+from decisions.data_quality import layout as data_quality_layout
 
 
 # ============================================================
@@ -44,6 +45,7 @@ _FILTER_IDS = [
     "filters-rationalization",    # 5 — Rationalization
     "filters-launch",             # 6 — Launch Health
     "filters-pricing",            # 7 — Pricing Power
+    "filters-data-quality",       # 8 — Data Quality
 ]
 
 # Component IDs that belong to each decision mode (for short-circuit logic).
@@ -56,6 +58,7 @@ _MODE_INPUTS = {
     5: {"rat-retailer", "rat-product-line"},
     6: set(),  # Launch Health has no filter inputs
     7: {"pricing-retailer", "pricing-scope", "pricing-product-line", "pricing-sku"},
+    8: set(),  # Data Quality has no filter inputs
 }
 
 
@@ -185,6 +188,8 @@ def register_callbacks(app) -> None:
             return launch_layout()
         elif idx == 7:
             return pricing_layout(price_ret, price_scope, price_pl, price_sku)
+        elif idx == 8:
+            return data_quality_layout()
 
         title = DECISION_TITLES.get(decision, decision)
         return html.Div(

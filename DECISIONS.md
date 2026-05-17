@@ -56,6 +56,38 @@
 
 **Tradeoff:** Lost the linear storytelling arc. Gained a tool that hooks within 30 seconds by surfacing what's interesting (at-risk clusters, production spikes, launch failures) and letting the user pull rather than push.
 
+## 2026-05-17: Threshold recalibration — data-driven from live velocity distributions
+
+**Decision:** Queried the rebuilt Cinderhaven dataset for velocity percentiles (p5–p90) per retailer and recalibrated all thresholds to produce ~10-20% at-risk classifications.
+
+**Values changed:**
+- Walmart: 2.0 → 5.0 (was p10 of distribution; 0% were at risk before)
+- Costco: 5.0 → 27.0 (velocities ranged 24–68; old threshold was meaningless)
+- Whole Foods: 1.5 → 2.5 (only 2.8% at risk before)
+- Regional: 1.0 → 2.0 (proportional)
+- Launch benchmark: 2.0 → 4.0
+- Production trend: ±10% → ±15% (48% were "Accelerating" at ±10%)
+
+**Why:** The dataset rebuild changed velocity distributions entirely. Original thresholds were calibrated for a different dataset and produced zero at-risk classifications for 2 of 4 retailers.
+
+**Tradeoff:** These thresholds are tuned to the synthetic Cinderhaven data. A real client deployment would need its own calibration pass.
+
+## 2026-05-17: fillna(0) instead of dropna for zero-velocity SKUs
+
+**Decision:** Changed shelf defense, pruning, and rationalization queries from `dropna(subset=["current_v"])` to `df["current_v"] = df["current_v"].fillna(0)`.
+
+**Why:** `dropna` silently removed SKUs with zero scan velocity. These are exactly the SKUs that should show as "At Risk" — dropping them hid the most important signal. `fillna(0)` keeps them visible and classified correctly.
+
+**Tradeoff:** None meaningful. Zero velocity is a real data point, not missing data.
+
+## 2026-05-17: Scale Fly Postgres from 256MB to 1GB
+
+**Decision:** Scaled the Fly Postgres machine from shared-cpu-1x 256MB to 1GB.
+
+**Why:** The calibration query (correlated subqueries on stg_scan_data) OOM'd the 256MB instance. Needed headroom for analytical queries against 4000+ row scan data.
+
+**Tradeoff:** Cost increase ~$9/mo. Can downscale once one-time analytical queries are done.
+
 ## 2026-05-15: Trend charts use base_chart_layout with yaxis autorange override
 
 **Decision:** Reused the existing `base_chart_layout()` helper for all 3 new trend charts but overrode `yaxis.autorange = True` in each.
