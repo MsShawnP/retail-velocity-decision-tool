@@ -50,6 +50,10 @@ rationalization_cbs(app)
 launch_cbs(app)
 pricing_cbs(app)
 
+from validation import log_validation_results, validate_data_contract
+
+log_validation_results(validate_data_contract())
+
 warm_default_view()
 threading.Thread(target=warm_cache, daemon=True).start()
 
