@@ -37,17 +37,18 @@ class TestShelfClassifierEdgeCases:
             "current_v": float("nan"), "trailing_v": 3.0,
         }])
         result = _classify_shelf_status(df, threshold=2.0)
-        assert result["status"].iloc[0] in ("At Risk", "Warning", "Safe")
+        assert result["status"].iloc[0] == "Safe"
 
     def test_zero_trailing_velocity(self):
-        """Zero trailing velocity shouldn't cause division error in trend_pct."""
+        """Zero trailing velocity produces NaN trend_pct (not inf) via .replace(0, pd.NA)."""
         df = pd.DataFrame([{
             "sku": "X", "product_name": "Test", "product_line": "Sauces",
             "current_v": 3.0, "trailing_v": 0.0,
         }])
         result = _classify_shelf_status(df, threshold=2.0)
         assert "trend_pct" in result.columns
-        # Should not raise; trend_pct may be inf or nan but no crash
+        assert pd.isna(result["trend_pct"].iloc[0])
+        assert result["status"].iloc[0] == "Safe"
 
 
 class TestLaunchClassifierEdgeCases:
@@ -60,7 +61,7 @@ class TestLaunchClassifierEdgeCases:
         """Zero threshold shouldn't crash the classifier."""
         row = pd.Series({"v_w14": 3.0, "v_current": 2.0})
         result = _classify_launch(row, threshold=0.0)
-        assert result in ("On Track", "Needs Attention", "Failing")
+        assert result == "Needs Attention"
 
 
 # ============================================================
@@ -128,7 +129,7 @@ class TestDisplayEdgeCases:
 
     def test_display_launch_empty(self):
         df = pd.DataFrame(columns=[
-            "sku", "product_name", "launch_date", "weeks_since",
+            "sku", "product_name", "launch_date", "weeks_since_launch",
             "v_w14", "v_current", "status"
         ])
         result = _display_launch(df)

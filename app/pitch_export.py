@@ -113,7 +113,7 @@ def _display_launch(df: pd.DataFrame) -> pd.DataFrame:
         "SKU": df["sku"],
         "Product Name": df["product_name"],
         "Launch Date": df["launch_date"],
-        "Weeks Since": df["weeks_since"],
+        "Weeks Since": df["weeks_since_launch"],
         "Wks 1-4 Vel": df["v_w14"].round(2),
         "Current Vel": df["v_current"].round(2),
         "Status": df["status"],
