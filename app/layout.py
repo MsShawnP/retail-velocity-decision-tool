@@ -218,25 +218,37 @@ def _sidebar() -> html.Div:
     )
     return html.Div([
         _brand_header(),
-        _caption("Start with the portfolio overview, or pick a decision to drill in."),
-        dcc.Dropdown(
-            id="decision-picker",
-            options=options,
-            value=PORTFOLIO_HEALTH,
-            clearable=False,
-            style={"marginBottom": "1rem"},
+        html.Button(
+            "☰ Show Filters & Navigation",
+            id="sidebar-toggle",
+            n_clicks=0,
+            className="sidebar-toggle",
         ),
-        html.Div("Filters", className="sidebar-section-title"),
-        _filters_portfolio(),
-        _filters_shelf_defense(product_lines),
-        _filters_production(product_lines),
-        _filters_promo(),
-        _filters_expansion(product_lines),
-        _filters_pruning(product_lines),
-        _filters_rationalization(product_lines),
-        _filters_launch(),
-        _filters_pricing(),
-        _pitch_export_section(product_lines),
+        dbc.Collapse(
+            id="sidebar-collapse",
+            is_open=False,
+            children=[
+                _caption("Start with the portfolio overview, or pick a decision to drill in."),
+                dcc.Dropdown(
+                    id="decision-picker",
+                    options=options,
+                    value=PORTFOLIO_HEALTH,
+                    clearable=False,
+                    style={"marginBottom": "1rem"},
+                ),
+                html.Div("Filters", className="sidebar-section-title"),
+                _filters_portfolio(),
+                _filters_shelf_defense(product_lines),
+                _filters_production(product_lines),
+                _filters_promo(),
+                _filters_expansion(product_lines),
+                _filters_pruning(product_lines),
+                _filters_rationalization(product_lines),
+                _filters_launch(),
+                _filters_pricing(),
+                _pitch_export_section(product_lines),
+            ],
+        ),
     ], className="sidebar")
 
 
@@ -253,7 +265,7 @@ def _main_content() -> html.Div:
             delay_hide=200,
             children=html.Div(id="main-content"),
         ),
-    ], style={"padding": "1.25rem", "height": "100vh", "overflow": "hidden"})
+    ], className="main-content", style={"padding": "1.25rem", "height": "100vh", "overflow": "hidden"})
 
 
 # ============================================================
@@ -266,7 +278,7 @@ def create_layout() -> dbc.Container:
         fluid=True,
         style={"padding": "0"},
         children=dbc.Row([
-            dbc.Col(_sidebar(), width=3, style={"padding": "0"}),
-            dbc.Col(_main_content(), width=9, style={"padding": "0"}),
+            dbc.Col(_sidebar(), xs=12, md=3, style={"padding": "0"}),
+            dbc.Col(_main_content(), xs=12, md=9, style={"padding": "0"}),
         ], className="g-0"),
     )

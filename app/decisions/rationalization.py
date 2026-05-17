@@ -168,7 +168,7 @@ def layout(
         )
     else:
         insight = (
-            f"${total_margin:,}/week total gross margin across {n_total} SKUs. "
+            f"${total_margin:,}/week total gross margin across {len(df)} SKUs. "
             f"No clear cut candidates — every low-margin SKU still pulls enough "
             f"velocity to justify its shelf space."
         )
@@ -323,50 +323,51 @@ def _build_cut_tab(
         children.append(html.Div(
             style={"color": NAVY, "fontSize": "1rem", "lineHeight": "1.55",
                    "margin": "-0.2em 0 0.4em 0"},
-            children=dcc.Markdown(
-                f"These <b>{len(cut_df)} SKUs</b> currently earn "
-                f"<b>${total_cut_margin:,.0f}/week</b> across "
-                f"<b>{cut_slots:,}</b> shelf slots. At median Winner "
-                f"performance, the same shelf space would earn "
-                f"<b>${projected_weekly:,.0f}/week</b> — a net "
-                f"<b style='color:{net_color}'>{gain_or_loss} of "
-                f"${abs(net_weekly):,.0f}/week "
-                f"(${abs(net_annual):,.0f}/year)</b> from replacement.",
-                dangerously_allow_html=True,
-            ),
+            children=[
+                "These ", html.B(f"{len(cut_df)} SKUs"), " currently earn ",
+                html.B(f"${total_cut_margin:,.0f}/week"), " across ",
+                html.B(f"{cut_slots:,}"), " shelf slots. At median Winner "
+                "performance, the same shelf space would earn ",
+                html.B(f"${projected_weekly:,.0f}/week"), " — a net ",
+                html.B(
+                    f"{gain_or_loss} of ${abs(net_weekly):,.0f}/week "
+                    f"(${abs(net_annual):,.0f}/year)",
+                    style={"color": net_color},
+                ),
+                " from replacement.",
+            ],
         ))
         # Supporting math line
         children.append(html.Div(
             style={"color": GREY, "fontSize": "0.86em", "margin": "0 0 0.6em 0"},
-            children=dcc.Markdown(
-                f"Median Winner: <b>{winner_med_vel:.2f}</b> u/store/week × "
-                f"<b>${winner_med_mpu:.2f}</b>/unit = "
-                f"<b>${winner_med_msw:.2f}</b>/store/week. "
-                f"Cut candidates fall below both the median velocity "
+            children=[
+                "Median Winner: ", html.B(f"{winner_med_vel:.2f}"),
+                " u/store/week × ", html.B(f"${winner_med_mpu:.2f}"),
+                "/unit = ", html.B(f"${winner_med_msw:.2f}"),
+                "/store/week. Cut candidates fall below both the median velocity "
                 f"({median_velocity:.2f}) and the median margin per "
                 f"store-week (${median_margin:.2f}).",
-                dangerously_allow_html=True,
-            ),
+            ],
         ))
     else:
         children.append(html.Div(
             style={"color": GREY, "fontSize": "0.92em", "margin": "-0.4em 0 0.6em 0"},
-            children=dcc.Markdown(
-                f"<b>{len(cut_df)} SKUs are cut candidates</b>, currently "
-                f"earning <b>${total_cut_margin:,.0f}/wk</b> across "
-                f"{cut_slots:,} shelf slots. Below both the median "
+            children=[
+                html.B(f"{len(cut_df)} SKUs are cut candidates"),
+                ", currently earning ",
+                html.B(f"${total_cut_margin:,.0f}/wk"),
+                f" across {cut_slots:,} shelf slots. Below both the median "
                 f"velocity ({median_velocity:.2f}) and the median margin "
                 f"per store-week (${median_margin:.2f}). No Winner SKUs "
-                f"in scope to project a replacement comparison against.",
-                dangerously_allow_html=True,
-            ),
+                "in scope to project a replacement comparison against.",
+            ],
         ))
 
     # Cut-candidate chart
     n_chart = min(20, len(cut_df))
     cut_chart = cut_df.head(n_chart).copy()
     cut_labels = (
-        cut_chart["SKU"] + "  ·  " + cut_chart["Product Name"].str.slice(0, 26)
+        cut_chart["SKU"] + " · " + cut_chart["Product Name"].str.slice(0, 18)
     ).tolist()
 
     fig_cut = go.Figure()
@@ -380,7 +381,7 @@ def _build_cut_tab(
             for m, d in zip(cut_chart["Total Weekly Margin"], cut_chart["Doors"])
         ],
         textposition="outside",
-        textfont=dict(size=14, color=NAVY),
+        textfont=dict(size=12, color=NAVY),
         cliponaxis=False,
         customdata=cut_chart[
             ["Velocity", "Margin/Store/Week", "Doors"]
@@ -399,8 +400,8 @@ def _build_cut_tab(
         labels=cut_labels,
         height=max(420, 34 * n_chart + 120),
         x_title="Total weekly gross margin ($)",
-        label_pad_px=320,
-        left_margin=340,
+        label_pad_px=160,
+        left_margin=180,
     )
     fig_cut.update_yaxes(categoryorder="array", categoryarray=cut_labels)
 
@@ -441,7 +442,7 @@ def _build_cut_tab(
         children=[
             html.Div([cut_grid], style={"flex": "1", "minWidth": "0", "overflow": "hidden"}),
             html.Div(
-                [dcc.Graph(figure=fig_cut, id="rationalization-cut-chart")],
+                [dcc.Graph(figure=fig_cut, id="rationalization-cut-chart", responsive=True, style={"width": "100%"})],
                 style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
             ),
         ],
@@ -464,17 +465,22 @@ def _build_portfolio_tab(
     """Build the children list for the Portfolio overview tab."""
     children: list = []
 
-    children.append(status_legend(
-        f"<b>Quadrant cutoffs:</b> Median velocity = "
-        f"<b>{median_velocity:.2f}</b> units/store/week.  "
-        f"Median margin per store-week = <b>${median_margin:.2f}</b>.  "
-        f"<b style='color:{TEAL}'>Winner</b> = above both medians.  "
-        f"<b style='color:{NAVY_MED}'>Volume play</b> = high velocity, low "
-        f"margin.  "
-        f"<b style='color:{ORANGE}'>Niche / slow</b> = low velocity, high "
-        f"margin.  "
-        f"<b style='color:{RED}'>Cut candidate</b> = below both medians."
-    ))
+    children.append(status_legend([
+        html.B("Quadrant cutoffs:"),
+        " Median velocity = ",
+        html.B(f"{median_velocity:.2f}"),
+        " units/store/week. Median margin per store-week = ",
+        html.B(f"${median_margin:.2f}"),
+        ". ",
+        html.B("Winner", style={"color": TEAL}),
+        " = above both medians. ",
+        html.B("Volume play", style={"color": NAVY_MED}),
+        " = high velocity, low margin. ",
+        html.B("Niche / slow", style={"color": ORANGE}),
+        " = low velocity, high margin. ",
+        html.B("Cut candidate", style={"color": RED}),
+        " = below both medians.",
+    ]))
     children.append(row_count_line("SKUs", [
         (n_winners, "Winners"),
         (n_volume, "Volume plays"),
@@ -573,7 +579,7 @@ def _build_portfolio_tab(
             x=sub["Total Weekly Margin"], orientation="h",
             marker_color=CHART_BUCKET_COLORS[bucket],
             text=bar_text,
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["Velocity", "Margin/Store/Week", "Doors", "Quadrant"]].values,
             hovertemplate=(
@@ -586,14 +592,14 @@ def _build_portfolio_tab(
                 f"Chart bucket: {bucket}<extra></extra>"
             ),
         ))
-    bottom_labels = (bottom["SKU"] + "  ·  " + bottom["Product Name"].str.slice(0, 26)).tolist()
+    bottom_labels = (bottom["SKU"] + " · " + bottom["Product Name"].str.slice(0, 18)).tolist()
     apply_hbar_layout(
         fig,
         labels=bottom_labels,
         height=max(420, 34 * n_show + 120),
         x_title="Total weekly gross margin ($)",
-        label_pad_px=320,
-        left_margin=340,
+        label_pad_px=160,
+        left_margin=180,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=bottom_labels)
 
@@ -609,28 +615,27 @@ def _build_portfolio_tab(
                     ),
                     html.Div(
                         style={"color": GREY, "fontSize": "0.92em", "margin": "0 0 0.4em 0"},
-                        children=dcc.Markdown(
-                            f"Low total margin doesn't always mean cut.  "
-                            f"<span style='color:{NAVY_MED}; font-weight:600'>Low distribution</span> "
-                            f"(navy) = strong per-store performance but too few doors to generate "
-                            f"meaningful total margin — consider expanding distribution rather "
-                            f"than cutting.  "
-                            f"<span style='color:{ORANGE}; font-weight:600'>Niche / slow</span> "
-                            f"(orange) = low velocity but high margin per unit — selective "
-                            f"expansion may help.  "
-                            f"<span style='color:{RED}; font-weight:600'>Cut candidates</span> "
-                            f"(red) have low velocity AND low margin — kill first.  "
+                        children=[
+                            "Low total margin doesn't always mean cut. ",
+                            html.Span("Low distribution", style={"color": NAVY_MED, "fontWeight": "600"}),
+                            " (navy) = strong per-store performance but too few doors to generate "
+                            "meaningful total margin — consider expanding distribution rather "
+                            "than cutting. ",
+                            html.Span("Niche / slow", style={"color": ORANGE, "fontWeight": "600"}),
+                            " (orange) = low velocity but high margin per unit — selective "
+                            "expansion may help. ",
+                            html.Span("Cut candidates", style={"color": RED, "fontWeight": "600"}),
+                            " (red) have low velocity AND low margin — kill first. "
                             f"Median velocity = {median_velocity:.2f} units/store/week, median "
                             f"margin per store-week = ${median_margin:.2f}.",
-                            dangerously_allow_html=True,
-                        ),
+                        ],
                     ),
                     chart_legend([
                         (NAVY_MED, "Low distribution (Winner / Volume play, too few doors)"),
                         (ORANGE,   "Niche / slow (low velocity, high margin)"),
                         (RED,      "Cut candidate (below both medians)"),
                     ]),
-                    dcc.Graph(figure=fig, id="rationalization-portfolio-chart"),
+                    dcc.Graph(figure=fig, id="rationalization-portfolio-chart", responsive=True, style={"width": "100%"}),
                 ],
                 style={"flex": "1", "minWidth": "0", "overflowY": "auto"},
             ),

@@ -24,6 +24,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BENCHMARK_BLUE,
     GREEN_FAINT,
     GREY,
     GREY_BG,
@@ -35,7 +36,12 @@ from constants import (
     TEAL,
     THRESHOLDS,
 )
-from data import get_latest_week, get_production_data, get_weekly_total_units
+from data import (
+    get_category_benchmark,
+    get_latest_week,
+    get_production_data,
+    get_weekly_total_units,
+)
 
 
 # ============================================================
@@ -67,6 +73,14 @@ def layout(
     n_accel = int((df["status"] == "Accelerating").sum())
     n_decel = int((df["status"] == "Decelerating").sum())
     n_stable = n_total - n_accel - n_decel
+
+    # Category benchmark context
+    bench_df = get_category_benchmark(retailer, product_line)
+    bench_vs_pct = None
+    if not bench_df.empty and "vs_category_pct" in bench_df.columns:
+        valid = bench_df.dropna(subset=["vs_category_pct"])
+        if not valid.empty:
+            bench_vs_pct = valid["vs_category_pct"].mean()
 
     # Headline
     if n_accel > 0:
@@ -116,15 +130,16 @@ def layout(
     # Status legend
     accel_pct = THRESHOLDS["production_trend_accel"] * 100
     decel_pct = THRESHOLDS["production_trend_decel"] * 100
-    legend_html = (
-        f"<b>Status definitions</b> (4-week trend vs prior 4 weeks): "
-        f"<b style='color:{TEAL}'>Accelerating</b> = trend &gt; "
-        f"{accel_pct:+.2f}% (good — raise production).  "
-        f"<b style='color:{RED}'>Decelerating</b> = trend &lt; "
-        f"{decel_pct:+.2f}% (bad — consider trimming).  "
-        f"<b style='color:{NAVY_MED}'>Stable</b> = trend within "
-        f"±{accel_pct:.2f}%."
-    )
+    legend_children = [
+        html.B("Status definitions"),
+        " (4-week trend vs prior 4 weeks): ",
+        html.B("Accelerating", style={"color": TEAL}),
+        f" = trend > {accel_pct:+.2f}% (good — raise production). ",
+        html.B("Decelerating", style={"color": RED}),
+        f" = trend < {decel_pct:+.2f}% (bad — consider trimming). ",
+        html.B("Stable", style={"color": NAVY_MED}),
+        f" = trend within ±{accel_pct:.2f}%.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -202,8 +217,8 @@ def layout(
         fig.add_trace(go.Bar(
             y=sub["SKU"], x=sub["Next 4-Wk Production Target (cases)"], orientation="h",
             marker_color=PRODUCTION_STATUS_COLORS[status],
-            text=sub["Next 4-Wk Production Target (cases)"].map(lambda v: f"{v:.2f}"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=sub["Next 4-Wk Production Target (cases)"].map(lambda v: f"{v:.0f}"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=sub[["Product Name", "Trend %", "Doors"]].values,
             hovertemplate=(
@@ -219,8 +234,8 @@ def layout(
         labels=top["SKU"].tolist(),
         height=max(420, 32 * n_show + 120),
         x_title="Forecasted cases for next 4 weeks",
-        label_pad_px=180,
-        left_margin=200,
+        label_pad_px=110,
+        left_margin=130,
     )
 
     # Weekly demand trend chart
@@ -246,7 +261,7 @@ def layout(
                 "Weekly demand trend",
                 style={"marginTop": "1.5rem"},
             ),
-            dcc.Graph(figure=trend_fig, id="production-trend-chart"),
+            dcc.Graph(figure=trend_fig, id="production-trend-chart", responsive=True, style={"width": "100%"}),
         ]
 
     # Excel export filename parts
@@ -265,10 +280,16 @@ def layout(
                     html.Div(metric_card("Weekly demand (cases)", f"{total_cases:,}"), className="dh-metric"),
                     html.Div(metric_card("4-wk target (cases)", f"{forecast_cases:,}"), className="dh-metric"),
                     html.Div(metric_card("Accelerating SKUs", str(n_accel)), className="dh-metric"),
-                ],
+                ] + (
+                    [html.Div(metric_card(
+                        "vs. Category Avg",
+                        f"{bench_vs_pct:+.1f}%",
+                    ), className="dh-metric")]
+                    if pd.notna(bench_vs_pct) else []
+                ),
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("SKUs", [
                 (n_accel, "Accelerating"),
                 (n_decel, "Decelerating"),
@@ -284,7 +305,7 @@ def layout(
                 (RED,      f"Decelerating (trend < {decel_pct:+.2f}%)"),
                 (NAVY_MED, f"Stable (±{accel_pct:.2f}%)"),
             ]),
-            dcc.Graph(figure=fig, id="production-chart"),
+            dcc.Graph(figure=fig, id="production-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements,
         footer=[
             html.Button(

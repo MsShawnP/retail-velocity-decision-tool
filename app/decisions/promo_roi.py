@@ -155,15 +155,16 @@ def layout(
         )
 
     # Status legend
-    legend_html = (
-        f"<b>ROI</b> = (incremental revenue − promo cost) ÷ promo cost × 100.  "
-        f"<b style='color:{TEAL}'>Strong</b> (&gt;{roi_strong_pct:.2f}%) = "
-        f"earned back more than double the spend.  "
-        f"<b style='color:{ORANGE}'>Marginal</b> (0–{roi_strong_pct:.2f}%) = "
-        f"covered costs but modest return.  "
-        f"<b style='color:{RED}'>Negative</b> (&lt;0%) = lost money.  "
-        f"Baseline = 4 weeks pre-promo at the same retailer."
-    )
+    legend_children = [
+        html.B("ROI"),
+        " = (incremental revenue − promo cost) ÷ promo cost × 100. ",
+        html.B("Strong", style={"color": TEAL}),
+        f" (>{roi_strong_pct:.2f}%) = earned back more than double the spend. ",
+        html.B("Marginal", style={"color": ORANGE}),
+        f" (0–{roi_strong_pct:.2f}%) = covered costs but modest return. ",
+        html.B("Negative", style={"color": RED}),
+        " (<0%) = lost money. Baseline = 4 weeks pre-promo at the same retailer.",
+    ]
 
     # Build display DataFrame
     display_df = pd.DataFrame({
@@ -255,8 +256,8 @@ def layout(
         fig = go.Figure(go.Bar(
             y=bars["label"], x=bars["ROI %"], orientation="h",
             marker_color=colors,
-            text=bars["ROI %"].map(lambda v: f"{v:+.2f}%"),
-            textposition="outside", textfont=dict(size=14, color=NAVY),
+            text=bars["ROI %"].map(lambda v: f"{v:+.0f}%"),
+            textposition="outside", textfont=dict(size=12, color=NAVY),
             cliponaxis=False,
             customdata=list(zip(
                 bars["Product Name"],
@@ -287,17 +288,17 @@ def layout(
             labels=bars["label"].tolist(),
             height=max(380, 32 * len(bars) + 120),
             x_title="Return on promo spend (%)",
-            label_pad_px=300,
-            left_margin=320,
+            label_pad_px=150,
+            left_margin=170,
         )
-        chart_children.append(dcc.Graph(figure=fig, id="promo-roi-chart"))
+        chart_children.append(dcc.Graph(figure=fig, id="promo-roi-chart", responsive=True, style={"width": "100%"}))
 
     # Promo detail dropdown: list all promos
     df_d = df.copy()
     df_d["label"] = (
         df_d["promo_id"] + "  ·  " + df_d["sku"]
         + "  ·  " + df_d["promo_type"]
-        + "  ·  " + df_d["start_week"]
+        + "  ·  " + df_d["start_week"].astype(str)
     )
     promo_options = [
         {"label": lbl, "value": lbl} for lbl in df_d["label"].tolist()
@@ -323,7 +324,7 @@ def layout(
                 ],
                 className="dh-metrics",
             ),
-            status_legend(legend_html),
+            status_legend(legend_children),
             row_count_line("promos", [
                 (n_strong, "Strong ROI"),
                 (n_marginal, "Marginal ROI"),
@@ -529,5 +530,5 @@ def register_callbacks(app) -> None:
                 (TEAL, "Positive ROI (made money)"),
                 (RED,  "Negative ROI (lost money)"),
             ]),
-            dcc.Graph(figure=fig, id="promo-detail-chart"),
+            dcc.Graph(figure=fig, id="promo-detail-chart", responsive=True, style={"width": "100%"}),
         ])
