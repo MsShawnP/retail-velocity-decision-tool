@@ -121,7 +121,7 @@ class TestROI:
                        duration_weeks=2, wholesale_price=5.0,
                        discount_depth_pct=0.10)
         ]))
-        assert df["roi_pct"].iloc[0] > 0
+        assert df["roi_pct"].iloc[0] == pytest.approx(800.0)
 
     def test_promo_cost_zero_produces_nan_roi(self):
         df = _apply_promo_calcs(pd.DataFrame([

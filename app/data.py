@@ -8,6 +8,7 @@ are returned to the pool on exit.
 
 from __future__ import annotations
 
+import logging
 import os
 
 import pandas as pd
@@ -25,7 +26,7 @@ from constants import (
 from db import get_conn
 
 # ============================================================
-# Cache setup (FileSystemCache, 1-hour default)
+# Cache setup (FileSystemCache, 6-hour default)
 # ============================================================
 
 _CACHE_DIR = "/cache/dash" if os.path.isdir("/cache") else "/tmp/dash-cache"
@@ -401,21 +402,21 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
         df = df[df["product_line"] == product_line].reset_index(drop=True)
 
     df["weekly_units"] = (df["sum_recent"] / 4).round(0)
-    df["weekly_cases"] = (df["weekly_units"] / df["case_pack_qty"]).round(2)
+    cpq = df["case_pack_qty"].replace(0, pd.NA)
+    df["weekly_cases"] = (df["weekly_units"] / cpq).round(2)
 
     sf = df["sum_ly_forward"] / df["sum_ly_current"].replace(0, pd.NA)
     n_defaulted = int(sf.isna().sum())
     sf = sf.where(sf.notna(), 1.0).clip(lower=0.5, upper=2.0)
     df["seasonal_factor"] = sf
     if n_defaulted > len(df) // 2:
-        import logging
         logging.getLogger("data").warning(
             "Seasonal adjustment inactive for %d/%d SKUs — "
             "dataset may not span a full year",
             n_defaulted, len(df),
         )
     df["forecast_4w_units"] = (df["weekly_units"] * sf * 4).round(0)
-    df["forecast_4w_cases"] = (df["forecast_4w_units"] / df["case_pack_qty"]).round(2)
+    df["forecast_4w_cases"] = (df["forecast_4w_units"] / cpq).round(2)
 
     trend = (df["phys_v_recent"] - df["phys_v_prior"]) / df["phys_v_prior"].replace(0, pd.NA) * 100
     df["trend_pct"] = trend
@@ -936,6 +937,7 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
                     params=[latest],
                 )
     except Exception:
+        logging.getLogger("data").debug("stg_category_benchmarks unavailable", exc_info=True)
         cat_df = pd.DataFrame()
 
     if cat_df.empty:
@@ -944,7 +946,7 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
     result = ch_df.merge(cat_df, on="category", how="left")
     result["vs_category_pct"] = (
         (result["cinderhaven_avg"] - result["category_avg"])
-        / result["category_avg"] * 100
+        / result["category_avg"].replace(0, pd.NA) * 100
     ).round(1)
 
     if product_line:
@@ -973,6 +975,7 @@ def get_category_benchmark_weekly(
         with get_conn() as conn:
             return pd.read_sql(sql, conn, params=[retailer, category, latest, weeks * 7])
     except Exception:
+        logging.getLogger("data").debug("category benchmark weekly unavailable", exc_info=True)
         return pd.DataFrame()
 
 
@@ -983,7 +986,6 @@ def get_category_benchmark_weekly(
 def warm_default_view() -> None:
     """Synchronously warm the default view so the first page load has data
     immediately.  Called before the background thread."""
-    import logging
     log = logging.getLogger("warm_cache")
 
     get_product_lines()
@@ -997,7 +999,6 @@ def warm_cache() -> None:
     """Pre-call every retailer x mode combination so dropdown switches
     never hit a cold cache.  Runs in a background thread after the default
     view is already warm."""
-    import logging
     import time
     log = logging.getLogger("warm_cache")
 
@@ -1008,7 +1009,7 @@ def warm_cache() -> None:
 
     time.sleep(2)
 
-    calls: list[tuple[str, callable]] = [
+    calls: list[tuple[str, object]] = [
         ("launch_data", lambda: get_launch_data()),
     ]
 

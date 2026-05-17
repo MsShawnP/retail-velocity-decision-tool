@@ -58,7 +58,7 @@ class TestDisplayLaunch:
     def test_columns_present(self):
         df = pd.DataFrame([{
             "sku": "SKU-NEW", "product_name": "New Item",
-            "launch_date": "2025-06-01", "weeks_since": 12,
+            "launch_date": "2025-06-01", "weeks_since_launch": 12,
             "v_w14": 3.0, "v_current": 2.8, "status": "On Track",
         }])
         result = _display_launch(df)
