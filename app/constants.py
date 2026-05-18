@@ -89,22 +89,20 @@ DECISION_TITLES = {
 # Retailer lists and thresholds
 # ============================================================
 
-PHYSICAL_RETAILERS = ["Walmart", "Costco", "Whole Foods", "Regional"]
-ALL_PHYSICAL_OR_AGG = ["Walmart", "Costco", "Whole Foods", "Regional", "UNFI", "DTC"]
+PHYSICAL_RETAILERS = ["Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts", "Regional"]
+ALL_PHYSICAL_OR_AGG = ["Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts", "Regional", "UNFI", "DTC"]
 
 RETAILER_THRESHOLDS = {
-    "Walmart":     5.0,
-    "Costco":      15.0,
-    "Whole Foods": 2.5,
-    "Regional":    2.0,
+    "Walmart":     2.5,   # conventional grocery floor, condiment/sauce category
+    "Costco":      10.0,  # club channel — 25x grocery velocity, higher floor
+    "Whole Foods": 1.5,   # specialty/premium, lower volume tolerated
+    "Kroger":      2.5,   # conventional grocery, similar to Walmart
+    "Sprouts":     1.5,   # natural/specialty, similar to Whole Foods
+    "Regional":    1.5,   # small chains, lower expectations
 }
 
 REGIONAL_CHAINS = (
-    "Green Basket Market",
-    "Harbor Fresh",
-    "Prairie Provisions",
-    "Mountain Pantry Co",
-    "Southside Grocers",
+    "Regional Group",
 )
 
 VOLUME_TIER_MULT = {"A": 1.3, "B": 1.0, "C": 0.7}
