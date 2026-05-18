@@ -94,7 +94,7 @@ ALL_PHYSICAL_OR_AGG = ["Walmart", "Costco", "Whole Foods", "Regional", "UNFI", "
 
 RETAILER_THRESHOLDS = {
     "Walmart":     5.0,
-    "Costco":      27.0,
+    "Costco":      15.0,
     "Whole Foods": 2.5,
     "Regional":    2.0,
 }
