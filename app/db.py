@@ -57,6 +57,7 @@ def get_pool() -> psycopg2.pool.ThreadedConnectionPool:
             minconn=1,
             maxconn=10,
             dsn=get_database_url(),
+            options="-c search_path=public_staging,public_marts,raw,public",
         )
         _pools[pid] = pool
     return pool

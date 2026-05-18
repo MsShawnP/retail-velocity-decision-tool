@@ -50,7 +50,7 @@ def main() -> None:
         print("ERROR: DATABASE_URL not set. Export it or add to .env.")
         sys.exit(1)
 
-    conn = psycopg2.connect(url)
+    conn = psycopg2.connect(url, options="-c search_path=public_staging,public_marts,raw,public")
     try:
         conn.autocommit = True
         cur = conn.cursor()
@@ -90,10 +90,8 @@ def main() -> None:
         print("Computing category benchmarks from Cinderhaven velocity data...")
 
         cur.execute("""
-            SELECT DISTINCT s.retailer
+            SELECT DISTINCT s.chain_name
             FROM stg_stores s
-            WHERE s.is_aggregated_channel = false
-              AND s.retailer NOT IN ('UNFI', 'DTC')
         """)
         retailers = [r[0] for r in cur.fetchall()]
 
@@ -115,8 +113,7 @@ def main() -> None:
                     JOIN stg_stores s ON d.store_id = s.store_id
                     JOIN dim_products pm ON d.sku = pm.sku
                     WHERE pm.category = %s
-                      AND s.retailer = %s
-                      AND s.is_aggregated_channel = false
+                      AND s.chain_name = %s
                     GROUP BY d.week_ending
                     ON CONFLICT (category, retailer, week_ending)
                     DO UPDATE SET avg_velocity = EXCLUDED.avg_velocity

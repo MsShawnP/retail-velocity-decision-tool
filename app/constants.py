@@ -105,6 +105,16 @@ REGIONAL_CHAINS = (
     "Regional Group",
 )
 
+RETAILER_ID_MAP = {
+    "Walmart":      "RET-WALMART",
+    "Costco":       "RET-COSTCO",
+    "Whole Foods":  "RET-WHOLEFOODS",
+    "Kroger":       "RET-KROGER",
+    "Sprouts":      "RET-SPROUTS",
+    "Regional":     "RET-REGIONAL",
+    "Regional Group": "RET-REGIONAL",
+}
+
 VOLUME_TIER_MULT = {"A": 1.3, "B": 1.0, "C": 0.7}
 
 LAUNCH_BENCHMARK = 4.0
