@@ -105,7 +105,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
 
         # 5. Retailer names match expected constants
         try:
-            cur.execute("SELECT DISTINCT retailer FROM stg_stores")
+            cur.execute("SELECT DISTINCT chain_name FROM stg_stores")
             db_retailers = {r[0] for r in cur.fetchall()}
             missing = EXPECTED_RETAILERS - db_retailers
             if not missing:
