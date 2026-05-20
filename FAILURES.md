@@ -63,3 +63,13 @@
 **Why it failed:** The `update_expansion_skus` callback has `prevent_initial_call=True`, so it only fires when the product line value changes. On initial load, the default value is already set but the callback never fires to populate the dependent SKU dropdown.
 
 **Fixed:** Pre-populated SKU options server-side in `_filters_expansion()` by calling `get_skus_for_line(product_lines[0])` at layout build time (PR #9).
+
+## 2026-05-16: Plotly autorange ignores hline/vline reference lines
+
+**What happened:** Trend charts in Shelf Defense and Launch Health had reference lines (threshold, category avg) added via `add_hline()`, but they were invisible — the chart appeared "zoomed in too much."
+
+**Why it failed:** `yaxis.autorange = True` only considers scatter trace data points when computing the axis range. `add_hline` draws shapes/annotations that don't participate in Plotly's autorange calculation. With data at ~2.5–3.0, the y-axis was set to ~2.3–3.2, putting the threshold (2.00) below the viewport and category avg (7.19) way above it.
+
+**Fix:** Computed explicit y-axis range that collects all data values plus reference line values, adds 10% padding, and sets `yaxis.range` + `autorange=False`.
+
+**Lesson:** Never rely on Plotly autorange when you have reference lines via `add_hline`/`add_vline`. Always compute the range explicitly to include them.

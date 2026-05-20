@@ -95,3 +95,19 @@
 **Why:** `base_chart_layout` defaults to `autorange="reversed"` because it was designed for horizontal bar charts (labels top-to-bottom). Time-series charts need standard ascending y-axis. Overriding one property is simpler than creating a second layout helper.
 
 **Tradeoff:** Each trend chart needs a 1-line override. Acceptable until there are enough time-series charts to justify a `time_series_layout()` helper.
+
+## 2026-05-16: Mobile sidebar starts collapsed
+
+**Decision:** Changed `dbc.Collapse(is_open=False)` for the sidebar on mobile, with a CSS override forcing it always-visible on desktop (`min-width: 768px`).
+
+**Why:** User tested on mobile and said "idk what the sidebar is" — the full filter panel rendered above the dashboard content, pushing the actual data below the fold. Starting collapsed lets users see the dashboard immediately; the "☰ Show Filters & Navigation" button is clear enough to find when needed.
+
+**Tradeoff:** One extra tap to access filters on mobile. Worth it — the dashboard content is what hooks a prospect, not the filter dropdowns.
+
+## 2026-05-16: Explicit y-axis range on trend charts instead of autorange
+
+**Decision:** Replaced `yaxis.autorange = True` with computed explicit ranges that include data traces AND reference lines (threshold, category avg).
+
+**Why:** Plotly's autorange only considers scatter trace data, not `add_hline` shapes. With data at ~2.5–3.0, autorange set the y-axis to ~2.3–3.2, cutting off the threshold (2.00) and category avg (7.19) reference lines entirely.
+
+**Tradeoff:** Slightly more code per trend chart (5 lines to compute range). The alternative — adding invisible traces at reference values to influence autorange — felt hackier.
