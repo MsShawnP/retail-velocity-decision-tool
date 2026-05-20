@@ -13,7 +13,7 @@ import pandas as pd
 
 from components import error_card, metric_card
 from constants import (
-    NAVY_MED,
+    CHICAGO,
     ORANGE,
     RED,
     TEAL,
@@ -203,7 +203,7 @@ def layout() -> html.Div:
     prod_bar = _status_bar(
         [
             (s["prod_accelerating"], "Accelerating", TEAL),
-            (s["prod_stable"], "Stable", NAVY_MED),
+            (s["prod_stable"], "Stable", CHICAGO),
             (s["prod_decelerating"], "Decelerating", RED),
         ],
         s["total_skus"],

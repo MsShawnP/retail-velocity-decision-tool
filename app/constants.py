@@ -210,7 +210,7 @@ BENCHMARK_BLUE = BENCHMARK_REF   # alias — legacy import compat
 SHELF_STATUS_COLORS = {"At Risk": RED, "Warning": ORANGE, "Safe": TEAL}
 # Production: accelerating velocity is GOOD news (your product is selling),
 # decelerating is BAD (slowing down), stable is neutral.
-PRODUCTION_STATUS_COLORS = {"Accelerating": TEAL, "Decelerating": RED, "Stable": NAVY_MED}
+PRODUCTION_STATUS_COLORS = {"Accelerating": TEAL, "Decelerating": RED, "Stable": CHICAGO}
 # Pruning: Mild still means "some stores below threshold" -- that's a small
 # concern, not a positive, so it reads as neutral (navy) rather than teal.
 PRUNING_SEVERITY_COLORS = {"Critical": RED, "Concerning": ORANGE, "Mild": NAVY_MED}
@@ -227,7 +227,7 @@ SHELF_ROW = {
 PRODUCTION_ROW = {
     "Accelerating": (GREEN_FAINT, TEAL),
     "Decelerating": (RED_FAINT, RED),
-    "Stable":       (GREY_BG, NAVY_MED),
+    "Stable":       (GREY_BG, CHICAGO),
 }
 PRUNING_ROW = {
     "Critical":   (RED_FAINT, RED),

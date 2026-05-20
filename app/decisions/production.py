@@ -24,11 +24,11 @@ from components import (
     status_legend,
 )
 from constants import (
+    CHICAGO,
     GREEN_FAINT,
     GREY,
     GREY_BG,
     INK,
-    NAVY_MED,
     PRODUCTION_STATUS_COLORS,
     RED,
     RED_FAINT,
@@ -136,7 +136,7 @@ def layout(
         f" = trend > {accel_pct:+.2f}% (good — raise production). ",
         html.B("Decelerating", style={"color": RED}),
         f" = trend < {decel_pct:+.2f}% (bad — consider trimming). ",
-        html.B("Stable", style={"color": NAVY_MED}),
+        html.B("Stable", style={"color": CHICAGO}),
         f" = trend within ±{accel_pct:.2f}%.",
     ]
 
@@ -188,7 +188,7 @@ def layout(
         },
         {
             "condition": "params.data.Status === 'Stable'",
-            "style": {"backgroundColor": GREY_BG, "color": NAVY_MED},
+            "style": {"backgroundColor": GREY_BG, "color": CHICAGO},
         },
     ]
 
@@ -302,7 +302,7 @@ def layout(
             chart_legend([
                 (TEAL,     f"Accelerating (trend > {accel_pct:+.2f}%)"),
                 (RED,      f"Decelerating (trend < {decel_pct:+.2f}%)"),
-                (NAVY_MED, f"Stable (±{accel_pct:.2f}%)"),
+                (CHICAGO, f"Stable (±{accel_pct:.2f}%)"),
             ]),
             dcc.Graph(figure=fig, id="production-chart", responsive=True, style={"width": "100%"}),
         ] + trend_chart_elements,
