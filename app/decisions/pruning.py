@@ -29,7 +29,7 @@ from constants import (
     GREY,
     GREY_BG,
     INK,
-    NAVY_MED,
+    CHICAGO,
     ORANGE,
     ORANGE_FAINT,
     RED,
@@ -259,7 +259,7 @@ def _build_sku_tab(
         },
         {
             "condition": "params.data.Severity === 'Mild'",
-            "style": {"backgroundColor": GREY_BG, "color": NAVY_MED},
+            "style": {"backgroundColor": GREY_BG, "color": CHICAGO},
         },
     ]
 
@@ -302,8 +302,6 @@ def _build_sku_tab(
         labels=chart_labels,
         height=max(420, 34 * n_show + 120),
         x_title="% of stores below delisting threshold",
-        label_pad_px=160,
-        left_margin=180,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=chart_labels)
 
@@ -329,7 +327,7 @@ def _build_sku_tab(
             f" ≥ {crit_pct:.2f}%. ",
             html.B("Concerning", style={"color": ORANGE}),
             f" = {conc_pct:.2f}% to < {crit_pct:.2f}%. ",
-            html.B("Mild", style={"color": NAVY_MED}),
+            html.B("Mild", style={"color": CHICAGO}),
             f" < {conc_pct:.2f}%.",
         ]),
         row_count_line("SKUs", [
@@ -347,7 +345,7 @@ def _build_sku_tab(
                     chart_legend([
                         (RED,      f"Critical (≥{crit_pct:.2f}% of stores below threshold)"),
                         (ORANGE,   f"Concerning ({conc_pct:.2f}% to <{crit_pct:.2f}%)"),
-                        (NAVY_MED, f"Mild (<{conc_pct:.2f}%)"),
+                        (CHICAGO, f"Mild (<{conc_pct:.2f}%)"),
                     ]),
                     dcc.Graph(figure=fig, id="pruning-sku-chart", responsive=True, style={"width": "100%"}),
                 ], style={"flex": "1", "minWidth": "0", "overflowY": "auto"}),
@@ -448,7 +446,7 @@ def _build_store_tab(
         },
         {
             "condition": "params.data.Severity === 'Mild'",
-            "style": {"backgroundColor": GREY_BG, "color": NAVY_MED},
+            "style": {"backgroundColor": GREY_BG, "color": CHICAGO},
         },
     ]
 
@@ -471,7 +469,7 @@ def _build_store_tab(
             f" ≥ {store_crit} SKUs. ",
             html.B("Concerning", style={"color": ORANGE}),
             f" = {store_conc}–{store_crit - 1} SKUs. ",
-            html.B("Mild", style={"color": NAVY_MED}),
+            html.B("Mild", style={"color": CHICAGO}),
             " = 0 SKUs below threshold.",
         ]),
         row_count_line("stores", [

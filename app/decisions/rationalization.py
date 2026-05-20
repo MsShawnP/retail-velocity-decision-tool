@@ -31,7 +31,7 @@ from constants import (
     GREY_BG,
     GREY_LIGHT,
     INK,
-    NAVY_MED,
+    CHICAGO,
     ORANGE,
     ORANGE_FAINT,
     RED,
@@ -48,7 +48,7 @@ from data import get_latest_week, get_rationalization_data
 
 QUADRANT_COLORS = {
     "Winner":        TEAL,
-    "Volume play":   NAVY_MED,
+    "Volume play":   CHICAGO,
     "Niche / slow":  ORANGE,
     "Cut candidate": RED,
 }
@@ -231,7 +231,7 @@ def layout(
                     _quadrant_card("Winners", "High velocity, high margin",
                                    n_winners, TEAL, GREEN_FAINT),
                     _quadrant_card("Volume plays", "High velocity, low margin",
-                                   n_volume, NAVY_MED, GREY_BG),
+                                   n_volume, CHICAGO, GREY_BG),
                     _quadrant_card("Niche / slow movers", "Low velocity, high margin",
                                    n_niche, ORANGE, ORANGE_FAINT),
                     _quadrant_card("Cut candidates", "Low velocity, low margin",
@@ -399,8 +399,6 @@ def _build_cut_tab(
         labels=cut_labels,
         height=max(420, 34 * n_chart + 120),
         x_title="Total weekly gross margin ($)",
-        label_pad_px=160,
-        left_margin=180,
     )
     fig_cut.update_yaxes(categoryorder="array", categoryarray=cut_labels)
 
@@ -473,7 +471,7 @@ def _build_portfolio_tab(
         ". ",
         html.B("Winner", style={"color": TEAL}),
         " = above both medians. ",
-        html.B("Volume play", style={"color": NAVY_MED}),
+        html.B("Volume play", style={"color": CHICAGO}),
         " = high velocity, low margin. ",
         html.B("Niche / slow", style={"color": ORANGE}),
         " = low velocity, high margin. ",
@@ -497,7 +495,7 @@ def _build_portfolio_tab(
              {"condition": "params.value === 'Winner'",
               "style": {"color": TEAL, "fontWeight": "700"}},
              {"condition": "params.value === 'Volume play'",
-              "style": {"color": NAVY_MED, "fontWeight": "700"}},
+              "style": {"color": CHICAGO, "fontWeight": "700"}},
              {"condition": "params.value === 'Niche / slow'",
               "style": {"color": ORANGE, "fontWeight": "700"}},
              {"condition": "params.value === 'Cut candidate'",
@@ -523,7 +521,7 @@ def _build_portfolio_tab(
         },
         {
             "condition": "params.data.Quadrant === 'Volume play'",
-            "style": {"backgroundColor": GREY_BG, "color": NAVY_MED},
+            "style": {"backgroundColor": GREY_BG, "color": CHICAGO},
         },
         {
             "condition": "params.data.Quadrant === 'Niche / slow'",
@@ -559,7 +557,7 @@ def _build_portfolio_tab(
 
     bottom["ChartBucket"] = bottom["Quadrant"].apply(_chart_bucket)
     CHART_BUCKET_COLORS = {
-        LOW_DIST:        NAVY_MED,
+        LOW_DIST:        CHICAGO,
         "Niche / slow":  ORANGE,
         "Cut candidate": RED,
     }
@@ -599,8 +597,6 @@ def _build_portfolio_tab(
         labels=bottom_labels,
         height=max(420, 34 * n_show + 120),
         x_title="Total weekly gross margin ($)",
-        label_pad_px=160,
-        left_margin=180,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=bottom_labels)
 
@@ -618,7 +614,7 @@ def _build_portfolio_tab(
                         style={"color": GREY, "fontSize": "0.92em", "margin": "0 0 0.4em 0"},
                         children=[
                             "Low total margin doesn't always mean cut. ",
-                            html.Span("Low distribution", style={"color": NAVY_MED, "fontWeight": "600"}),
+                            html.Span("Low distribution", style={"color": CHICAGO, "fontWeight": "600"}),
                             " (navy) = strong per-store performance but too few doors to generate "
                             "meaningful total margin — consider expanding distribution rather "
                             "than cutting. ",
@@ -632,7 +628,7 @@ def _build_portfolio_tab(
                         ],
                     ),
                     chart_legend([
-                        (NAVY_MED, "Low distribution (Winner / Volume play, too few doors)"),
+                        (CHICAGO, "Low distribution (Winner / Volume play, too few doors)"),
                         (ORANGE,   "Niche / slow (low velocity, high margin)"),
                         (RED,      "Cut candidate (below both medians)"),
                     ]),

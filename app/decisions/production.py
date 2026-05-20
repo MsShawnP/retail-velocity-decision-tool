@@ -233,8 +233,6 @@ def layout(
         labels=top["SKU"].tolist(),
         height=max(420, 32 * n_show + 120),
         x_title="Forecasted cases for next 4 weeks",
-        label_pad_px=110,
-        left_margin=130,
     )
 
     # Weekly demand trend chart

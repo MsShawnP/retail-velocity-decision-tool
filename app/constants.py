@@ -213,7 +213,7 @@ SHELF_STATUS_COLORS = {"At Risk": RED, "Warning": ORANGE, "Safe": TEAL}
 PRODUCTION_STATUS_COLORS = {"Accelerating": TEAL, "Decelerating": RED, "Stable": CHICAGO}
 # Pruning: Mild still means "some stores below threshold" -- that's a small
 # concern, not a positive, so it reads as neutral (navy) rather than teal.
-PRUNING_SEVERITY_COLORS = {"Critical": RED, "Concerning": ORANGE, "Mild": NAVY_MED}
+PRUNING_SEVERITY_COLORS = {"Critical": RED, "Concerning": ORANGE, "Mild": CHICAGO}
 
 # ============================================================
 # Status -> (row bg, row text) for colored tables
@@ -232,7 +232,7 @@ PRODUCTION_ROW = {
 PRUNING_ROW = {
     "Critical":   (RED_FAINT, RED),
     "Concerning": (ORANGE_FAINT, ORANGE),
-    "Mild":       (GREY_BG, NAVY_MED),
+    "Mild":       (GREY_BG, CHICAGO),
 }
 
 # ============================================================
