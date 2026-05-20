@@ -285,7 +285,7 @@ body {
 .dash-col {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 .dash-col--scroll {
