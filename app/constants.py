@@ -196,7 +196,7 @@ CATEGORY_MAP = {
     "Pantry Staples":        "Dry Grocery & Baking",
 }
 
-BENCHMARK_BLUE = "#666666"   # London-40: category benchmark reference line
+BENCHMARK_BLUE = BENCHMARK_REF   # alias — legacy import compat
 
 # ============================================================
 # Status -> bar/line/text color

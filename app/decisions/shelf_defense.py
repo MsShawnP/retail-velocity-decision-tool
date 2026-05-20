@@ -24,10 +24,9 @@ from components import (
     status_legend,
 )
 from constants import (
-    BENCHMARK_BLUE,
+    BENCHMARK_REF,
     GREY,
     INK,
-    NAVY,
     ORANGE,
     ORANGE_FAINT,
     GREEN_FAINT,
@@ -285,7 +284,7 @@ def layout(
     # Category benchmark reference line
     if pd.notna(bench_avg):
         fig.add_vline(
-            x=float(bench_avg), line_dash="dot", line_color=BENCHMARK_BLUE,
+            x=float(bench_avg), line_dash="dot", line_color=BENCHMARK_REF,
             line_width=2,
             annotation=text_annotation(f"Category avg {bench_avg:.2f}"),
             annotation_position="bottom",
@@ -332,7 +331,7 @@ def layout(
             if pd.notna(bench_avg):
                 trend_fig.add_hline(
                     y=float(bench_avg), line_dash="dot",
-                    line_color=BENCHMARK_BLUE, line_width=2,
+                    line_color=BENCHMARK_REF, line_width=2,
                     annotation_text=f"Category avg {bench_avg:.2f}",
                     annotation_position="bottom left",
                 )
@@ -403,7 +402,7 @@ def layout(
                 (ORANGE, f"Warning ({threshold:.2f} ≤ v < {warn_upper:.2f}, declining)"),
                 (TEAL,   f"Safe (v ≥ {warn_upper:.2f}, or in band but stable)"),
             ] + (
-                [(BENCHMARK_BLUE, f"Category avg ({bench_avg:.2f})")]
+                [(BENCHMARK_REF, f"Category avg ({bench_avg:.2f})")]
                 if pd.notna(bench_avg) else []
             )),
             dcc.Graph(figure=fig, id="shelf-defense-chart", responsive=True, style={"width": "100%"}),

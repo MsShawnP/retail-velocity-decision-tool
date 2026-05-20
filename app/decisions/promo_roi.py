@@ -30,7 +30,6 @@ from constants import (
     GREY,
     GREY_LIGHT,
     INK,
-    NAVY_MED,
     ORANGE,
     ORANGE_FAINT,
     RED,
@@ -38,7 +37,6 @@ from constants import (
     TEAL,
     TEXT_SEC,
     THRESHOLDS,
-    WHITE,
 )
 from data import get_promo_roi_data, get_promo_weekly_velocity
 
@@ -509,12 +507,12 @@ def register_callbacks(app) -> None:
 
         fig.update_layout(
             template="simple_white",
-            paper_bgcolor=CANVAS, plot_bgcolor=WHITE,
+            paper_bgcolor=CANVAS, plot_bgcolor=CANVAS,
             height=420,
             margin=dict(l=10, r=10, t=40, b=40),
             yaxis=dict(
                 title="Units per store per week",
-                title_font=dict(size=14, color=TEXT_SEC),
+                title_font=dict(family=FONT_SANS, size=14, color=TEXT_SEC),
                 tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
                 gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
             ),

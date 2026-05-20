@@ -13,7 +13,6 @@ import pandas as pd
 
 from components import error_card, metric_card
 from constants import (
-    BENCHMARK_BLUE,
     NAVY_MED,
     ORANGE,
     RED,

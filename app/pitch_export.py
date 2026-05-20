@@ -13,7 +13,13 @@ from io import BytesIO
 import pandas as pd
 from fpdf import FPDF
 
-from constants import LAUNCH_BENCHMARK, NAVY
+from constants import CHICAGO, GREY, LAUNCH_BENCHMARK, INK, TEXT_SEC
+
+
+def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+    """Convert '#rrggbb' to (r, g, b) integers for FPDF."""
+    h = hex_color.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 from data import (
     get_latest_week,
     get_launch_data,
@@ -139,13 +145,13 @@ def build_pitch_excel(
 
         # -- Formats --
         title_fmt = wb.add_format({
-            "bold": True, "font_size": 16, "font_color": NAVY,
+            "bold": True, "font_size": 16, "font_color": INK,
         })
         subtitle_fmt = wb.add_format({
-            "bold": True, "font_size": 11, "font_color": "#636E72",
+            "bold": True, "font_size": 11, "font_color": GREY,
         })
         header_fmt = wb.add_format({
-            "bold": True, "bg_color": NAVY, "font_color": "#FFFFFF",
+            "bold": True, "bg_color": CHICAGO, "font_color": "#FFFFFF",
             "border": 1,
         })
 
@@ -248,12 +254,12 @@ class _PitchPDF(FPDF):
 
     def header(self):
         self.set_font("Helvetica", "B", 10)
-        self.set_text_color(27, 42, 74)
+        self.set_text_color(*_hex_to_rgb(INK))
         self.cell(0, 6, "CINDERHAVEN PROVISIONS", align="L")
         self.set_font("Helvetica", "", 8)
-        self.set_text_color(99, 110, 114)
+        self.set_text_color(*_hex_to_rgb(GREY))
         self.cell(0, 6, f"Generated {date.today().isoformat()}", align="R", new_x="LMARGIN", new_y="NEXT")
-        self.set_draw_color(27, 42, 74)
+        self.set_draw_color(*_hex_to_rgb(CHICAGO))
         self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
         self.ln(4)
 
@@ -265,13 +271,13 @@ class _PitchPDF(FPDF):
 
     def section_title(self, title: str):
         self.set_font("Helvetica", "B", 14)
-        self.set_text_color(27, 42, 74)
+        self.set_text_color(*_hex_to_rgb(INK))
         self.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
         self.ln(2)
 
     def kv_line(self, label: str, value: str):
         self.set_font("Helvetica", "B", 10)
-        self.set_text_color(61, 90, 128)
+        self.set_text_color(*_hex_to_rgb(TEXT_SEC))
         self.cell(55, 7, label)
         self.set_font("Helvetica", "", 10)
         self.set_text_color(60, 60, 60)
@@ -286,7 +292,7 @@ class _PitchPDF(FPDF):
             col_widths = [available / len(cols)] * len(cols)
 
         self.set_font("Helvetica", "B", 8)
-        self.set_fill_color(27, 42, 74)
+        self.set_fill_color(*_hex_to_rgb(CHICAGO))
         self.set_text_color(255, 255, 255)
         for i, col in enumerate(cols):
             self.cell(col_widths[i], 7, str(col)[:20], border=1, fill=True)
@@ -298,7 +304,7 @@ class _PitchPDF(FPDF):
             if self.get_y() > self.h - 25:
                 self.add_page()
                 self.set_font("Helvetica", "B", 8)
-                self.set_fill_color(27, 42, 74)
+                self.set_fill_color(*_hex_to_rgb(CHICAGO))
                 self.set_text_color(255, 255, 255)
                 for i, col in enumerate(cols):
                     self.cell(col_widths[i], 7, str(col)[:20], border=1, fill=True)
@@ -334,7 +340,7 @@ def build_pitch_pdf(
 
     # -- Title --
     pdf.set_font("Helvetica", "B", 20)
-    pdf.set_text_color(27, 42, 74)
+    pdf.set_text_color(*_hex_to_rgb(INK))
     pdf.cell(0, 12, "Retailer Pitch Report", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 

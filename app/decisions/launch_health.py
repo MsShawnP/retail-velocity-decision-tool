@@ -31,8 +31,6 @@ from constants import (
     GREEN_FAINT,
     INK,
     LAUNCH_BENCHMARK,
-    NAVY,
-    NAVY_MED,
     ORANGE,
     ORANGE_FAINT,
     RED,

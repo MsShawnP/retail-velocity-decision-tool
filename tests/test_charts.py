@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import pytest
 
 from charts import apply_hbar_layout, base_chart_layout, text_annotation, add_vline_at_date
-from constants import CANVAS, INK, PAGE_BG
+from constants import CANVAS, INK
 
 
 # ============================================================
