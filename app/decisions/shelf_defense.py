@@ -26,6 +26,7 @@ from components import (
 from constants import (
     BENCHMARK_BLUE,
     GREY,
+    INK,
     NAVY,
     ORANGE,
     ORANGE_FAINT,
@@ -35,6 +36,7 @@ from constants import (
     SHELF_STATUS_COLORS,
     TEAL,
     THRESHOLDS,
+    TREND_PALETTE,
 )
 from data import (
     get_category_benchmark,
@@ -264,7 +266,7 @@ def layout(
             y=sub["SKU"], x=sub["Current Velocity"], orientation="h",
             marker_color=SHELF_STATUS_COLORS[status],
             text=sub["Current Velocity"].map(lambda v: f"{v:.1f}"),
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=sub[["Product Name", "Trailing Velocity", "Trend %"]].values,
             hovertemplate=(
@@ -305,16 +307,12 @@ def layout(
         if not trend_df.empty:
             trend_fig = go.Figure()
             # Distinct palette so each SKU line is visually separable
-            _TREND_PALETTE = [
-                "#0984E3", "#6C5CE7", "#00856A", "#E84393",
-                "#2D3436", "#C27A00", "#1B2A4A", "#0097A7",
-            ]
             for i, sku in enumerate(watch_skus):
                 s = trend_df[trend_df["sku"] == sku]
                 if s.empty:
                     continue
                 name = s["product_name"].iloc[0]
-                color = _TREND_PALETTE[i % len(_TREND_PALETTE)]
+                color = TREND_PALETTE[i % len(TREND_PALETTE)]
                 trend_fig.add_trace(go.Scatter(
                     x=s["week_ending"], y=s["avg_velocity"],
                     mode="lines+markers", name=f"{sku} — {name}",

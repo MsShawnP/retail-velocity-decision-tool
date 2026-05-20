@@ -24,20 +24,23 @@ from components import (
     status_legend,
 )
 from constants import (
+    CANVAS,
+    FONT_SANS,
     GREY,
     GREY_LIGHT,
     GREEN_FAINT,
+    INK,
     LAUNCH_BENCHMARK,
     NAVY,
     NAVY_MED,
     ORANGE,
     ORANGE_FAINT,
-    PAGE_BG,
     RED,
     RED_FAINT,
     TEAL,
+    TEXT_SEC,
     THRESHOLDS,
-    WHITE,
+    TREND_PALETTE,
 )
 from data import get_latest_week, get_launch_data, get_launch_velocity_curve, get_launch_weekly
 
@@ -239,7 +242,7 @@ def layout() -> html.Div:
             y=sub["SKU"], x=sub["Current Vel"], orientation="h",
             marker_color=LAUNCH_STATUS_COLORS[status_val],
             text=sub["Current Vel"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=sub[["Product Name", "Wks 1-4 Vel", "Weeks Since"]].values,
             hovertemplate=(
@@ -271,15 +274,11 @@ def layout() -> html.Div:
         trend_fig = go.Figure()
         name_map = dict(zip(df["sku"], df["product_name"]))
         # Distinct palette so each SKU is visually separable
-        _TREND_PALETTE = [
-            "#0984E3", "#6C5CE7", "#00856A", "#E84393",
-            "#2D3436", "#C27A00", "#1B2A4A", "#0097A7",
-        ]
         for i, sku in enumerate(watch_skus):
             curve = get_launch_velocity_curve(sku)
             if curve.empty:
                 continue
-            color = _TREND_PALETTE[i % len(_TREND_PALETTE)]
+            color = TREND_PALETTE[i % len(TREND_PALETTE)]
             trend_fig.add_trace(go.Scatter(
                 x=curve["weeks_since_launch"],
                 y=curve["avg_velocity"],
@@ -517,21 +516,21 @@ def register_callbacks(app) -> None:
 
         fig.update_layout(
             template="simple_white",
-            paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            paper_bgcolor=CANVAS, plot_bgcolor=CANVAS,
             height=420,
             margin=dict(l=10, r=10, t=40, b=40),
             yaxis=dict(
                 title="Units per store per week",
-                title_font=dict(size=14, color=NAVY_MED),
-                tickfont=dict(size=13, color=NAVY),
+                title_font=dict(family=FONT_SANS, size=14, color=TEXT_SEC),
+                tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
                 gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
             ),
             xaxis=dict(
-                tickfont=dict(size=13, color=NAVY),
+                tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
                 gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
             ),
             showlegend=False,
-            font=dict(family="sans-serif", size=14, color=NAVY),
+            font=dict(family=FONT_SANS, size=14, color=INK),
         )
 
         return html.Div([

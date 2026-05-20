@@ -1,7 +1,7 @@
 """Plotly chart helpers -- brand-styled layout functions.
 
 Ported from velocity_tool.py lines 294-460. Every chart in the Dash app
-uses these to get consistent Cinderhaven styling.
+uses these to get consistent Lailara Design System styling.
 """
 
 from __future__ import annotations
@@ -9,11 +9,12 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 from constants import (
+    CANVAS,
+    FONT_SANS,
+    FONT_SERIF,
     GREY_LIGHT,
-    NAVY,
-    NAVY_MED,
-    PAGE_BG,
-    WHITE,
+    INK,
+    TEXT_SEC,
 )
 
 
@@ -27,27 +28,27 @@ def base_chart_layout(
 ) -> dict:
     return dict(
         template="simple_white",
-        paper_bgcolor=PAGE_BG,
-        plot_bgcolor=WHITE,
+        paper_bgcolor=CANVAS,
+        plot_bgcolor=CANVAS,
         height=height,
         margin=dict(l=left_margin, r=90, t=40, b=50),
         yaxis=dict(
             autorange="reversed",
             title=y_title,
-            tickfont=dict(size=14, color=NAVY),
+            tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
             showgrid=False,
             linecolor=GREY_LIGHT,
         ),
         xaxis=dict(
             title=x_title,
-            title_font=dict(size=14, color=NAVY_MED),
-            tickfont=dict(size=13, color=NAVY),
+            title_font=dict(family=FONT_SANS, size=14, color=TEXT_SEC),
+            tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
             gridcolor=GREY_LIGHT,
             linecolor=GREY_LIGHT,
             zerolinecolor=GREY_LIGHT,
         ),
         showlegend=show_legend,
-        font=dict(family="sans-serif", size=14, color=NAVY),
+        font=dict(family=FONT_SANS, size=14, color=INK),
         bargap=0.25,
     )
 
@@ -105,9 +106,6 @@ def apply_hbar_layout(
         span = max(x_max - min(x_min, 0), 1e-9)
         right_pad = span * x_pad_pct
         left_pad = span * x_pad_pct
-        # Right edge: always extend by pad. Left edge: extend below 0 only
-        # when the data actually goes negative; otherwise pin at 0 so
-        # positive-only charts don't waste left margin.
         upper = x_max + right_pad
         if x_min < 0:
             lower = x_min - left_pad
@@ -126,15 +124,15 @@ def apply_hbar_layout(
             xanchor="left", yanchor="middle",
             text=str(lbl),
             showarrow=False,
-            font=dict(size=label_font_size, color=NAVY),
+            font=dict(family=FONT_SANS, size=label_font_size, color=INK),
         )
 
 
 def text_annotation(text: str, **kw) -> dict:
     return dict(
         text=text,
-        font=dict(size=13, color=NAVY),
-        bgcolor="rgba(255,255,255,0.95)",
+        font=dict(family=FONT_SANS, size=12, color=INK),
+        bgcolor="rgba(245,243,238,0.95)",
         bordercolor=GREY_LIGHT,
         borderwidth=1,
         borderpad=4,
@@ -178,8 +176,8 @@ def add_vline_at_date(fig, x, label: str, *,
         x=x, y=y, xref="x", yref="paper",
         text=label,
         showarrow=False,
-        font=dict(size=13, color=NAVY),
-        bgcolor="rgba(255,255,255,0.95)",
+        font=dict(family=FONT_SANS, size=12, color=INK),
+        bgcolor="rgba(245,243,238,0.95)",
         bordercolor=GREY_LIGHT, borderwidth=1, borderpad=4,
         xanchor=xanchor, yanchor=y_anchor, yshift=yshift,
     )

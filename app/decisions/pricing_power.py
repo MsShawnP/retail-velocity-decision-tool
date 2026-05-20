@@ -29,7 +29,7 @@ from constants import (
     DARK_RED_FAINT,
     GREY,
     GREEN_FAINT,
-    NAVY,
+    INK,
     ORANGE,
     ORANGE_FAINT,
     RED,
@@ -281,7 +281,7 @@ def layout(
         text=chart_top["verdict"].tolist(),
         textposition="auto",
         insidetextfont=dict(size=14, color=WHITE),
-        outsidetextfont=dict(size=14, color=NAVY),
+        outsidetextfont=dict(size=14, color=INK),
         cliponaxis=False,
         customdata=list(zip(
             chart_top["avg_disc_pct"],

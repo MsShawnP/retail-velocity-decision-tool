@@ -30,7 +30,7 @@ from constants import (
     GREY,
     GREY_BG,
     GREY_LIGHT,
-    NAVY,
+    INK,
     NAVY_MED,
     ORANGE,
     ORANGE_FAINT,
@@ -321,7 +321,7 @@ def _build_cut_tab(
 
         # Lede
         children.append(html.Div(
-            style={"color": NAVY, "fontSize": "1rem", "lineHeight": "1.55",
+            style={"color": INK, "fontSize": "1rem", "lineHeight": "1.55",
                    "margin": "-0.2em 0 0.4em 0"},
             children=[
                 "These ", html.B(f"{len(cut_df)} SKUs"), " currently earn ",
@@ -381,7 +381,7 @@ def _build_cut_tab(
             for m, d in zip(cut_chart["Total Weekly Margin"], cut_chart["Doors"])
         ],
         textposition="outside",
-        textfont=dict(size=12, color=NAVY),
+        textfont=dict(size=12, color=INK),
         cliponaxis=False,
         customdata=cut_chart[
             ["Velocity", "Margin/Store/Week", "Doors"]
@@ -579,7 +579,7 @@ def _build_portfolio_tab(
             x=sub["Total Weekly Margin"], orientation="h",
             marker_color=CHART_BUCKET_COLORS[bucket],
             text=bar_text,
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=sub[["Velocity", "Margin/Store/Week", "Doors", "Quadrant"]].values,
             hovertemplate=(

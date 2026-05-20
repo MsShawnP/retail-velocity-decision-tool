@@ -28,7 +28,7 @@ from components import (
 from constants import (
     GREY,
     GREY_BG,
-    NAVY,
+    INK,
     NAVY_MED,
     ORANGE,
     ORANGE_FAINT,
@@ -284,7 +284,7 @@ def _build_sku_tab(
             x=sub["pct_below"], orientation="h",
             marker_color=PRUNING_SEVERITY_COLORS[sev],
             text=sub["pct_below"].map(lambda v: f"{v:.0f}%"),
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=sub[["stores_below", "total_stores", "avg_velocity"]].values,
             hovertemplate=(

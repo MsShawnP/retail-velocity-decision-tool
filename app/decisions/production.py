@@ -28,7 +28,7 @@ from constants import (
     GREEN_FAINT,
     GREY,
     GREY_BG,
-    NAVY,
+    INK,
     NAVY_MED,
     PRODUCTION_STATUS_COLORS,
     RED,
@@ -218,7 +218,7 @@ def layout(
             y=sub["SKU"], x=sub["Next 4-Wk Production Target (cases)"], orientation="h",
             marker_color=PRODUCTION_STATUS_COLORS[status],
             text=sub["Next 4-Wk Production Target (cases)"].map(lambda v: f"{v:.0f}"),
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=sub[["Product Name", "Trend %", "Doors"]].values,
             hovertemplate=(

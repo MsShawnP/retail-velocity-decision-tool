@@ -26,7 +26,7 @@ from components import (
 )
 from constants import (
     GREY,
-    NAVY,
+    INK,
     NAVY_MED,
     TEAL,
 )
@@ -209,7 +209,7 @@ def layout(
             y=sub["label"], x=sub["score"], orientation="h",
             marker_color=EXPANSION_TIER_COLORS[tier_name],
             text=sub["score"].map(lambda v: f"{v:.1f}"),
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=sub[["retailer", "n_similar", "avg_velocity", "volume_tier"]].values,
             hovertemplate=(

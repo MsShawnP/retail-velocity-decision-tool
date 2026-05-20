@@ -22,7 +22,8 @@ from components import (
 )
 from constants import (
     GREY,
-    NAVY,
+    GREY_LIGHT,
+    INK,
     ORANGE,
     RED,
     TEAL,
@@ -137,16 +138,16 @@ def layout() -> html.Div:
         marker_color=colors,
         text=[f"{r:,}" for r in tables["rows"]],
         textposition="outside",
-        textfont=dict(size=11, color=NAVY),
+        textfont=dict(size=11, color=INK),
     ))
 
     fig_layout = base_chart_layout("Records by Table")
     fig_layout["yaxis"]["autorange"] = True
     fig_layout["xaxis"] = dict(
         title="Row Count",
-        gridcolor="#DFE6E9",
+        gridcolor=GREY_LIGHT,
         zeroline=True,
-        zerolinecolor="#DFE6E9",
+        zerolinecolor=GREY_LIGHT,
     )
     fig_layout["margin"] = dict(l=120, r=80, t=40, b=40)
     fig.update_layout(**fig_layout)
