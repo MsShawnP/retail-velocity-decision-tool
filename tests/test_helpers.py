@@ -25,5 +25,5 @@ class TestRetailerClause:
 
     def test_single_retailer(self):
         sql, params = retailer_clause("Walmart")
-        assert sql == "s.retailer = %s"
+        assert sql == "s.chain_name = %s"
         assert params == ["Walmart"]
