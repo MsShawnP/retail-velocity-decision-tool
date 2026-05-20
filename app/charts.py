@@ -59,8 +59,8 @@ def apply_hbar_layout(
     height: int,
     x_title: str | None = None,
     show_legend: bool = False,
-    label_pad_px: int = 130,
-    left_margin: int = 150,
+    label_pad_px: int | None = None,
+    left_margin: int | None = None,
     label_font_size: int = 12,
     x_pad_pct: float = 0.20,
 ) -> None:
@@ -72,12 +72,15 @@ def apply_hbar_layout(
     edge of the chart's left margin, so every label starts at the same
     horizontal position regardless of text length.
 
-    Also computes an x-axis range with `x_pad_pct` padding on each end (20%
-    by default) so `textposition="outside"` labels never bleed past the plot
-    area. The range is inferred from the figure's existing Bar traces, so
-    each chart's padding scales with its own data and any negative bars get
-    left-side breathing room automatically.
+    Auto-computes left_margin from the longest label when not specified.
     """
+    max_len = max((len(str(l)) for l in labels), default=10)
+    auto_margin = int(max_len * label_font_size * 0.55) + 30
+    if left_margin is None:
+        left_margin = max(auto_margin, 150)
+    if label_pad_px is None:
+        label_pad_px = left_margin - 20
+
     fig.update_layout(**base_chart_layout(
         height=height,
         x_title=x_title,
