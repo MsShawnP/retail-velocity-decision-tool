@@ -156,7 +156,7 @@ def layout(
                 ),
             ]),
             html.Div(
-                style={"flex": "1", "minHeight": "0", "overflow": "hidden"},
+                style={"flex": "1", "minHeight": "400px"},
                 children=[
                     dbc.Tabs([
                         dbc.Tab(label="By SKU", children=sku_tab_children),
