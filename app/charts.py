@@ -11,7 +11,6 @@ import plotly.graph_objects as go
 from constants import (
     CANVAS,
     FONT_SANS,
-    FONT_SERIF,
     GREY_LIGHT,
     INK,
     TEXT_SEC,

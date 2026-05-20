@@ -538,6 +538,14 @@ body {
 
 /* Desktop: always show sidebar content regardless of collapse state */
 @media (min-width: 768px) {
+    body {
+        font-size: 17px;
+    }
+
+    .dh-insight {
+        font-size: 17px;
+    }
+
     #sidebar-collapse {
         display: block !important;
         height: auto !important;

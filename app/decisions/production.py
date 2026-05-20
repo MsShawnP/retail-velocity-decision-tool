@@ -24,7 +24,6 @@ from components import (
     status_legend,
 )
 from constants import (
-    BENCHMARK_BLUE,
     GREEN_FAINT,
     GREY,
     GREY_BG,

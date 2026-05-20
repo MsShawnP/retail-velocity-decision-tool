@@ -14,6 +14,7 @@ from dash import ALL, Input, Output, State, ctx, dcc, no_update, html
 from constants import (
     DECISIONS,
     DECISION_TITLES,
+    GREY,
     PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
 )
@@ -194,7 +195,7 @@ def register_callbacks(app) -> None:
         title = DECISION_TITLES.get(decision, decision)
         return html.Div(
             f"Decision mode: {title} — unknown mode index {idx}",
-            style={"padding": "2rem", "color": "#636E72", "fontSize": "1.1rem"},
+            style={"padding": "2rem", "color": GREY, "fontSize": "1.1rem"},
         )
 
     # ----------------------------------------------------------
