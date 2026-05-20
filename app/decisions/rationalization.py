@@ -249,7 +249,7 @@ def layout(
                 ]),
             ],
         ),
-        html.Div([
+        html.Div(className="dash-footer", children=[
         html.Button(
             "Export to Excel",
             id="rationalization-export-btn",

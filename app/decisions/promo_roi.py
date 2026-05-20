@@ -128,6 +128,12 @@ def layout(
     avg_lift = df["lift_pct"].mean()
     total_incr = df["incremental_revenue"].sum()
     total_cost = df["promo_cost"].sum()
+    if pd.isna(avg_lift):
+        avg_lift = 0.0
+    if pd.isna(total_incr):
+        total_incr = 0.0
+    if pd.isna(total_cost):
+        total_cost = 0.0
 
     # Headline
     if n_strong >= n_marginal + n_negative:

@@ -477,7 +477,7 @@ def _build_store_tab(
             (n_conc, "Concerning"),
             (n_mild, "Mild"),
         ]),
-        html.Div([grid], style={"height": "calc(100vh - 380px)", "minHeight": "300px", "overflow": "hidden"}),
+        html.Div([grid], style={"height": "calc(100vh - 380px)", "minHeight": "300px", "overflowY": "auto"}),
         html.Button(
             "Export By Store to Excel", id="pruning-store-export-btn", n_clicks=0,
             style={"padding": "0.4rem 1.2rem", "cursor": "pointer", "marginTop": "0.5rem"},

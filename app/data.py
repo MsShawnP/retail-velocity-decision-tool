@@ -539,6 +539,13 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
         sku_clause = "AND p.sku = %s"
         sku_params = [sku_filter]
 
+    if retailer == "All Retailers":
+        promo_where = "1=1"
+        promo_params: list = [retailer]
+    else:
+        promo_where = "p.retailer = %s"
+        promo_params = [retailer, retailer]
+
     sql = f"""
         WITH ret_stores AS (
             SELECT s.store_id FROM stg_stores s
@@ -552,7 +559,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
                    discount_depth_pct, promo_type,
                    'All Stores' AS store_scope
             FROM stg_promotions p
-            WHERE p.retailer = %s {sku_clause}
+            WHERE {promo_where} {sku_clause}
         ),
         sku_store_first_scan AS (
             SELECT sku, store_id, MIN(week_ending) AS first_scan
@@ -596,7 +603,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
         ORDER BY p.start_week DESC
     """
     with get_conn() as conn:
-        df = pd.read_sql(sql, conn, params=ret_params + [retailer, retailer] + sku_params)
+        df = pd.read_sql(sql, conn, params=ret_params + promo_params + sku_params)
     if df.empty:
         return df
 
@@ -858,6 +865,13 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         sku_clause = "AND sd.sku = %s"
         sku_params = [sku_filter]
 
+    if retailer == "All Retailers":
+        pricing_promo_where = "1=1"
+        pricing_promo_params: list = []
+    else:
+        pricing_promo_where = "retailer = %s"
+        pricing_promo_params = [retailer]
+
     sql = f"""
         WITH ret_stores AS (
             SELECT s.store_id FROM stg_stores s
@@ -865,7 +879,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         ),
         sku_promos AS (
             SELECT sku, start_week, end_week, discount_depth_pct
-            FROM stg_promotions WHERE retailer = %s
+            FROM stg_promotions WHERE {pricing_promo_where}
         ),
         promo_window AS (
             SELECT DISTINCT sp.sku, sd.week_ending
@@ -914,7 +928,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         ORDER BY pm.sku
     """
     with get_conn() as conn:
-        df = pd.read_sql(sql, conn, params=ret_params + [retailer] + sku_params)
+        df = pd.read_sql(sql, conn, params=ret_params + pricing_promo_params + sku_params)
     if df.empty:
         return df
     if product_line_filter:
