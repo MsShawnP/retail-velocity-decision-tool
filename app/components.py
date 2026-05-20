@@ -205,6 +205,7 @@ def make_grid(
     grid_options: dict[str, Any] = {
         "domLayout": "normal",
         "animateRows": True,
+        "autoSizeStrategy": {"type": "fitGridWidth"},
     }
     if row_style_conditions:
         grid_options["getRowStyle"] = {"styleConditions": row_style_conditions}
@@ -224,7 +225,7 @@ def dashboard_layout(
     header: list,
     grid,
     chart: list,
-    footer: list,
+    footer: list | None = None,
 ) -> html.Div:
     """Two-column dashboard: grid left, chart right, everything in-viewport.
 
@@ -244,6 +245,6 @@ def dashboard_layout(
                     html.Div(chart, className="dash-col--scroll"),
                 ],
             ),
-            html.Div(footer, className="dash-footer"),
+            html.Div(footer or [], className="dash-footer"),
         ],
     )
