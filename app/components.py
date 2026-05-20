@@ -203,7 +203,7 @@ def make_grid(
         ]
 
     grid_options: dict[str, Any] = {
-        "domLayout": "normal",
+        "domLayout": "autoHeight",
         "animateRows": True,
         "autoSizeStrategy": {"type": "fitCellContents"},
     }
@@ -214,7 +214,7 @@ def make_grid(
         "rowData": df.to_dict("records"),
         "columnDefs": column_defs,
         "dashGridOptions": grid_options,
-        "style": {"width": "100%", "height": "100%", "minHeight": "300px"},
+        "style": {"width": "100%"},
         "className": "ag-theme-alpine",
     }
     defaults.update(kwargs)
