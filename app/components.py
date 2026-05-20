@@ -16,8 +16,9 @@ import pandas as pd
 from dash import html
 
 from constants import (
-    NAVY_MED,
+    INK,
     RED,
+    TEXT_SEC,
 )
 
 
@@ -62,7 +63,7 @@ def metric_card(
     if delta is not None:
         children.append(
             html.Div(delta, className="mc-delta",
-                     style={"color": delta_color or NAVY_MED})
+                     style={"color": delta_color or TEXT_SEC})
         )
     return html.Div(children, className="metric-card")
 
@@ -158,7 +159,7 @@ def error_card(title: str, message: str) -> dbc.Card:
     return dbc.Card(
         dbc.CardBody([
             html.H5(title, style={"color": RED, "fontWeight": "600"}),
-            html.P(message, style={"color": NAVY_MED}),
+            html.P(message, style={"color": TEXT_SEC}),
         ]),
         className="error-card",
     )
@@ -202,19 +203,26 @@ def make_grid(
             for col in df.columns
         ]
 
+    use_auto_height = len(df) <= 100
+
     grid_options: dict[str, Any] = {
-        "domLayout": "autoHeight",
+        "domLayout": "autoHeight" if use_auto_height else "normal",
         "animateRows": True,
         "autoSizeStrategy": {"type": "fitCellContents"},
     }
     if row_style_conditions:
         grid_options["getRowStyle"] = {"styleConditions": row_style_conditions}
 
+    style: dict[str, Any] = {"width": "100%"}
+    if not use_auto_height:
+        style["height"] = "100%"
+        style["minHeight"] = "400px"
+
     defaults: dict[str, Any] = {
         "rowData": df.to_dict("records"),
         "columnDefs": column_defs,
         "dashGridOptions": grid_options,
-        "style": {"width": "100%"},
+        "style": style,
         "className": "ag-theme-alpine",
     }
     defaults.update(kwargs)

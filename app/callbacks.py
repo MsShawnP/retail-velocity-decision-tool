@@ -316,6 +316,8 @@ def register_callbacks(app) -> None:
     )
     def sync_pitch_retailer(shelf, prod, promo, pruning, rat, pricing):
         triggered = ctx.triggered_id
+        if not isinstance(triggered, str):
+            return no_update
         val_map = {
             "shelf-retailer": shelf,
             "prod-retailer": prod,

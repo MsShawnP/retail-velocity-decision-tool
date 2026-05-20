@@ -74,7 +74,8 @@ def apply_hbar_layout(
 
     Auto-computes left_margin from the longest label when not specified.
     """
-    max_len = max((len(str(l)) for l in labels), default=10)
+    max_len = max((len(str(l)) for l in labels if l is not None), default=10)
+    max_len = min(max_len, 40)
     auto_margin = int(max_len * label_font_size * 0.55) + 30
     if left_margin is None:
         left_margin = max(auto_margin, 150)
@@ -116,7 +117,7 @@ def apply_hbar_layout(
         fig.update_xaxes(range=[lower, upper])
     seen: set[str] = set()
     for lbl in labels:
-        if lbl in seen or lbl is None:
+        if lbl is None or lbl in seen:
             continue
         seen.add(lbl)
         fig.add_annotation(

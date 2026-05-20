@@ -14,12 +14,6 @@ import pandas as pd
 from fpdf import FPDF
 
 from constants import CHICAGO, GREY, LAUNCH_BENCHMARK, INK, TEXT_SEC
-
-
-def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-    """Convert '#rrggbb' to (r, g, b) integers for FPDF."""
-    h = hex_color.lstrip("#")
-    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 from data import (
     get_latest_week,
     get_launch_data,
@@ -29,6 +23,12 @@ from data import (
 )
 from decisions.launch_health import _classify_launch
 from decisions.shelf_defense import _classify_shelf_status
+
+
+def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+    """Convert '#rrggbb' to (r, g, b) integers for FPDF."""
+    h = hex_color.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 
 
 # ============================================================
