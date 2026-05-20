@@ -141,14 +141,11 @@ def layout() -> html.Div:
         textfont=dict(size=11, color=INK),
     ))
 
-    fig_layout = base_chart_layout("Records by Table")
+    fig_layout = base_chart_layout(height=300, x_title="Row Count")
     fig_layout["yaxis"]["autorange"] = True
-    fig_layout["xaxis"] = dict(
-        title="Row Count",
-        gridcolor=GREY_LIGHT,
-        zeroline=True,
-        zerolinecolor=GREY_LIGHT,
-    )
+    fig_layout["xaxis"]["gridcolor"] = GREY_LIGHT
+    fig_layout["xaxis"]["zeroline"] = True
+    fig_layout["xaxis"]["zerolinecolor"] = GREY_LIGHT
     fig_layout["margin"] = dict(l=120, r=80, t=40, b=40)
     fig.update_layout(**fig_layout)
 

@@ -205,7 +205,7 @@ def make_grid(
     grid_options: dict[str, Any] = {
         "domLayout": "normal",
         "animateRows": True,
-        "autoSizeStrategy": {"type": "fitGridWidth"},
+        "autoSizeStrategy": {"type": "fitCellContents"},
     }
     if row_style_conditions:
         grid_options["getRowStyle"] = {"styleConditions": row_style_conditions}
