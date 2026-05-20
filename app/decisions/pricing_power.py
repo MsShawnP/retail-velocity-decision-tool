@@ -312,8 +312,6 @@ def layout(
         labels=top_labels,
         height=max(420, 38 * n_show + 120),
         x_title="Elasticity (% lift per 1% of discount — negative means velocity dropped)",
-        label_pad_px=160,
-        left_margin=180,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=top_labels)
 

@@ -288,8 +288,6 @@ def layout(
             labels=bars["label"].tolist(),
             height=max(380, 32 * len(bars) + 120),
             x_title="Return on promo spend (%)",
-            label_pad_px=150,
-            left_margin=170,
         )
         chart_children.append(dcc.Graph(figure=fig, id="promo-roi-chart", responsive=True, style={"width": "100%"}))
 

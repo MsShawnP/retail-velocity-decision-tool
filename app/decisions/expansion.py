@@ -25,9 +25,10 @@ from components import (
     status_legend,
 )
 from constants import (
+    CHICAGO,
+    CHICAGO_LT,
     GREY,
     INK,
-    NAVY_MED,
     TEAL,
 )
 from data import get_expansion_data, get_sku_meta
@@ -39,8 +40,8 @@ from data import get_expansion_data, get_sku_meta
 
 EXPANSION_TIER_COLORS = {
     "Strongest":         TEAL,
-    "Solid":             NAVY_MED,
-    "Worth considering": GREY,
+    "Solid":             CHICAGO,
+    "Worth considering": CHICAGO_LT,
 }
 
 
@@ -169,8 +170,8 @@ def layout(
         {"field": "Strength", "headerName": "Strength", "sortable": True, "filter": True, "width": 140,
          "cellStyle": {"styleConditions": [
              {"condition": "params.value === 'Strongest'", "style": {"color": TEAL, "fontWeight": "700"}},
-             {"condition": "params.value === 'Solid'", "style": {"color": NAVY_MED, "fontWeight": "700"}},
-             {"condition": "params.value === 'Worth considering'", "style": {"color": GREY, "fontWeight": "700"}},
+             {"condition": "params.value === 'Solid'", "style": {"color": CHICAGO, "fontWeight": "700"}},
+             {"condition": "params.value === 'Worth considering'", "style": {"color": CHICAGO_LT, "fontWeight": "700"}},
          ]}},
         {"field": "Similar SKUs Already There", "headerName": "Similar SKUs Already There",
          "sortable": True, "filter": "agNumberColumnFilter", "width": 200},
@@ -227,8 +228,6 @@ def layout(
         labels=top["label"].tolist(),
         height=max(420, 32 * n_show + 120),
         x_title="Expansion score (peer velocity × tier multiplier)",
-        label_pad_px=130,
-        left_margin=150,
         x_pad_pct=0.30,
     )
     fig.update_yaxes(categoryorder="array", categoryarray=top["label"].tolist())
@@ -278,8 +277,8 @@ def layout(
             html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
             chart_legend([
                 (TEAL,     f"Strongest (score ≥ {fmt_num(strongest_floor)})"),
-                (NAVY_MED, f"Solid ({fmt_num(solid_floor)}–{fmt_num(strongest_floor)})"),
-                (GREY,     f"Worth considering (< {fmt_num(solid_floor)})"),
+                (CHICAGO,    f"Solid ({fmt_num(solid_floor)}–{fmt_num(strongest_floor)})"),
+                (CHICAGO_LT, f"Worth considering (< {fmt_num(solid_floor)})"),
             ]),
             dcc.Graph(figure=fig, id="expansion-chart", responsive=True, style={"width": "100%"}),
         ],

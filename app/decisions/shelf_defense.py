@@ -294,8 +294,6 @@ def layout(
         labels=weakest["SKU"].tolist(),
         height=max(380, 32 * n_show + 120),
         x_title="Units per store per week (last 8 weeks)",
-        label_pad_px=110,
-        left_margin=130,
     )
 
     # Velocity trend chart for at-risk + warning SKUs
