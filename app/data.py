@@ -12,6 +12,7 @@ import logging
 import os
 
 import pandas as pd
+import psycopg2
 from flask_caching import Cache
 
 from calcs import (
@@ -108,8 +109,10 @@ def get_latest_week() -> str:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("SELECT MAX(week_ending) FROM stg_scan_data")
-        row = cur.fetchone()
-        return row[0] if row else None
+        result = cur.fetchone()[0]
+        if result is None:
+            raise RuntimeError("stg_scan_data is empty — no week_ending data")
+        return result
 
 
 @cache.memoize(timeout=3600)
@@ -993,7 +996,7 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
                     conn,
                     params=[latest],
                 )
-    except Exception:
+    except psycopg2.Error:
         logging.getLogger("data").debug("stg_category_benchmarks unavailable", exc_info=True)
         cat_df = pd.DataFrame()
 
@@ -1025,13 +1028,13 @@ def get_category_benchmark_weekly(
         SELECT week_ending, avg_velocity AS category_avg
         FROM stg_category_benchmarks
         WHERE retailer = %s AND category = %s
-          AND week_ending > (%s::date - interval '%s days')::date
+          AND week_ending > (%s::date - %s * interval '1 day')::date
         ORDER BY week_ending
     """
     try:
         with get_conn() as conn:
             return pd.read_sql(sql, conn, params=[retailer, category, latest, weeks * 7])
-    except Exception:
+    except psycopg2.Error:
         logging.getLogger("data").debug("category benchmark weekly unavailable", exc_info=True)
         return pd.DataFrame()
 

@@ -1,16 +1,27 @@
 """Reload Postgres tables from the SQLite source database.
 
 Requires: fly proxy 15432:5432 --app cinderhaven-db running in background.
+
+Usage:
+    set DATABASE_URL=postgres://user:pass@localhost:15432/cinderhaven
+    set SQLITE_PATH=C:\\path\\to\\cinderhaven_product_master.db
+    python reload_postgres.py
 """
+import csv
+import io
 import os
 import sqlite3
-import psycopg2
-import io
-import csv
 import sys
 
-SQLITE_PATH = r"C:\Users\mssha\projects\active\cinderhaven-data\data\cinderhaven_product_master.db"
+import psycopg2
+
+SQLITE_PATH = os.environ.get("SQLITE_PATH", "")
 PG_DSN = os.environ.get("DATABASE_URL", "postgres://localhost:15432/cinderhaven")
+
+# Retailer name normalization: source data → app constants
+RETAILER_NAME_MAP = {
+    "Regional Group": "Regional",
+}
 
 CATEGORY_MAP = {
     "Artisan Sauces": "Sauces & Marinades",
@@ -28,6 +39,8 @@ RETAILER_ADJUSTMENTS = {
     "Walmart": 1.0,
     "Costco": 0.85,
     "Whole Foods": 1.10,
+    "Kroger": 1.0,
+    "Sprouts": 1.08,
 }
 
 TABLE_DEFINITIONS = {
@@ -184,24 +197,12 @@ TABLE_DEFINITIONS = {
 }
 
 
-def load_table(sqlite_conn, pg_conn, table_name, table_def):
+def load_table(sqlite_conn, pg_cur, table_name, table_def):
     source = table_def["source"]
     columns = table_def["columns"]
     transforms = table_def.get("transforms", {})
 
     print(f"\n--- {table_name} (from {source}) ---")
-
-    cur = pg_conn.cursor()
-    try:
-        cur.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
-    except psycopg2.errors.WrongObjectType:
-        pg_conn.rollback() if not pg_conn.autocommit else None
-        cur.execute(f"DROP VIEW IF EXISTS {table_name} CASCADE")
-    try:
-        cur.execute(f"DROP VIEW IF EXISTS {table_name} CASCADE")
-    except psycopg2.errors.WrongObjectType:
-        pass
-    cur.execute(table_def["create"])
 
     rows = sqlite_conn.execute(f"SELECT {', '.join(columns)} FROM [{source}]").fetchall()
     print(f"  Read {len(rows)} rows from SQLite")
@@ -209,6 +210,10 @@ def load_table(sqlite_conn, pg_conn, table_name, table_def):
     if not rows:
         print("  (empty table, skipping)")
         return
+
+    pg_cur.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+    pg_cur.execute(f"DROP VIEW IF EXISTS {table_name} CASCADE")
+    pg_cur.execute(table_def["create"])
 
     if transforms:
         transformed = []
@@ -226,31 +231,41 @@ def load_table(sqlite_conn, pg_conn, table_name, table_def):
         writer.writerow(['' if v is None else v for v in row])
     buf.seek(0)
 
-    cur.copy_from(buf, table_name, columns=columns, null='')
+    pg_cur.copy_from(buf, table_name, columns=columns, null='')
     print(f"  Loaded {len(rows)} rows into Postgres")
 
-    cur.execute(f"SELECT COUNT(*) FROM {table_name}")
-    print(f"  Verified: {cur.fetchone()[0]} rows")
+    pg_cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+    print(f"  Verified: {pg_cur.fetchone()[0]} rows")
 
 
-def add_category_column(pg_conn):
+def normalize_retailers(pg_cur):
+    """Rename retailer values in stg_stores to match app constants."""
+    print("\n--- Normalizing retailer names ---")
+    for source_name, target_name in RETAILER_NAME_MAP.items():
+        pg_cur.execute(
+            "UPDATE stg_stores SET retailer = %s WHERE retailer = %s",
+            (target_name, source_name),
+        )
+        if pg_cur.rowcount:
+            print(f"  {source_name} -> {target_name} ({pg_cur.rowcount} rows)")
+
+
+def add_category_column(pg_cur):
     print("\n--- Adding category column to dim_products ---")
-    cur = pg_conn.cursor()
     for product_line, category in CATEGORY_MAP.items():
-        cur.execute(
+        pg_cur.execute(
             "UPDATE dim_products SET category = %s WHERE product_line = %s",
             (category, product_line),
         )
         print(f"  {product_line} -> {category}")
 
-    cur.execute("SELECT COUNT(*) FROM dim_products WHERE category IS NOT NULL")
-    print(f"  {cur.fetchone()[0]} products categorized")
+    pg_cur.execute("SELECT COUNT(*) FROM dim_products WHERE category IS NOT NULL")
+    print(f"  {pg_cur.fetchone()[0]} products categorized")
 
 
-def seed_benchmarks(pg_conn):
+def seed_benchmarks(pg_cur):
     print("\n--- Seeding stg_category_benchmarks ---")
-    cur = pg_conn.cursor()
-    cur.execute("""
+    pg_cur.execute("""
         CREATE TABLE IF NOT EXISTS stg_category_benchmarks (
             category     TEXT    NOT NULL,
             retailer     TEXT    NOT NULL,
@@ -259,15 +274,14 @@ def seed_benchmarks(pg_conn):
             PRIMARY KEY (category, retailer, week_ending)
         )
     """)
-    cur.execute("DELETE FROM stg_category_benchmarks")
 
-    cur.execute("""
+    pg_cur.execute("""
         SELECT DISTINCT s.retailer
         FROM stg_stores s
         WHERE s.is_aggregated_channel = false
-          AND s.retailer NOT IN ('UNFI', 'DTC')
+          AND s.retailer NOT IN ('UNFI', 'KeHE', 'DTC')
     """)
-    retailers = [r[0] for r in cur.fetchall()]
+    retailers = [r[0] for r in pg_cur.fetchall()]
     print(f"  Retailers: {retailers}")
 
     total = 0
@@ -276,7 +290,7 @@ def seed_benchmarks(pg_conn):
             ret_adj = RETAILER_ADJUSTMENTS.get(retailer, 1.05)
             final_mult = mult * ret_adj
 
-            cur.execute("""
+            pg_cur.execute("""
                 INSERT INTO stg_category_benchmarks
                     (category, retailer, week_ending, avg_velocity)
                 SELECT
@@ -294,16 +308,15 @@ def seed_benchmarks(pg_conn):
                 ON CONFLICT (category, retailer, week_ending)
                 DO UPDATE SET avg_velocity = EXCLUDED.avg_velocity
             """, (category, retailer, final_mult, category, retailer))
-            rows = cur.rowcount
+            rows = pg_cur.rowcount
             total += rows
             print(f"  {category} x {retailer}: {rows} weeks")
 
     print(f"  Total: {total} benchmark rows")
 
 
-def create_indexes(pg_conn):
+def create_indexes(pg_cur):
     print("\n--- Creating indexes ---")
-    cur = pg_conn.cursor()
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_scan_data_store ON stg_scan_data(store_id)",
         "CREATE INDEX IF NOT EXISTS idx_scan_data_sku ON stg_scan_data(sku)",
@@ -317,34 +330,56 @@ def create_indexes(pg_conn):
     ]
     for idx in indexes:
         name = idx.split("idx_")[1].split(" ")[0]
-        cur.execute(idx)
+        pg_cur.execute(idx)
         print(f"  Created idx_{name}")
 
 
 def main():
-    print("Connecting to SQLite...")
-    sqlite_conn = sqlite3.connect(SQLITE_PATH)
-
-    print("Connecting to Postgres (via fly proxy)...")
-    try:
-        pg_conn = psycopg2.connect(PG_DSN)
-    except Exception as e:
-        print(f"ERROR: Cannot connect to Postgres: {e}")
-        print("Make sure 'fly proxy 15432:5432 --app cinderhaven-db' is running.")
+    if not SQLITE_PATH:
+        print("ERROR: SQLITE_PATH not set. Export it or pass as env var.")
+        print("  e.g.: set SQLITE_PATH=C:\\path\\to\\cinderhaven_product_master.db")
+        sys.exit(1)
+    if not os.path.exists(SQLITE_PATH):
+        print(f"ERROR: SQLite file not found: {SQLITE_PATH}")
         sys.exit(1)
 
-    pg_conn.autocommit = True
+    print(f"Connecting to SQLite ({SQLITE_PATH})...")
+    with sqlite3.connect(SQLITE_PATH) as sqlite_conn:
+        print("Connecting to Postgres (via fly proxy)...")
+        try:
+            pg_conn = psycopg2.connect(PG_DSN, connect_timeout=5)
+        except psycopg2.Error as e:
+            print(f"ERROR: Cannot connect to Postgres: {type(e).__name__}")
+            print("Make sure 'fly proxy 15432:5432 --app cinderhaven-db' is running.")
+            sys.exit(1)
 
-    for table_name, table_def in TABLE_DEFINITIONS.items():
-        load_table(sqlite_conn, pg_conn, table_name, table_def)
+        try:
+            pg_conn.autocommit = False
+            with pg_conn.cursor() as cur:
+                failed = []
+                for table_name, table_def in TABLE_DEFINITIONS.items():
+                    try:
+                        load_table(sqlite_conn, cur, table_name, table_def)
+                    except Exception as e:
+                        print(f"  ERROR loading {table_name}: {e}")
+                        failed.append(table_name)
+                        pg_conn.rollback()
 
-    add_category_column(pg_conn)
-    seed_benchmarks(pg_conn)
-    create_indexes(pg_conn)
+                if failed:
+                    print(f"\nFailed tables: {failed}")
+                    print("Rolling back all changes.")
+                    pg_conn.rollback()
+                    sys.exit(1)
 
-    print("\n=== All tables loaded successfully ===")
-    sqlite_conn.close()
-    pg_conn.close()
+                normalize_retailers(cur)
+                add_category_column(cur)
+                seed_benchmarks(cur)
+                create_indexes(cur)
+
+                pg_conn.commit()
+                print("\n=== All tables loaded and committed successfully ===")
+        finally:
+            pg_conn.close()
 
 
 if __name__ == "__main__":
