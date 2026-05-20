@@ -278,7 +278,7 @@ def _main_content() -> html.Div:
             delay_hide=200,
             children=html.Div(id="main-content"),
         ),
-    ], className="main-content", style={"padding": "1.25rem", "height": "100vh", "overflow": "hidden"})
+    ], className="main-content", style={"padding": "1.25rem", "minHeight": "100vh", "overflowY": "auto"})
 
 
 # ============================================================
