@@ -366,13 +366,12 @@ def _build_cut_tab(
     # Cut-candidate chart
     n_chart = min(20, len(cut_df))
     cut_chart = cut_df.head(n_chart).copy()
-    cut_labels = (
-        cut_chart["SKU"] + " · " + cut_chart["Product Name"].str.slice(0, 18)
-    ).tolist()
+    cut_chart["_label"] = cut_chart["SKU"] + " · " + cut_chart["Product Name"].str.slice(0, 26)
+    cut_labels = cut_chart["_label"].tolist()
 
     fig_cut = go.Figure()
     fig_cut.add_trace(go.Bar(
-        y=cut_chart["SKU"] + "  ·  " + cut_chart["Product Name"].str.slice(0, 26),
+        y=cut_chart["_label"],
         x=cut_chart["Total Weekly Margin"],
         orientation="h",
         marker_color=RED,
@@ -565,6 +564,9 @@ def _build_portfolio_tab(
         "Cut candidate": RED,
     }
 
+    bottom["_label"] = bottom["SKU"] + " · " + bottom["Product Name"].str.slice(0, 26)
+    bottom_labels = bottom["_label"].tolist()
+
     fig = go.Figure()
     for bucket in (LOW_DIST, "Niche / slow", "Cut candidate"):
         sub = bottom[bottom["ChartBucket"] == bucket]
@@ -575,7 +577,7 @@ def _build_portfolio_tab(
             for margin, doors in zip(sub["Total Weekly Margin"], sub["Doors"])
         ]
         fig.add_trace(go.Bar(
-            y=sub["SKU"] + "  ·  " + sub["Product Name"].str.slice(0, 26),
+            y=sub["_label"],
             x=sub["Total Weekly Margin"], orientation="h",
             marker_color=CHART_BUCKET_COLORS[bucket],
             text=bar_text,
@@ -592,7 +594,6 @@ def _build_portfolio_tab(
                 f"Chart bucket: {bucket}<extra></extra>"
             ),
         ))
-    bottom_labels = (bottom["SKU"] + " · " + bottom["Product Name"].str.slice(0, 18)).tolist()
     apply_hbar_layout(
         fig,
         labels=bottom_labels,
