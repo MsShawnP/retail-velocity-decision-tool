@@ -90,7 +90,10 @@ DECISION_TITLES = {
 # ============================================================
 
 PHYSICAL_RETAILERS = ["Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts", "Regional"]
-ALL_PHYSICAL_OR_AGG = ["Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts", "Regional", "UNFI", "DTC"]
+ALL_PHYSICAL_OR_AGG = [
+    "Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts",
+    "Regional", "UNFI", "KeHE", "DTC",
+]
 
 RETAILER_THRESHOLDS = {
     "Walmart":     2.5,   # conventional grocery floor, condiment/sauce category
@@ -176,7 +179,10 @@ RETAILER_COLORS = {
     "Walmart":     NAVY,
     "Costco":      TEAL,
     "Whole Foods": ORANGE,
+    "Kroger":      "#5C6BC0",   # indigo, distinct from navy
+    "Sprouts":     "#43A047",   # green, matches Sprouts branding
     "Regional":    NAVY_MED,
     "UNFI":        GREY,
+    "KeHE":        "#8D6E63",   # warm brown, distinct from UNFI grey
     "DTC":         "#8B6F47",   # warm muted, distinguishes from the rest
 }

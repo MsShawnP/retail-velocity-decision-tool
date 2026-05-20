@@ -40,7 +40,9 @@ BENCHMARK_MULTIPLIERS = {
 RETAILER_ADJUSTMENTS = {
     "Walmart":     1.0,     # baseline
     "Costco":      0.85,    # club-pack velocity higher; narrows the gap
-    "Whole Foods":  1.10,    # premium channel; bigger brands have less edge
+    "Whole Foods": 1.10,    # premium channel; bigger brands have less edge
+    "Kroger":      1.0,     # conventional grocery, similar to Walmart
+    "Sprouts":     1.08,    # specialty natural, similar to Whole Foods
 }
 
 

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import psycopg2
+
 import pandas as pd
 import pytest
 
@@ -159,7 +161,7 @@ class TestCategoryBenchmarkGraceful:
                 {"product_line": "Artisan Sauces", "cinderhaven_avg": 6.5},
             ])
 
-            with patch("pandas.read_sql", side_effect=[ch_df, Exception("relation does not exist")]):
+            with patch("pandas.read_sql", side_effect=[ch_df, psycopg2.ProgrammingError("relation does not exist")]):
                 from data import get_category_benchmark
                 result = get_category_benchmark.__wrapped__("Walmart")
 
