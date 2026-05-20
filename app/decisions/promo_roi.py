@@ -104,6 +104,14 @@ def layout(
 
     df = df.dropna(subset=["baseline_v", "promo_v"])
     df = df[df["doors"] > 0]
+    _numeric_cols = [
+        "baseline_v", "promo_v", "lift_pct", "dip_pct",
+        "incremental_revenue", "promo_cost", "roi_pct",
+        "discount_depth_pct", "doors",
+    ]
+    for _c in _numeric_cols:
+        if _c in df.columns:
+            df[_c] = pd.to_numeric(df[_c], errors="coerce")
     if df.empty:
         return empty_state(
             "All promos for this retailer were stranded (no in-window scan data)."
