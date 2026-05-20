@@ -273,6 +273,7 @@ def _build_sku_tab(
     # Chart: top SKUs by % below threshold
     n_show = min(15, len(by_sku))
     top = by_sku.head(n_show).copy()
+    top["_label"] = top["sku"] + " · " + top["product_name"].str.slice(0, 26)
 
     fig = go.Figure()
     for sev in ("Critical", "Concerning", "Mild"):
@@ -280,7 +281,7 @@ def _build_sku_tab(
         if sub.empty:
             continue
         fig.add_trace(go.Bar(
-            y=sub["sku"] + "  ·  " + sub["product_name"].str.slice(0, 28),
+            y=sub["_label"],
             x=sub["pct_below"], orientation="h",
             marker_color=PRUNING_SEVERITY_COLORS[sev],
             text=sub["pct_below"].map(lambda v: f"{v:.0f}%"),
@@ -295,14 +296,16 @@ def _build_sku_tab(
                 f"Severity: {sev}<extra></extra>"
             ),
         ))
+    chart_labels = top["_label"].tolist()
     apply_hbar_layout(
         fig,
-        labels=(top["sku"] + " · " + top["product_name"].str.slice(0, 18)).tolist(),
+        labels=chart_labels,
         height=max(420, 34 * n_show + 120),
         x_title="% of stores below delisting threshold",
         label_pad_px=160,
         left_margin=180,
     )
+    fig.update_yaxes(categoryorder="array", categoryarray=chart_labels)
 
     chart_title = (
         f"These {n_show} SKUs have the highest share of "
