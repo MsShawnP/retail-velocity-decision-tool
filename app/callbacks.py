@@ -15,6 +15,7 @@ from constants import (
     DECISIONS,
     DECISION_TITLES,
     GREY,
+    PHYSICAL_RETAILERS,
     PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
 )
@@ -299,6 +300,34 @@ def register_callbacks(app) -> None:
     )
     def update_pruning_threshold(retailer: str):
         return RETAILER_THRESHOLDS.get(retailer, 2.0)
+
+    # ----------------------------------------------------------
+    # f2) Sync pitch-retailer with active mode's retailer
+    # ----------------------------------------------------------
+    @app.callback(
+        Output("pitch-retailer", "value"),
+        Input("shelf-retailer", "value"),
+        Input("prod-retailer", "value"),
+        Input("promo-retailer", "value"),
+        Input("pruning-retailer", "value"),
+        Input("rat-retailer", "value"),
+        Input("pricing-retailer", "value"),
+        prevent_initial_call=True,
+    )
+    def sync_pitch_retailer(shelf, prod, promo, pruning, rat, pricing):
+        triggered = ctx.triggered_id
+        val_map = {
+            "shelf-retailer": shelf,
+            "prod-retailer": prod,
+            "promo-retailer": promo,
+            "pruning-retailer": pruning,
+            "rat-retailer": rat,
+            "pricing-retailer": pricing,
+        }
+        val = val_map.get(triggered)
+        if val and val in PHYSICAL_RETAILERS:
+            return val
+        return no_update
 
     # ----------------------------------------------------------
     # g) Pitch export: Excel
