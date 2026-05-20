@@ -272,7 +272,7 @@ body {
 .dash-layout {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 2.5rem);
+    min-height: calc(100vh - 2.5rem);
 }
 
 .dash-body {
