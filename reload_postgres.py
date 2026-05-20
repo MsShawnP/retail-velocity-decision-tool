@@ -7,18 +7,22 @@ Usage:
     set SQLITE_PATH=C:\\path\\to\\cinderhaven_product_master.db
     python reload_postgres.py
 """
+from __future__ import annotations
+
 import csv
 import io
 import os
 import sqlite3
 import sys
+from typing import Any
 
 import psycopg2
+import psycopg2.extensions
 
 SQLITE_PATH = os.environ.get("SQLITE_PATH", "")
 PG_DSN = os.environ.get("DATABASE_URL", "postgres://localhost:15432/cinderhaven")
 
-# Retailer name normalization: source data → app constants
+# Retailer name normalization: source data -> app constants
 RETAILER_NAME_MAP = {
     "Regional Group": "Regional",
 }
@@ -29,6 +33,9 @@ CATEGORY_MAP = {
     "Pantry Staples": "Dry Grocery & Baking",
 }
 
+# Benchmark multipliers: Cinderhaven's own velocity scaled to approximate
+# a category-level average. These are synthetic proxies, not external data.
+# > 1.0 means the category average is higher (Cinderhaven underperforms).
 BENCHMARK_MULTIPLIERS = {
     "Sauces & Marinades": 0.92,
     "Condiments & Dressings": 1.22,
@@ -43,7 +50,12 @@ RETAILER_ADJUSTMENTS = {
     "Sprouts": 1.08,
 }
 
-TABLE_DEFINITIONS = {
+_VALID_TABLES = frozenset({
+    "stg_stores", "stg_scan_data", "dim_products", "stg_sku_costs",
+    "stg_promotions", "stg_price_history", "fct_distribution",
+})
+
+TABLE_DEFINITIONS: dict[str, dict[str, Any]] = {
     "stg_stores": {
         "source": "stores",
         "create": """
@@ -197,7 +209,24 @@ TABLE_DEFINITIONS = {
 }
 
 
-def load_table(sqlite_conn, pg_cur, table_name, table_def):
+def _serialize_value(v: object) -> str:
+    """Serialize a Python value for Postgres COPY TSV format."""
+    if v is None:
+        return ''
+    if v is True:
+        return 'true'
+    if v is False:
+        return 'false'
+    return str(v)
+
+
+def load_table(
+    sqlite_conn: sqlite3.Connection,
+    pg_cur: psycopg2.extensions.cursor,
+    table_name: str,
+    table_def: dict[str, Any],
+) -> None:
+    assert table_name in _VALID_TABLES, f"Unknown table: {table_name}"
     source = table_def["source"]
     columns = table_def["columns"]
     transforms = table_def.get("transforms", {})
@@ -228,7 +257,7 @@ def load_table(sqlite_conn, pg_cur, table_name, table_def):
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter='\t', lineterminator='\n')
     for row in rows:
-        writer.writerow(['' if v is None else v for v in row])
+        writer.writerow([_serialize_value(v) for v in row])
     buf.seek(0)
 
     pg_cur.copy_from(buf, table_name, columns=columns, null='')
@@ -238,7 +267,7 @@ def load_table(sqlite_conn, pg_cur, table_name, table_def):
     print(f"  Verified: {pg_cur.fetchone()[0]} rows")
 
 
-def normalize_retailers(pg_cur):
+def normalize_retailers(pg_cur: psycopg2.extensions.cursor) -> None:
     """Rename retailer values in stg_stores to match app constants."""
     print("\n--- Normalizing retailer names ---")
     for source_name, target_name in RETAILER_NAME_MAP.items():
@@ -250,7 +279,7 @@ def normalize_retailers(pg_cur):
             print(f"  {source_name} -> {target_name} ({pg_cur.rowcount} rows)")
 
 
-def add_category_column(pg_cur):
+def add_category_column(pg_cur: psycopg2.extensions.cursor) -> None:
     print("\n--- Adding category column to dim_products ---")
     for product_line, category in CATEGORY_MAP.items():
         pg_cur.execute(
@@ -263,7 +292,12 @@ def add_category_column(pg_cur):
     print(f"  {pg_cur.fetchone()[0]} products categorized")
 
 
-def seed_benchmarks(pg_cur):
+def seed_benchmarks(pg_cur: psycopg2.extensions.cursor) -> None:
+    """Seed synthetic category benchmarks from Cinderhaven's own scan data.
+
+    Multiplies Cinderhaven's average velocity by fixed factors to approximate
+    what a category management platform would report as the category average.
+    """
     print("\n--- Seeding stg_category_benchmarks ---")
     pg_cur.execute("""
         CREATE TABLE IF NOT EXISTS stg_category_benchmarks (
@@ -315,7 +349,7 @@ def seed_benchmarks(pg_cur):
     print(f"  Total: {total} benchmark rows")
 
 
-def create_indexes(pg_cur):
+def create_indexes(pg_cur: psycopg2.extensions.cursor) -> None:
     print("\n--- Creating indexes ---")
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_scan_data_store ON stg_scan_data(store_id)",
@@ -334,7 +368,7 @@ def create_indexes(pg_cur):
         print(f"  Created idx_{name}")
 
 
-def main():
+def main() -> None:
     if not SQLITE_PATH:
         print("ERROR: SQLITE_PATH not set. Export it or pass as env var.")
         print("  e.g.: set SQLITE_PATH=C:\\path\\to\\cinderhaven_product_master.db")
@@ -356,7 +390,7 @@ def main():
         try:
             pg_conn.autocommit = False
             with pg_conn.cursor() as cur:
-                failed = []
+                failed: list[str] = []
                 for table_name, table_def in TABLE_DEFINITIONS.items():
                     try:
                         load_table(sqlite_conn, cur, table_name, table_def)

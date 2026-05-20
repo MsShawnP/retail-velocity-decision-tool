@@ -33,6 +33,8 @@ from constants import (
 )
 from db import get_conn
 
+log = logging.getLogger("warm_cache")
+
 # ============================================================
 # Cache setup (FileSystemCache, 24-hour default)
 # ============================================================
@@ -1046,16 +1048,14 @@ def get_category_benchmark_weekly(
 def warm_default_view() -> None:
     """Synchronously warm the default view so the first page load has data
     immediately.  Called before the background thread."""
-    log = logging.getLogger("warm_cache")
-
     try:
         get_product_lines()
         get_latest_week()
         get_shelf_defense_data("Walmart", None)
         get_portfolio_summary()
         log.info("default view warmed")
-    except Exception:
-        log.warning("warm_default_view failed — app will serve with cold cache", exc_info=True)
+    except Exception as exc:
+        log.warning("warm_default_view failed (%s) — app will serve with cold cache", type(exc).__name__)
 
 
 def warm_cache() -> None:
@@ -1063,7 +1063,6 @@ def warm_cache() -> None:
     never hit a cold cache.  Runs in a background thread after the default
     view is already warm."""
     import time
-    log = logging.getLogger("warm_cache")
 
     from constants import (
         ALL_PHYSICAL_OR_AGG,
