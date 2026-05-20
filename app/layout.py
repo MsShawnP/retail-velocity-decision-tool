@@ -1,9 +1,8 @@
 """Cinderhaven Velocity Tool -- page layout with sidebar and main content.
 
-Sidebar ported from velocity_tool.py lines 4384-4655. Contains the brand
-header, decision picker, and eight filter groups (one per decision mode).
-Main content area holds a dcc.Loading wrapper around a single div that
-the dispatcher callback owns.
+Sidebar contains the brand header, decision picker, and filter groups
+(one per decision mode). Main content area holds a dcc.Loading wrapper
+around a single div that the dispatcher callback owns.
 """
 
 from __future__ import annotations
@@ -26,10 +25,10 @@ from data import get_product_lines, get_skus_for_line
 # ============================================================
 
 def _brand_header() -> html.Div:
-    """CINDERHAVEN / P R O V I S I O N S / Velocity Tool."""
+    """Cinderhaven Provisions / Velocity Tool — Lailara brand header."""
     return html.Div([
-        html.Div("CINDERHAVEN", className="brand-name"),
-        html.Div("P R O V I S I O N S", className="brand-sub"),
+        html.Div("Cinderhaven", className="brand-name"),
+        html.Div("PROVISIONS", className="brand-sub"),
         html.Div("Velocity Tool", className="brand-tool"),
     ], style={"marginBottom": "1.25rem"})
 

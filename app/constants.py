@@ -3,29 +3,93 @@
 Extracted from velocity_tool.py lines 29-163. Every color, threshold,
 retailer list, and status-color map lives here so both the legacy Streamlit
 app and the new Dash app import from the same source of truth.
+
+Color palette: Lailara Design System v2 — city-named color families.
 """
 
 from __future__ import annotations
 
 # ============================================================
-# Cinderhaven brand palette
+# Lailara Design System v2 — color palette
 # ============================================================
 
-NAVY         = "#1B2A4A"   # primary headings, emphasis
-NAVY_MED     = "#3D5A80"   # subheadings, secondary text
-TEAL         = "#1E8C7E"   # positive / safe / accent
-RED          = "#C0221F"   # critical / at-risk
-DARK_RED     = "#8B0000"   # "worse than red" -- used for promo-backfired bars
-ORANGE       = "#D35830"   # warning
-GREY         = "#636E72"   # muted text, labels
-GREY_LIGHT   = "#DFE6E9"   # borders, dividers, gridlines
-GREY_BG      = "#F8F9FA"   # alternating rows
-WHITE        = "#FFFFFF"
-RED_FAINT    = "#FFF5F5"   # critical alert backgrounds
-GREEN_FAINT  = "#F0FFF4"   # positive alert backgrounds
-ORANGE_FAINT = "#FFF8F0"   # warning alert backgrounds (derived)
-DARK_RED_FAINT = "#FBE9E7" # backfired-promo row backgrounds
-PAGE_BG      = "#DADDE3"   # main content area
+# Canvas
+CANVAS       = "#f5f3ee"
+
+# London greyscale
+INK          = "#0d0d0d"   # London-5: chart titles, primary headings
+NAVY         = "#0d0d0d"   # alias — legacy import compat (maps to London-5 ink)
+TEXT         = "#333333"   # London-20: body text, secondary headings
+NAVY_MED     = "#595959"   # alias — legacy import compat (maps to London-35)
+TEXT_SEC     = "#595959"   # London-35: axis text, tick labels, chart subtitles
+REFERENCE    = "#666666"   # London-40: reference lines (median, benchmark)
+GREY         = "#666666"   # alias — legacy import compat (maps to London-40)
+GREY_LIGHT   = "#d9d9d9"   # London-85: gridlines, hairline dividers
+GREY_BG      = "#f2f2f2"   # London-95: alternating rows, soft surfaces
+WHITE        = "#ffffff"
+PAGE_BG      = "#f5f3ee"   # canvas — warm off-white replaces cold grey
+
+# Brand red (Economist Red)
+RED          = "#cc100a"   # Red-42: brand accent, critical status
+DARK_RED     = "#7a0906"   # Red-18: emphasis, promo-backfired bars
+
+# Accent — Chicago (blue)
+CHICAGO      = "#1f2e7a"   # Chicago-20: primary button, chart anchor
+CHICAGO_LT   = "#8e9ad0"   # Chicago-70: chart light pair
+
+# Secondary — Hong Kong (teal)
+TEAL         = "#158f75"   # HK-35: positive / safe / accent
+HK_DARK      = "#0c6552"   # HK-20: chart dark pair
+HK_LIGHT     = "#6dcdb5"   # HK-70: chart light pair
+
+# Secondary — Tokyo (berry/rose)
+TOKYO        = "#b82d4a"   # Tokyo-40: contrast data, alert-adjacent
+TOKYO_DARK   = "#7e1f34"   # Tokyo-20: chart dark pair
+TOKYO_LIGHT  = "#e68a9a"   # Tokyo-70: chart light pair
+
+# Tertiary — Singapore (orange)
+ORANGE       = "#ee8a2a"   # SG-55: warning, warm emphasis
+SG_DARK      = "#7a3d10"   # SG-20: chart dark pair
+SG_LIGHT     = "#f6b97c"   # SG-70: chart light pair
+
+# Surface tints (step 95 — surface fills only, never data bars)
+RED_FAINT    = "#fce8e7"   # Red-95
+GREEN_FAINT  = "#e4f5f0"   # HK-95
+ORANGE_FAINT = "#fdeee0"   # SG-95
+DARK_RED_FAINT = "#fbe9ed" # Tokyo-95
+
+# Benchmark reference
+BENCHMARK_REF = "#666666"  # London-40, dashed 2px — replaces old blue
+
+# Fonts
+FONT_SERIF   = "'Playfair Display', Georgia, 'Times New Roman', serif"
+FONT_SANS    = "'Source Sans 3', 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+
+# Categorical chart palette (paired: 5 families × 2 stops)
+CHART_PALETTE = [
+    "#1f2e7a",  # Chicago-20
+    "#8e9ad0",  # Chicago-70
+    "#0c6552",  # HK-20
+    "#6dcdb5",  # HK-70
+    "#7e1f34",  # Tokyo-20
+    "#e68a9a",  # Tokyo-70
+    "#7a3d10",  # SG-20
+    "#f6b97c",  # SG-70
+    "#8e0b07",  # Red-20
+    "#ee8880",  # Red-70
+]
+
+# Trend line palette (distinct hues for multi-SKU line charts)
+TREND_PALETTE = [
+    "#1f2e7a",  # Chicago-20
+    "#0c6552",  # HK-20
+    "#7e1f34",  # Tokyo-20
+    "#7a3d10",  # SG-20
+    "#8e0b07",  # Red-20
+    "#8e9ad0",  # Chicago-70
+    "#6dcdb5",  # HK-70
+    "#e68a9a",  # Tokyo-70
+]
 
 # ============================================================
 # Policy thresholds
@@ -132,7 +196,7 @@ CATEGORY_MAP = {
     "Pantry Staples":        "Dry Grocery & Baking",
 }
 
-BENCHMARK_BLUE = "#2196F3"   # category benchmark reference color
+BENCHMARK_BLUE = "#666666"   # London-40: category benchmark reference line
 
 # ============================================================
 # Status -> bar/line/text color
@@ -176,13 +240,13 @@ PRUNING_ROW = {
 # ============================================================
 
 RETAILER_COLORS = {
-    "Walmart":     NAVY,
-    "Costco":      TEAL,
-    "Whole Foods": ORANGE,
-    "Kroger":      "#5C6BC0",   # indigo, distinct from navy
-    "Sprouts":     "#43A047",   # green, matches Sprouts branding
-    "Regional":    NAVY_MED,
-    "UNFI":        GREY,
-    "KeHE":        "#8D6E63",   # warm brown, distinct from UNFI grey
-    "DTC":         "#8B6F47",   # warm muted, distinguishes from the rest
+    "Walmart":     CHICAGO,       # Chicago-20
+    "Costco":      HK_DARK,       # HK-20
+    "Whole Foods": SG_DARK,       # SG-20
+    "Kroger":      TOKYO_DARK,    # Tokyo-20
+    "Sprouts":     TEAL,          # HK-35
+    "Regional":    CHICAGO_LT,    # Chicago-70
+    "UNFI":        GREY,          # London-40
+    "KeHE":        SG_LIGHT,      # SG-70
+    "DTC":         TOKYO_LIGHT,   # Tokyo-70
 }

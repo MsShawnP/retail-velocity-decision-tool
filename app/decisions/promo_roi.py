@@ -24,17 +24,19 @@ from components import (
     status_legend,
 )
 from constants import (
+    CANVAS,
+    FONT_SANS,
     GREEN_FAINT,
     GREY,
     GREY_LIGHT,
-    NAVY,
+    INK,
     NAVY_MED,
     ORANGE,
     ORANGE_FAINT,
-    PAGE_BG,
     RED,
     RED_FAINT,
     TEAL,
+    TEXT_SEC,
     THRESHOLDS,
     WHITE,
 )
@@ -257,7 +259,7 @@ def layout(
             y=bars["label"], x=bars["ROI %"], orientation="h",
             marker_color=colors,
             text=bars["ROI %"].map(lambda v: f"{v:+.0f}%"),
-            textposition="outside", textfont=dict(size=12, color=NAVY),
+            textposition="outside", textfont=dict(size=12, color=INK),
             cliponaxis=False,
             customdata=list(zip(
                 bars["Product Name"],
@@ -456,7 +458,7 @@ def register_callbacks(app) -> None:
 
         # Color the trend line by ROI verdict
         if roi is None or pd.isna(roi):
-            line_color = NAVY
+            line_color = INK
         elif roi > 0:
             line_color = TEAL
         else:
@@ -507,21 +509,21 @@ def register_callbacks(app) -> None:
 
         fig.update_layout(
             template="simple_white",
-            paper_bgcolor=PAGE_BG, plot_bgcolor=WHITE,
+            paper_bgcolor=CANVAS, plot_bgcolor=WHITE,
             height=420,
             margin=dict(l=10, r=10, t=40, b=40),
             yaxis=dict(
                 title="Units per store per week",
-                title_font=dict(size=14, color=NAVY_MED),
-                tickfont=dict(size=13, color=NAVY),
+                title_font=dict(size=14, color=TEXT_SEC),
+                tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
                 gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
             ),
             xaxis=dict(
-                tickfont=dict(size=13, color=NAVY),
+                tickfont=dict(family=FONT_SANS, size=12, color=TEXT_SEC),
                 gridcolor=GREY_LIGHT, linecolor=GREY_LIGHT,
             ),
             showlegend=False,
-            font=dict(family="sans-serif", size=14, color=NAVY),
+            font=dict(family=FONT_SANS, size=14, color=INK),
         )
 
         return html.Div([

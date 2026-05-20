@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import pytest
 
 from charts import apply_hbar_layout, base_chart_layout, text_annotation, add_vline_at_date
-from constants import NAVY, PAGE_BG, WHITE
+from constants import CANVAS, INK, PAGE_BG
 
 
 # ============================================================
@@ -24,8 +24,8 @@ class TestBaseChartLayout:
 
     def test_brand_colors(self):
         layout = base_chart_layout(height=400)
-        assert layout["paper_bgcolor"] == PAGE_BG
-        assert layout["plot_bgcolor"] == WHITE
+        assert layout["paper_bgcolor"] == CANVAS
+        assert layout["plot_bgcolor"] == CANVAS
 
     def test_axis_titles(self):
         layout = base_chart_layout(height=400, x_title="Velocity", y_title="SKU")
