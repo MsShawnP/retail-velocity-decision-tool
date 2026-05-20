@@ -26,7 +26,6 @@ from constants import (
     LAUNCH_BENCHMARK,
     PHYSICAL_RETAILERS,
     REGIONAL_CHAINS,
-    RETAILER_ID_MAP,
     RETAILER_THRESHOLDS,
     THRESHOLDS,
     VOLUME_TIER_MULT,
@@ -122,8 +121,8 @@ def get_promo_skus(retailer: str) -> list[str]:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT DISTINCT sku FROM stg_promotions WHERE retailer_id = %s ORDER BY sku",
-            (RETAILER_ID_MAP.get(retailer, retailer),),
+            "SELECT DISTINCT sku FROM stg_promotions WHERE retailer = %s ORDER BY sku",
+            (retailer,),
         )
         return [r[0] for r in cur.fetchall()]
 
@@ -533,7 +532,6 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
 @cache.memoize(timeout=3600)
 def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     ret_sql, ret_params = retailer_clause(retailer)
-    retailer_id = RETAILER_ID_MAP.get(retailer, retailer)
 
     sku_clause = ""
     sku_params: list = []
@@ -554,7 +552,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
                    discount_depth_pct, promo_type,
                    'All Stores' AS store_scope
             FROM stg_promotions p
-            WHERE p.retailer_id = %s {sku_clause}
+            WHERE p.retailer = %s {sku_clause}
         ),
         sku_store_first_scan AS (
             SELECT sku, store_id, MIN(week_ending) AS first_scan
@@ -598,7 +596,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
         ORDER BY p.start_week DESC
     """
     with get_conn() as conn:
-        df = pd.read_sql(sql, conn, params=ret_params + [retailer, retailer_id] + sku_params)
+        df = pd.read_sql(sql, conn, params=ret_params + [retailer, retailer] + sku_params)
     if df.empty:
         return df
 
@@ -853,7 +851,6 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
     get_pricing_power_data in velocity_tool.py.
     """
     ret_sql, ret_params = retailer_clause(retailer)
-    retailer_id = RETAILER_ID_MAP.get(retailer, retailer)
 
     sku_clause = ""
     sku_params: list = []
@@ -868,7 +865,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         ),
         sku_promos AS (
             SELECT sku, start_week, end_week, discount_depth_pct
-            FROM stg_promotions WHERE retailer_id = %s
+            FROM stg_promotions WHERE retailer = %s
         ),
         promo_window AS (
             SELECT DISTINCT sp.sku, sd.week_ending
@@ -917,7 +914,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         ORDER BY pm.sku
     """
     with get_conn() as conn:
-        df = pd.read_sql(sql, conn, params=ret_params + [retailer_id] + sku_params)
+        df = pd.read_sql(sql, conn, params=ret_params + [retailer] + sku_params)
     if df.empty:
         return df
     if product_line_filter:
