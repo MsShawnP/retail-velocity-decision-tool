@@ -1,37 +1,56 @@
 # Handoff — Retail Velocity Decision Tool
 
-## Session ended: 2026-05-17
+## Session ended: 2026-05-16
 
-### Status: Data Integrity Hardening COMPLETE — all 3 batches shipped and deployed
+### Status: Moves 5–9 complete, mobile UX polished, all merged to main
 
 ### What shipped this session
-- **PR #13/#14** — Batch 1: div-by-zero fixes (promo ROI, shelf defense trend), seasonal validation warning, threshold consolidation (3 hardcoded 2.0 → `LAUNCH_BENCHMARK`), cache TTL reduced 24h → 6h
-- **PR #15** — Batch 2a + Batch 3 + review followups: startup data contract validation (7 SQL checks on boot), calculation chain tests (160 total), `calcs.py` extraction for testability, `dropna` → `fillna(0)` for zero-velocity SKU visibility, `get_latest_week()` empty-table guard
-- **PR #16** — Batch 2b: threshold recalibration based on live velocity distributions. Retailer thresholds: Walmart 2.0→5.0, Costco 5.0→27.0, Whole Foods 1.5→2.5, Regional 1.0→2.0. Production trend ±10%→±15%. Launch benchmark 2.0→4.0.
-- **DB scaled** from 256MB to 1GB to handle analytical queries
+- **Mobile sidebar fix** — starts collapsed on mobile so users see the dashboard
+  first. Toggle button reads "☰ Show Filters & Navigation" / "☰ Hide Filters".
+  Desktop unaffected via CSS media query override.
+- **Bar chart label overflow** — reduced text font 14→12, fewer decimal places,
+  increased x_pad_pct to 0.30 across all 7 decision modes with bar charts.
+- **Trend chart y-axis fix** — replaced `autorange=True` with explicit range
+  that includes threshold + category avg reference lines (they were off-screen).
+- **Plotly modebar hidden on mobile** — toolbar icons overlapped annotations
+  and are useless on touch screens.
+- **Merged PR #12** into main (squash merge).
 
-### PRs (all merged)
-- [#13](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/13), [#14](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/14), [#15](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/15), [#16](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/16)
+### PRs merged
+- [#10 — Moves 5–9](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/10) (merged prior session)
+- [#12 — Mobile UX polish + chart y-axis fix](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/12)
 
-### What needs doing next
-1. **Verify live classifications** — spot-check the deployed app to confirm the recalibrated thresholds produce sensible At Risk / Safe / Warning distributions
-2. **Competitive benchmarking** — out of scope (requires new synthetic data), natural next decision area
-3. **`base_chart_layout` time-series helper** — extract if more trend charts are added
-4. **Cache TTL restoration** — currently 6h for validation period; return to 24h once data is confirmed stable
+### What's left (verification only)
+- Move 6 verify: first-visitor load time <3s with warm cache
+- Move 7 verify: eyeball on iPhone SE / Pixel viewport sizes
+
+### Possible next moves
+1. **Move 10: "How do I compare?" mode** — standalone benchmarking decision mode
+   (deferred from Move 8). Would give category benchmarks their own view instead
+   of being reference lines on other charts.
+2. **Inline styles cleanup** — AUDIT finding #6, low-medium priority.
+3. **Time-series layout helper** — extract `time_series_layout()` from the
+   repeated pattern in shelf_defense, launch_health, production trend charts.
 
 ### Known risks
-- `fct_distribution` was created via direct SQL, not dbt. Won't auto-refresh.
-- Fly DB scaled to 1GB ($12/mo vs $3/mo) — could downscale once analytical queries are done.
+- `fct_distribution` created via direct SQL, not dbt. Won't auto-refresh.
+- Cache TTL is 24h. Persistent volume survives deploys but not TTL expiry.
 - Fly machine occasionally stops unexpectedly despite `auto_stop_machines = 'off'`.
 
 ### Architecture notes
 - Cache: `flask-caching` FileSystemCache at `/cache/dash` (Fly volume, 1GB)
 - DB: Postgres via psycopg2, PID-aware ThreadedConnectionPool (maxconn=10)
 - Deploy: `fly deploy` from local, Dockerfile builds from `app/` directory
-- New data functions: `get_portfolio_summary`, `get_weekly_velocity_trend`, `get_weekly_total_units`, `get_launch_velocity_curve`
+- Tests: 80 tests across 7 modules, CI via GitHub Actions (ruff + pytest)
+- Live: https://retail-velocity-decision-tool.fly.dev/
 
 ---
 
-## Session ended: 2026-05-13 ~8:30pm ET (prior session)
+## Session ended: 2026-05-15 (prior session)
 
-### Status: BLOCKED on performance — resolved in 2026-05-14 session above
+### Status: PLAN.md complete — PR #8 open, ready for merge
+
+### What shipped
+- A1–A4: Portfolio health dashboard (data layer, landing page, drill-down nav)
+- B1–B2: Narrative insights + trend charts on all decision modes
+- C: End-to-end polish

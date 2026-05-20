@@ -1045,11 +1045,14 @@ def warm_default_view() -> None:
     immediately.  Called before the background thread."""
     log = logging.getLogger("warm_cache")
 
-    get_product_lines()
-    get_latest_week()
-    get_shelf_defense_data("Walmart", None)
-    get_portfolio_summary()
-    log.info("default view warmed")
+    try:
+        get_product_lines()
+        get_latest_week()
+        get_shelf_defense_data("Walmart", None)
+        get_portfolio_summary()
+        log.info("default view warmed")
+    except Exception:
+        log.warning("warm_default_view failed — app will serve with cold cache", exc_info=True)
 
 
 def warm_cache() -> None:
