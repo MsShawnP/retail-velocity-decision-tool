@@ -10,18 +10,21 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 
 import pandas as pd
 import psycopg2
 from flask_caching import Cache
 
 from calcs import (
-    apply_expansion_calcs,
     apply_pricing_calcs,
     apply_production_calcs,
     apply_promo_calcs,
+    classify_launch,
+    classify_shelf_status,
 )
 from constants import (
+    ALL_PHYSICAL_OR_AGG,
     CATEGORY_MAP,
     LAUNCH_BENCHMARK,
     PHYSICAL_RETAILERS,
@@ -158,18 +161,16 @@ def get_portfolio_summary() -> dict:
     # -- Shelf risk: per-retailer classification, count unique at-risk SKUs --
     at_risk_skus: set[str] = set()
     warning_skus: set[str] = set()
-    shelf_warn_mult = THRESHOLDS["shelf_warning_mult"]
     for ret in PHYSICAL_RETAILERS:
         shelf = get_shelf_defense_data(ret, None)
         if shelf.empty:
             continue
         thr = RETAILER_THRESHOLDS.get(ret, 2.0)
-        warn_upper = thr * shelf_warn_mult
+        shelf = classify_shelf_status(shelf, thr)
         for _, row in shelf.iterrows():
-            c, t = row["current_v"], row["trailing_v"]
-            if c < thr:
+            if row["status"] == "At Risk":
                 at_risk_skus.add(row["sku"])
-            elif c < warn_upper and pd.notna(t) and t > c:
+            elif row["status"] == "Warning":
                 warning_skus.add(row["sku"])
     warning_skus -= at_risk_skus
 
@@ -180,28 +181,13 @@ def get_portfolio_summary() -> dict:
     launch_failing = 0
     launch_attention = 0
     if not launches.empty:
-        on_track_ret = THRESHOLDS["launch_on_track"]
-        failing_floor = THRESHOLDS["launch_failing"]
         launch_thr = LAUNCH_BENCHMARK
-        for _, row in launches.iterrows():
-            initial, current = row["v_w14"], row["v_current"]
-            if pd.isna(current):
-                launch_attention += 1
-            elif pd.isna(initial):
-                if current >= launch_thr:
-                    launch_on_track += 1
-                else:
-                    launch_attention += 1
-            elif current >= launch_thr:
-                if current < initial * on_track_ret:
-                    launch_attention += 1
-                else:
-                    launch_on_track += 1
-            elif (current < initial * on_track_ret
-                  or current < launch_thr * failing_floor):
-                launch_failing += 1
-            else:
-                launch_attention += 1
+        launches["_status"] = launches.apply(
+            lambda r: classify_launch(r, launch_thr), axis=1,
+        )
+        launch_on_track = int((launches["_status"] == "On Track").sum())
+        launch_failing = int((launches["_status"] == "Failing").sum())
+        launch_attention = int((launches["_status"] == "Needs Attention").sum())
 
     # -- Rationalization: total weekly margin --
     rat = get_rationalization_data("All Retailers", None)
@@ -242,6 +228,9 @@ def get_weekly_velocity_trend(
 
     Returns columns: sku, product_name, week_ending, avg_velocity.
     """
+    if not skus:
+        return pd.DataFrame()
+    skus = sorted(skus)
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
     ph = ",".join(["%s"] * len(skus))
@@ -350,7 +339,7 @@ def get_data_quality_summary() -> dict:
             try:
                 cur.execute(f"SELECT COUNT(*) FROM {tbl}")  # noqa: S608
                 count = cur.fetchone()[0]
-            except Exception:
+            except psycopg2.Error:
                 count = 0
             check_key = f"table_{tbl}"
             ok = checks.get(check_key, (False, ""))[0]
@@ -641,13 +630,7 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     """Stores where focus_sku is NOT authorized but same-line SKUs perform well."""
     latest = get_latest_week()
 
-    if retailer is None or retailer == "All Retailers":
-        ret_sql, ret_params = "1=1", []
-    elif retailer == "Regional":
-        ph = ",".join("%s" for _ in REGIONAL_CHAINS)
-        ret_sql, ret_params = f"s.chain_name IN ({ph})", list(REGIONAL_CHAINS)
-    else:
-        ret_sql, ret_params = "s.chain_name = %s", [retailer]
+    ret_sql, ret_params = retailer_clause(retailer or "All Retailers")
 
     sql = f"""
         WITH focus AS (SELECT product_line FROM dim_products WHERE sku = %s),
@@ -976,26 +959,22 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
     with get_conn() as conn:
         ch_df = pd.read_sql(ch_sql, conn, params=ret_params + [latest])
 
-    if ch_df.empty:
-        return ch_df
+        if ch_df.empty:
+            return ch_df
 
-    # Map product_line to category
-    ch_df["category"] = ch_df["product_line"].map(CATEGORY_MAP)
+        # Map product_line to category
+        ch_df["category"] = ch_df["product_line"].map(CATEGORY_MAP)
 
-    # Category benchmarks (8-week avg)
-    # Use retailer name directly for the benchmark table (handles Regional
-    # by matching individual chain names — fall back to overall avg).
-    # Wrapped in try/except because the table may not exist yet.
-    cat_sql = """
-        SELECT category,
-               AVG(avg_velocity) AS category_avg
-        FROM stg_category_benchmarks
-        WHERE retailer = %s
-          AND (%s::date - week_ending::date) < 56
-        GROUP BY category
-    """
-    try:
-        with get_conn() as conn:
+        # Category benchmarks (8-week avg, same connection)
+        cat_sql = """
+            SELECT category,
+                   AVG(avg_velocity) AS category_avg
+            FROM stg_category_benchmarks
+            WHERE retailer = %s
+              AND (%s::date - week_ending::date) < 56
+            GROUP BY category
+        """
+        try:
             cat_df = pd.read_sql(cat_sql, conn, params=[retailer, latest])
             if cat_df.empty and retailer == "Regional":
                 cat_df = pd.read_sql(
@@ -1009,9 +988,9 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
                     conn,
                     params=[latest],
                 )
-    except psycopg2.Error:
-        logging.getLogger("data").debug("stg_category_benchmarks unavailable", exc_info=True)
-        cat_df = pd.DataFrame()
+        except psycopg2.Error:
+            logging.getLogger("data").debug("stg_category_benchmarks unavailable", exc_info=True)
+            cat_df = pd.DataFrame()
 
     if cat_df.empty:
         return ch_df.assign(category_avg=pd.NA, vs_category_pct=pd.NA)
@@ -1073,13 +1052,6 @@ def warm_cache() -> None:
     """Pre-call every retailer x mode combination so dropdown switches
     never hit a cold cache.  Runs in a background thread after the default
     view is already warm."""
-    import time
-
-    from constants import (
-        ALL_PHYSICAL_OR_AGG,
-        PHYSICAL_RETAILERS,
-    )
-
     time.sleep(2)
 
     calls: list[tuple[str, object]] = [
@@ -1106,7 +1078,7 @@ def warm_cache() -> None:
             first_sku = pairs[0][0]
             for ret in [None] + PHYSICAL_RETAILERS:
                 label = ret or "All"
-                calls.append((f"expansion({label})", lambda r=ret: get_expansion_data(first_sku, r)))
+                calls.append((f"expansion({label})", lambda r=ret, sku=first_sku: get_expansion_data(sku, r)))
 
     for name, fn in calls:
         try:

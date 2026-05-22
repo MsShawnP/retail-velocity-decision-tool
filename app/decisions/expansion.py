@@ -150,13 +150,13 @@ def layout(
 
     # Bucket by retailer category for row count line
     def _ret_cat(r: str) -> str:
-        if r in ("Walmart", "Costco", "Whole Foods"):
+        if r in ("Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts"):
             return r
         return "Regional"
     cat_counts = show["retailer"].map(_ret_cat).value_counts()
     bucket_parts = [
         (int(cat_counts.get(c, 0)), c)
-        for c in ("Walmart", "Costco", "Whole Foods", "Regional")
+        for c in ("Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts", "Regional")
         if cat_counts.get(c, 0) > 0
     ]
 

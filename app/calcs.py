@@ -12,7 +12,7 @@ import pandas as pd
 from constants import THRESHOLDS, VOLUME_TIER_MULT
 
 
-def apply_production_calcs(df: pd.DataFrame) -> pd.DataFrame:
+def apply_production_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Weekly units/cases, seasonal factor, 4-week forecast, trend & status."""
     df = df.copy()
     df["weekly_units"] = (df["sum_recent"] / 4).round(0)
@@ -97,6 +97,56 @@ def apply_pricing_calcs(df: pd.DataFrame) -> pd.DataFrame:
 
     df["recovery_status"] = df["recovery_ratio"].apply(recovery_label)
     return df
+
+
+def classify_shelf_status(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    """Classify SKUs as At Risk / Warning / Safe based on velocity threshold."""
+    df = df.copy()
+    df["trend_pct"] = (df["current_v"] - df["trailing_v"]) / df["trailing_v"].replace(0, pd.NA) * 100
+    warn_mult = THRESHOLDS["shelf_warning_mult"]
+    warn_upper = threshold * warn_mult
+
+    def classify(row: pd.Series) -> str:
+        c = row["current_v"]
+        t = row["trailing_v"]
+        if c < threshold:
+            return "At Risk"
+        if c < warn_upper and pd.notna(t) and t > c:
+            return "Warning"
+        return "Safe"
+
+    df["status"] = df.apply(classify, axis=1)
+    return df
+
+
+def classify_launch(row: pd.Series, threshold: float) -> str:
+    """Classify a single launch row as On Track / Needs Attention / Failing."""
+    on_track_retention = THRESHOLDS["launch_on_track"]
+    failing_floor = THRESHOLDS["launch_failing"]
+    initial = row["v_w14"]
+    current = row["v_current"]
+    if pd.isna(current):
+        return "Needs Attention"
+    if pd.isna(initial):
+        return "On Track" if current >= threshold else "Needs Attention"
+    if current >= threshold:
+        return "Needs Attention" if current < initial * on_track_retention else "On Track"
+    if current < initial * on_track_retention:
+        return "Failing"
+    if current < threshold * failing_floor:
+        return "Failing"
+    return "Needs Attention"
+
+
+def classify_quadrant(row: pd.Series) -> str:
+    """Assign a SKU to a rationalization quadrant based on velocity/margin flags."""
+    if row["high_velocity"] and row["high_margin"]:
+        return "Winner"
+    if row["high_velocity"] and not row["high_margin"]:
+        return "Volume play"
+    if not row["high_velocity"] and row["high_margin"]:
+        return "Niche / slow"
+    return "Cut candidate"
 
 
 def apply_expansion_calcs(df: pd.DataFrame) -> pd.DataFrame:

@@ -174,24 +174,35 @@ def register_callbacks(app) -> None:
         promo_sku = _none_if(promo_sku, "All SKUs")
         exp_ret = _none_if(exp_ret, "All Retailers")
 
-        if idx == 0:
-            return shelf_layout(shelf_ret, shelf_thr, shelf_pl)
-        elif idx == 1:
-            return production_layout(prod_ret, prod_pl)
-        elif idx == 2:
-            return promo_layout(promo_ret, promo_sku)
-        elif idx == 3:
-            return expansion_layout(exp_pl, exp_sku, exp_ret)
-        elif idx == 4:
-            return pruning_layout(prune_ret, prune_thr, prune_pl)
-        elif idx == 5:
-            return rationalization_layout(rat_ret, rat_pl)
-        elif idx == 6:
-            return launch_layout()
-        elif idx == 7:
-            return pricing_layout(price_ret, price_scope, price_pl, price_sku)
-        elif idx == 8:
-            return data_quality_layout()
+        if shelf_thr is not None and shelf_thr <= 0:
+            shelf_thr = RETAILER_THRESHOLDS.get(shelf_ret, 2.0)
+        if prune_thr is not None and prune_thr <= 0:
+            prune_thr = RETAILER_THRESHOLDS.get(prune_ret, 2.0) if prune_ret else 2.0
+
+        try:
+            if idx == 0:
+                return shelf_layout(shelf_ret, shelf_thr, shelf_pl)
+            elif idx == 1:
+                return production_layout(prod_ret, prod_pl)
+            elif idx == 2:
+                return promo_layout(promo_ret, promo_sku)
+            elif idx == 3:
+                return expansion_layout(exp_pl, exp_sku, exp_ret)
+            elif idx == 4:
+                return pruning_layout(prune_ret, prune_thr, prune_pl)
+            elif idx == 5:
+                return rationalization_layout(rat_ret, rat_pl)
+            elif idx == 6:
+                return launch_layout()
+            elif idx == 7:
+                return pricing_layout(price_ret, price_scope, price_pl, price_sku)
+            elif idx == 8:
+                return data_quality_layout()
+        except Exception as exc:
+            return error_card(
+                "Decision mode failed",
+                f"An unexpected error occurred: {exc}",
+            )
 
         title = DECISION_TITLES.get(decision, decision)
         return html.Div(
@@ -346,8 +357,13 @@ def register_callbacks(app) -> None:
             return no_update
         product_line = None if product_line == "All" else product_line
         threshold = RETAILER_THRESHOLDS.get(retailer, 2.0)
-        info = build_pitch_excel(retailer, product_line, threshold)
-        return dcc.send_bytes(info["content"], info["filename"])
+        try:
+            info = build_pitch_excel(retailer, product_line, threshold)
+            return dcc.send_bytes(info["content"], info["filename"])
+        except Exception:
+            import logging
+            logging.getLogger("pitch_export").exception("Excel export failed")
+            return no_update
 
     # ----------------------------------------------------------
     # g) Pitch export: PDF
@@ -364,5 +380,10 @@ def register_callbacks(app) -> None:
             return no_update
         product_line = None if product_line == "All" else product_line
         threshold = RETAILER_THRESHOLDS.get(retailer, 2.0)
-        info = build_pitch_pdf(retailer, product_line, threshold)
-        return dcc.send_bytes(info["content"], info["filename"])
+        try:
+            info = build_pitch_pdf(retailer, product_line, threshold)
+            return dcc.send_bytes(info["content"], info["filename"])
+        except Exception:
+            import logging
+            logging.getLogger("pitch_export").exception("PDF export failed")
+            return no_update

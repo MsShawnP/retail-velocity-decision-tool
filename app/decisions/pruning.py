@@ -50,9 +50,8 @@ def layout(
     product_line: str | None,
 ) -> html.Div:
     """Return the full Dash component tree for Distribution Pruning."""
-    latest = get_latest_week()
-
     try:
+        latest = get_latest_week()
         pairs = get_pruning_data(retailer, product_line)
     except Exception as exc:
         return error_card(

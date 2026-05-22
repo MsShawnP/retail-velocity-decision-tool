@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, callback_context, dcc, html, no_update
 
+from calcs import classify_shelf_status as _classify_shelf_status
 from charts import apply_hbar_layout, base_chart_layout, text_annotation
 from components import (
     chart_legend,
@@ -46,29 +47,6 @@ from data import (
 
 
 # ============================================================
-# Classifier (from velocity_tool.py classify_shelf_status)
-# ============================================================
-
-def _classify_shelf_status(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
-    df = df.copy()
-    df["trend_pct"] = (df["current_v"] - df["trailing_v"]) / df["trailing_v"].replace(0, pd.NA) * 100
-    warn_mult = THRESHOLDS["shelf_warning_mult"]
-    warn_upper = threshold * warn_mult
-
-    def classify(row: pd.Series) -> str:
-        c = row["current_v"]
-        t = row["trailing_v"]
-        if c < threshold:
-            return "At Risk"
-        if c < warn_upper and pd.notna(t) and t > c:
-            return "Warning"
-        return "Safe"
-
-    df["status"] = df.apply(classify, axis=1)
-    return df
-
-
-# ============================================================
 # Layout
 # ============================================================
 
@@ -78,9 +56,8 @@ def layout(
     product_line: str | None,
 ) -> html.Div:
     """Return the full Dash component tree for Shelf Defense."""
-    latest = get_latest_week()
-
     try:
+        latest = get_latest_week()
         df = get_shelf_defense_data(retailer, product_line)
     except Exception as exc:
         return error_card(
@@ -300,7 +277,10 @@ def layout(
     trend_chart_elements = []
     watch_skus = df.loc[df["status"].isin(["At Risk", "Warning"]), "sku"].tolist()
     if watch_skus:
-        trend_df = get_weekly_velocity_trend(retailer, watch_skus)
+        try:
+            trend_df = get_weekly_velocity_trend(retailer, watch_skus)
+        except Exception:
+            trend_df = pd.DataFrame()
         if not trend_df.empty:
             trend_fig = go.Figure()
             # Distinct palette so each SKU line is visually separable

@@ -52,9 +52,8 @@ def layout(
     product_line: str | None,
 ) -> html.Div:
     """Return the full Dash component tree for Production Planning."""
-    latest = get_latest_week()
-
     try:
+        latest = get_latest_week()
         df = get_production_data(retailer, product_line)
     except Exception as exc:
         return error_card(
@@ -85,7 +84,7 @@ def layout(
     if n_accel > 0:
         headline = (
             f"{n_accel} of {n_total} SKUs are accelerating "
-            f"(velocity up >10%) and may stock out without a production increase."
+            f"(velocity up >{THRESHOLDS['production_trend_accel'] * 100:.0f}%) and may stock out without a production increase."
         )
     elif n_decel > 0:
         headline = (

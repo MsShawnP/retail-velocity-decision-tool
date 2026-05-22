@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, State, callback_context, dcc, html, no_update
 
+from calcs import classify_launch as _classify_launch
 from charts import add_vline_at_date, apply_hbar_layout, base_chart_layout, text_annotation
 from components import (
     chart_legend,
@@ -44,28 +45,6 @@ from data import get_latest_week, get_launch_data, get_launch_velocity_curve, ge
 
 
 # ============================================================
-# Classifier (from velocity_tool.py classify_launch)
-# ============================================================
-
-def _classify_launch(row: pd.Series, threshold: float) -> str:
-    on_track_retention = THRESHOLDS["launch_on_track"]
-    failing_floor = THRESHOLDS["launch_failing"]
-    initial = row["v_w14"]
-    current = row["v_current"]
-    if pd.isna(current):
-        return "Needs Attention"
-    if pd.isna(initial):
-        return "On Track" if current >= threshold else "Needs Attention"
-    if current >= threshold:
-        return "Needs Attention" if current < initial * on_track_retention else "On Track"
-    if current < initial * on_track_retention:
-        return "Failing"
-    if current < threshold * failing_floor:
-        return "Failing"
-    return "Needs Attention"
-
-
-# ============================================================
 # Status colors and row tints
 # ============================================================
 
@@ -83,9 +62,8 @@ LAUNCH_STATUS_COLORS = {
 def layout() -> html.Div:
     """Return the full Dash component tree for Launch Health."""
     threshold = LAUNCH_BENCHMARK
-    latest = get_latest_week()
-
     try:
+        latest = get_latest_week()
         df = get_launch_data()
     except Exception as exc:
         return error_card(
@@ -220,7 +198,7 @@ def layout() -> html.Div:
 
     # Chart: horizontal bar showing current velocity per launch
     n_show = min(15, len(display_df))
-    chart_df = display_df.nsmallest(n_show, "Current Vel").copy()
+    chart_df = display_df.sort_values("Current Vel", na_position="first").head(n_show).copy()
     chart_title = (
         f"The {n_show} weakest launches by current velocity"
         if n_fail > 0

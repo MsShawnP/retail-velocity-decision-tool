@@ -18,9 +18,7 @@ CANVAS       = "#f5f3ee"
 
 # London greyscale
 INK          = "#0d0d0d"   # London-5: chart titles, primary headings
-NAVY         = "#0d0d0d"   # alias — legacy import compat (maps to London-5 ink)
 TEXT         = "#333333"   # London-20: body text, secondary headings
-NAVY_MED     = "#595959"   # alias — legacy import compat (maps to London-35)
 TEXT_SEC     = "#595959"   # London-35: axis text, tick labels, chart subtitles
 REFERENCE    = "#666666"   # London-40: reference lines (median, benchmark)
 GREY         = "#666666"   # alias — legacy import compat (maps to London-40)

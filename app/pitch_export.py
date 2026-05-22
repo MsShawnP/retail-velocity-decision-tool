@@ -13,6 +13,7 @@ from io import BytesIO
 import pandas as pd
 from fpdf import FPDF
 
+from calcs import classify_launch, classify_quadrant, classify_shelf_status
 from constants import CHICAGO, GREY, LAUNCH_BENCHMARK, INK, TEXT_SEC
 from data import (
     get_latest_week,
@@ -21,8 +22,6 @@ from data import (
     get_rationalization_data,
     get_shelf_defense_data,
 )
-from decisions.launch_health import _classify_launch
-from decisions.shelf_defense import _classify_shelf_status
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
@@ -41,7 +40,7 @@ def _gather(retailer: str, product_line: str | None, threshold: float) -> dict:
 
     shelf_df = get_shelf_defense_data(retailer, product_line)
     if not shelf_df.empty:
-        shelf_df = _classify_shelf_status(shelf_df, threshold)
+        shelf_df = classify_shelf_status(shelf_df, threshold)
 
     prod_df = get_production_data(retailer, product_line)
 
@@ -51,20 +50,12 @@ def _gather(retailer: str, product_line: str | None, threshold: float) -> dict:
         median_m = rat_df["margin_per_sw"].median()
         rat_df["high_velocity"] = rat_df["velocity"] > median_v
         rat_df["high_margin"] = rat_df["margin_per_sw"] > median_m
-        rat_df["quadrant"] = rat_df.apply(
-            lambda r: (
-                "Winner" if r["high_velocity"] and r["high_margin"]
-                else "Volume play" if r["high_velocity"]
-                else "Niche / slow" if r["high_margin"]
-                else "Cut candidate"
-            ),
-            axis=1,
-        )
+        rat_df["quadrant"] = rat_df.apply(classify_quadrant, axis=1)
 
     launch_df = get_launch_data()
     if not launch_df.empty:
         launch_df["status"] = launch_df.apply(
-            lambda r: _classify_launch(r, threshold=LAUNCH_BENCHMARK), axis=1
+            lambda r: classify_launch(r, threshold=LAUNCH_BENCHMARK), axis=1
         )
 
     return {
@@ -95,8 +86,8 @@ def _display_production(df: pd.DataFrame) -> pd.DataFrame:
         "Product Name": df["product_name"],
         "Doors": df["doors"],
         "Weekly Units": df["weekly_units"].round(0).astype(int),
-        "Weekly Cases": df["weekly_cases"].round(0).astype(int),
-        "4-Wk Forecast (cases)": df["forecast_4w_cases"].round(0).astype(int),
+        "Weekly Cases": df["weekly_cases"].fillna(0).round(0).astype(int),
+        "4-Wk Forecast (cases)": df["forecast_4w_cases"].fillna(0).round(0).astype(int),
         "Trend %": df["trend_pct"].round(2),
         "Status": df["status"],
     }
