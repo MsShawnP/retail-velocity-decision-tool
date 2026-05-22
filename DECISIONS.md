@@ -111,3 +111,19 @@
 **Why:** Plotly's autorange only considers scatter trace data, not `add_hline` shapes. With data at ~2.5–3.0, autorange set the y-axis to ~2.3–3.2, cutting off the threshold (2.00) and category avg (7.19) reference lines entirely.
 
 **Tradeoff:** Slightly more code per trend chart (5 lines to compute range). The alternative — adding invisible traces at reference values to influence autorange — felt hackier.
+
+## 2026-05-22: Accept mobile breakpoint divergence from design system (#13)
+
+**Decision:** Keep the CSS mobile breakpoint at 768px instead of the Lailara Design System's 640px.
+
+**Why:** This tool is used by retail analysts on desktop. Mobile traffic is effectively zero. Changing the breakpoint would require visually verifying all 9 decision modes at the new width — real QA work for a use case that doesn't exist.
+
+**Revisit when:** The tool needs to support mobile or tablet use (e.g., buyers pulling it up during in-store meetings). At that point, change `@media (max-width: 767.98px)` to `639.98px` in `app/assets/style.css` and verify all decision modes at the new breakpoint.
+
+## 2026-05-22: Accept pool.getconn() having no timeout (#32)
+
+**Decision:** Leave `psycopg2.pool.ThreadedConnectionPool.getconn()` without a timeout. If all 10 connections are in use, the 11th caller blocks indefinitely.
+
+**Why:** With 1 gunicorn worker and synchronous Dash callbacks, exhausting 10 connections requires 10 simultaneous in-flight queries — effectively impossible. The `statement_timeout=30000` already bounds how long any single connection is held (30s max), so even a worst-case block is self-correcting.
+
+**Revisit when:** Scaling to multiple gunicorn workers or adding async query patterns. Multiple workers sharing the same pool makes exhaustion realistic. Fix by wrapping `getconn()` in a `threading.Timer` or switching to SQLAlchemy's pool (which has native `pool_timeout`).
