@@ -103,13 +103,21 @@ class TestTrendPct:
         assert df["trend_pct"].iloc[0] == pytest.approx(-20.0)
         assert df["status"].iloc[0] == "Decelerating"
 
-    def test_prior_zero_produces_nan_and_stable(self):
+    def test_prior_zero_with_current_positive_is_accelerating(self):
         df = _apply(pd.DataFrame([_prod_row(phys_v_recent=5.0, phys_v_prior=0.0)]))
         assert pd.isna(df["trend_pct"].iloc[0])
+        assert df["status"].iloc[0] == "Accelerating"
+
+    def test_prior_zero_current_zero_is_stable(self):
+        df = _apply(pd.DataFrame([_prod_row(phys_v_recent=0.0, phys_v_prior=0.0)]))
         assert df["status"].iloc[0] == "Stable"
 
-    def test_prior_nan_produces_stable(self):
+    def test_prior_nan_with_current_positive_is_accelerating(self):
         df = _apply(pd.DataFrame([_prod_row(phys_v_recent=5.0, phys_v_prior=None)]))
+        assert df["status"].iloc[0] == "Accelerating"
+
+    def test_prior_nan_current_zero_is_stable(self):
+        df = _apply(pd.DataFrame([_prod_row(phys_v_recent=0.0, phys_v_prior=None)]))
         assert df["status"].iloc[0] == "Stable"
 
     def test_boundary_at_10_percent(self):

@@ -21,6 +21,7 @@ env/
 
 # Claude Code internal state
 .claude/scheduled_tasks.lock
+.claude/worktrees/
 
 # Environment
 .env

@@ -1,6 +1,6 @@
 """Tests for startup data contract validation.
 
-Mocks the database connection to verify each of the 7 SQL checks
+Mocks the database connection to verify each of the 9 SQL checks
 returns correct (passed, detail) tuples for both healthy and degraded data.
 """
 
@@ -46,7 +46,11 @@ def _healthy_cursor():
         retailers_rows,
         # Check 6: orphan SKUs
         (0,),
-        # Check 7: distribution dates
+        # Check 7: scan data grain
+        (0,),
+        # Check 8: cost completeness
+        (0,),
+        # Check 9: distribution dates
         (100, 0),
     ]
     return _make_cursor(responses)
@@ -72,7 +76,7 @@ class TestTableExistence:
         responses = [
             (0,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [], retailers_rows, (0,), (100, 0),
+            (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ]
         cur = _make_cursor(responses)
         conn.cursor.return_value = cur
@@ -103,7 +107,7 @@ class TestDateCoverage:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 400),
-            (0,), [], retailers_rows, (0,), (100, 0),
+            (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -118,7 +122,7 @@ class TestDateCoverage:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-06-01", "2025-03-01", 273),
-            (0,), [], retailers_rows, (0,), (100, 0),
+            (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -136,7 +140,7 @@ class TestCasePackQty:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [], retailers_rows, (0,), (100, 0),
+            (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -151,7 +155,7 @@ class TestCasePackQty:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (3,), [], retailers_rows, (0,), (100, 0),
+            (3,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -169,7 +173,7 @@ class TestVolumeTiers:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [("D",), ("E",)], retailers_rows, (0,), (100, 0),
+            (0,), [("D",), ("E",)], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -187,7 +191,7 @@ class TestRetailerNames:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [], partial, (0,), (100, 0),
+            (0,), [], partial, (0,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -205,7 +209,7 @@ class TestSKUCostCoverage:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [], retailers_rows, (5,), (100, 0),
+            (0,), [], retailers_rows, (5,), (0,), (0,), (100, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -223,7 +227,7 @@ class TestDistributionDates:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [], retailers_rows, (0,), (100, 10),
+            (0,), [], retailers_rows, (0,), (0,), (0,), (100, 10),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
@@ -239,7 +243,7 @@ class TestDistributionDates:
         cur = _make_cursor([
             (100,), (50,), (30,), (20,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
-            (0,), [], retailers_rows, (0,), (0, 0),
+            (0,), [], retailers_rows, (0,), (0,), (0,), (0, 0),
         ])
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)

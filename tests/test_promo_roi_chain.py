@@ -10,7 +10,12 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from calcs import apply_promo_calcs as _apply_promo_calcs
+from calcs import apply_promo_calcs as _raw_apply_promo_calcs
+
+
+def _apply_promo_calcs(df):
+    result, _ = _raw_apply_promo_calcs(df)
+    return result
 from constants import THRESHOLDS
 from decisions.promo_roi import _roi_tier
 
@@ -57,6 +62,14 @@ class TestBaselineGuard:
         result = _apply_promo_calcs(df)
         assert len(result) == 1
         assert result["promo_id"].iloc[0] == "P002"
+
+    def test_exclusion_count_returned(self):
+        df = pd.DataFrame([
+            _promo_row(promo_id="P001", baseline_v=0.0),
+            _promo_row(promo_id="P002", baseline_v=10.0),
+        ])
+        _, n_excluded = _raw_apply_promo_calcs(df)
+        assert n_excluded == 1
 
 
 class TestLiftPct:

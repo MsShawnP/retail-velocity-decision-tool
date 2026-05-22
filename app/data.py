@@ -30,7 +30,6 @@ from constants import (
     PHYSICAL_RETAILERS,
     REGIONAL_CHAINS,
     RETAILER_THRESHOLDS,
-    THRESHOLDS,
     VOLUME_TIER_MULT,
 )
 from db import get_conn
@@ -156,7 +155,7 @@ def get_portfolio_summary() -> dict:
     prod_decel = int((prod["status"] == "Decelerating").sum())
     prod_stable = total_skus - prod_accel - prod_decel
     weekly_units = int(prod["weekly_units"].sum())
-    forecast_4w_cases = int(prod["forecast_4w_cases"].sum())
+    forecast_4w_cases = int(prod["forecast_4w_cases"].sum().round(0))
 
     # -- Shelf risk: per-retailer classification, count unique at-risk SKUs --
     at_risk_skus: set[str] = set()
@@ -386,6 +385,8 @@ def get_data_quality_summary() -> dict:
         "volume_tiers": "Volume Tiers",
         "retailer_names": "Retailer Names",
         "sku_cost_coverage": "SKU Cost Coverage",
+        "scan_data_grain": "Scan Data Grain",
+        "cost_completeness": "Cost Completeness",
         "distribution_dates": "Distribution Dates",
     }
     for name, (ok, detail) in checks.items():
@@ -450,6 +451,7 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
         df = pd.read_sql(sql, conn, params=ret_params + [latest, latest, latest, latest])
     if product_line:
         df = df[df["product_line"] == product_line]
+    df["has_current_data"] = df["current_v"].notna()
     df["current_v"] = df["current_v"].fillna(0)
     return df.reset_index(drop=True)
 
@@ -519,7 +521,7 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
 
 
 @cache.memoize(timeout=3600)
-def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
+def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFrame, int]:
     ret_sql, ret_params = retailer_clause(retailer)
 
     sku_clause = ""
@@ -594,7 +596,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
     with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + promo_params + sku_params)
     if df.empty:
-        return df
+        return df, 0
 
     return apply_promo_calcs(df)
 
@@ -758,6 +760,8 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
     if df.empty:
         return df
 
+    df["wholesale_price"] = pd.to_numeric(df["wholesale_price"], errors="coerce")
+    df["cogs_per_unit"] = pd.to_numeric(df["cogs_per_unit"], errors="coerce")
     df["margin_per_unit"] = (df["wholesale_price"] - df["cogs_per_unit"]).round(2)
     df["margin_per_sw"] = (df["velocity"] * df["margin_per_unit"]).round(2)
     df["revenue_per_sw"] = (df["velocity"] * df["wholesale_price"]).round(2)
@@ -977,6 +981,10 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
         try:
             cat_df = pd.read_sql(cat_sql, conn, params=[retailer, latest])
             if cat_df.empty and retailer == "Regional":
+                logging.getLogger("data").info(
+                    "No Regional-specific category benchmarks; "
+                    "falling back to cross-retailer average"
+                )
                 cat_df = pd.read_sql(
                     """
                     SELECT category,
@@ -988,6 +996,8 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
                     conn,
                     params=[latest],
                 )
+                if not cat_df.empty:
+                    cat_df["_is_global_fallback"] = True
         except psycopg2.Error:
             logging.getLogger("data").debug("stg_category_benchmarks unavailable", exc_info=True)
             cat_df = pd.DataFrame()

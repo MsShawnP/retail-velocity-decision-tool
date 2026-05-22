@@ -86,10 +86,9 @@ def layout(
         "Baseline = 4 weeks pre-promo. Post = 3 weeks after end."
         "  Stores with <4 weeks of pre-promo scan data are excluded."
     )
-    caption_text = "  |  ".join(caption_parts)
 
     try:
-        df = get_promo_roi_data(retailer, sku_filter)
+        df, n_excluded = get_promo_roi_data(retailer, sku_filter)
     except Exception as exc:
         return error_card(
             "Promo ROI query failed",
@@ -100,6 +99,8 @@ def layout(
         msg = f"No promotions found for {retailer}"
         if sku_filter:
             msg += f" / {sku_filter}"
+        if n_excluded:
+            msg += f" ({n_excluded} excluded — insufficient pre-promo scan data)"
         return empty_state(msg + ".")
 
     df = df.dropna(subset=["baseline_v", "promo_v"])
@@ -116,6 +117,12 @@ def layout(
         return empty_state(
             "All promos for this retailer were stranded (no in-window scan data)."
         )
+
+    if n_excluded:
+        caption_parts.append(
+            f"{n_excluded} promo(s) excluded — no baseline scan data"
+        )
+    caption_text = "  |  ".join(caption_parts)
 
     # Three-tier ROI bucketing
     roi_strong_pct = THRESHOLDS["roi_strong"] * 100

@@ -90,9 +90,9 @@ class TestVerdict:
         row = pd.Series({"elasticity": -0.5, "recovery_status": "Full Recovery"})
         assert _verdict(row) == "Promo backfired"
 
-    def test_nan_elasticity_uses_recovery(self):
+    def test_nan_elasticity_returns_insufficient_data(self):
         row = pd.Series({"elasticity": float("nan"), "recovery_status": "Full Recovery"})
-        assert _verdict(row) == "Promote again"
+        assert _verdict(row) == "Insufficient data"
 
 
 # ============================================================
@@ -150,7 +150,7 @@ class TestExpansionTiers:
         ]
         df = _apply_expansion_calcs(pd.DataFrame(rows))
         assert len(df["tier"].unique()) == 1
-        assert df["tier"].iloc[0] == "Worth considering"
+        assert df["tier"].iloc[0] == "All equivalent"
 
 
 # ============================================================

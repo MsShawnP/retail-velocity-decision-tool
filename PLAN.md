@@ -105,6 +105,44 @@ historically appeared (data functions, callbacks, edge cases). ✓ 80 tests
 
 ---
 
+### Move 10: Data Integrity & Calculation Correctness — DONE ✓
+
+`/improve` pass focused on reconciliation with Postgres and calculation/assumption correctness.
+3-agent deep audit (data integrity, calculation correctness, assumption audit).
+
+- [x] Fix forecast rounding (premature .round(2) on cases)
+- [x] Promo baseline guard — return excluded count, show in UI
+- [x] Pricing elasticity guard — use min_discount threshold
+- [x] Seasonal factor — read clip bounds from THRESHOLDS dict
+- [x] Production trend status — detect zero/NaN prior → Accelerating
+- [x] Promo exclusion transparency in UI
+- [x] Pricing "Insufficient data" verdict for NaN elasticity
+- [x] Shelf defense current_v null detection before fillna
+- [x] Regional benchmark fallback with logging
+- [x] Rationalization wholesale_price null guard
+- [x] Launch classifier dead branch cleanup
+- [x] Scan data grain validation check (new)
+- [x] Cost completeness validation check (new)
+- [x] Portfolio health label clarity
+- [x] Missing threshold constants added to THRESHOLDS dict
+- [x] Expansion "All equivalent" tier
+- [x] Unused import cleanup
+
+Done when: All 17 findings fixed, 163 tests passing, no new lint issues. ✓
+
+---
+
+## Improvement History
+
+### 2026-05-22 — Improvement pass
+- **Trigger:** User-initiated `/improve` focused on data reconciliation and calculation correctness
+- **What was reviewed:** Calculation chains (production, promo ROI, pricing, expansion), data contract validation, assumption hardcoding, UI transparency
+- **What was fixed:** 17 findings — 5 critical, 8 important, 4 nice-to-have (see Move 10)
+- **Deferred:** None — all findings addressed
+- **Next review:** 2026-06-22
+
+---
+
 ## Out of Scope
 
 - ML-based forecasting (seasonal factor is honest for synthetic data)

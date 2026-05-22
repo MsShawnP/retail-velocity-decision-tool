@@ -116,6 +116,15 @@ THRESHOLDS = {
     "shelf_warning_mult":       1.5,    # warning zone = [thr, 1.5*thr] AND declining
     # Promo ROI: cutoff between "marginal positive" and "strong" returns
     "roi_strong":               1.0,    # ROI > 100% (>1.0) -> Strong; 0-100% -> Marginal; <0% -> Negative
+    # Production: seasonal factor clipping range
+    "seasonal_clip_lower":      0.5,    # floor for year-over-year ratio
+    "seasonal_clip_upper":      2.0,    # cap for year-over-year ratio
+    # Promo ROI: baseline/post-promo window days
+    "promo_baseline_days":      28,     # 4 weeks before promo start
+    "promo_post_start_days":    7,      # first day of post-promo window (after end)
+    "promo_post_end_days":      21,     # last day of post-promo window (after end)
+    # Pricing Power: minimum discount to compute meaningful elasticity
+    "pricing_min_discount":     0.01,   # ignore promos with <1% avg discount
 }
 
 # ============================================================

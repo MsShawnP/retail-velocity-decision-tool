@@ -1,69 +1,60 @@
 # Handoff — Retail Velocity Decision Tool
 
-## Session ended: 2026-05-20
+## Session ended: 2026-05-22
 
-### Status: Post-Lailara DS v2 QA — 13 review findings fixed + deployed, but user reports more bugs remain
+### Status: `/improve` pass complete — 17 data integrity & calculation fixes applied
 
 ### What shipped this session
-- **Lailara Design System v2 QA fixes** — ran 5-agent `/ce:review` (correctness,
-  maintainability, kieran-python, testing, adversarial). Found 13 issues across
-  P0–P3 severity. All fixed and deployed.
-- Key fixes:
-  - `pitch_export.py` — `_hex_to_rgb` was splitting import blocks (fragile)
-  - `components.py` — AG Grid `autoHeight` now only for ≤100 rows (was freezing
-    browser on large pruning/rationalization grids)
-  - `data.py` — `get_promo_roi_data` and `get_pricing_data` now handle "All
-    Retailers" correctly (was filtering `WHERE retailer = 'All Retailers'` which
-    matches zero DB rows)
-  - `promo_roi.py` — NaN guards on format strings (was crashing on all-NaN columns)
-  - `charts.py` — auto-margin capped at 40 chars (was producing 1300px+ margins
-    on long labels), None-safe label handling
-  - `pruning.py` — store tab `overflow: hidden` → `overflow-y: auto`
-  - `constants.py` — deleted dead `RETAILER_ID_MAP` and misleading `BENCHMARK_BLUE`
-  - `layout.py` — removed double-scrollbar inline style
-  - `rationalization.py` — added missing `dash-footer` class
-  - `callbacks.py` — type guard in `sync_pitch_retailer`
+- **Deployed prior code review fixes** to Fly.io
+- **`/improve` pass** — 3-agent deep audit focused on data reconciliation with Postgres and calculation/assumption correctness
+- **17 fixes across 10 files:**
+  - 5 CRITICAL: forecast rounding, promo baseline guard, pricing elasticity guard, seasonal factor hardcoding, production trend status
+  - 8 IMPORTANT: promo exclusion UI transparency, pricing "Insufficient data" verdict, shelf defense null detection, regional benchmark fallback, rationalization null guard, launch classifier cleanup, 2 new validation checks
+  - 4 NICE TO HAVE: portfolio health label, threshold constants, expansion "All equivalent" tier, unused import cleanup
+- **3 new tests** added (163 total, all passing)
+- **Return type changes:** `apply_promo_calcs` → `tuple[DataFrame, int]`, production status → row-based function
 
-### What's broken (user says stuff is still broken)
-- User reports there are STILL bugs visible on the live site
-- User explicitly requested a "DEEP AUDIT AND CODE REVIEW" next session
-- The prior round found 13 issues but was scoped to the DS v2 migration diff only
-- **Next session must audit the ENTIRE codebase**, not just recent changes
-
-### Next concrete action
-1. Open the live site in a browser and systematically test EVERY decision mode
-2. Run `/ce:review` against a broader scope (full codebase, not just a diff)
-3. Fix everything found before declaring QA complete
-
-### Commits this session
-- `acd5228` — Fix 13 bugs from multi-agent code review (deployed)
+### Files changed
+- `app/calcs.py` — forecast rounding, trend status, promo return type, elasticity guard, seasonal clip, launch classifier, expansion tier
+- `app/constants.py` — 6 new threshold constants
+- `app/data.py` — promo return type, shelf defense, regional fallback, rationalization guard, validation friendly names, removed unused import
+- `app/validation.py` — 2 new data contract checks (scan grain, cost completeness)
+- `app/decisions/production.py` — display rounding fix
+- `app/decisions/promo_roi.py` — exclusion transparency
+- `app/decisions/pricing_power.py` — "Insufficient data" verdict + styling
+- `app/decisions/expansion.py` — "All equivalent" tier
+- `app/decisions/portfolio_health.py` — label clarity
+- `tests/` — 4 test files updated for new behavior + 3 new tests
 
 ### Tests
-- 160 tests passing (up from 80 in prior session — test files were added between sessions)
+- 163 tests passing. No regressions.
 
 ### Known risks (carried forward)
 - `fct_distribution` created via direct SQL, not dbt. Won't auto-refresh.
 - Cache TTL is 24h. Persistent volume survives deploys but not TTL expiry.
 - Fly machine occasionally stops unexpectedly despite `auto_stop_machines = 'off'`.
 
+### Next concrete action
+1. Commit these changes
+2. Deploy to Fly (`fly deploy`)
+3. Next `/improve` due: 2026-06-22
+
 ### Architecture notes
 - Cache: `flask-caching` FileSystemCache at `/cache/dash` (Fly volume, 1GB)
 - DB: Postgres via psycopg2, PID-aware ThreadedConnectionPool (maxconn=10)
 - Deploy: `fly deploy` from local, Dockerfile builds from `app/` directory
-- Tests: 160 tests across 7+ modules, CI via GitHub Actions (ruff + pytest)
+- Tests: 163 tests across 7+ modules, CI via GitHub Actions (ruff + pytest)
 - Live: https://retail-velocity-decision-tool.fly.dev/
 
 ---
 
-## Session ended: 2026-05-16 (prior session)
+## Session ended: 2026-05-20 (prior session)
 
-### Status: Moves 5–9 complete, mobile UX polished, all merged to main
+### Status: Post-Lailara DS v2 QA — 13 review findings fixed + deployed
 
 ### What shipped
-- Mobile sidebar fix, bar chart label overflow, trend chart y-axis fix
-- Plotly modebar hidden on mobile
-- Merged PR #12
+- 13 bugs fixed from multi-agent code review (scoped to DS v2 migration diff)
+- Key fixes: AG Grid autoHeight, pitch_export hex parsing, promo NaN guards, chart margins
 
-### PRs merged
-- [#10 — Moves 5–9](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/10)
-- [#12 — Mobile UX polish + chart y-axis fix](https://github.com/MsShawnP/retail-velocity-decision-tool/pull/12)
+### Commits
+- `acd5228` — Fix 13 bugs from multi-agent code review
