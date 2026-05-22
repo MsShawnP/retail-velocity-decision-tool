@@ -1,8 +1,8 @@
 # Handoff — Retail Velocity Decision Tool
 
-## Session ended: 2026-05-22
+## Session ended: 2026-05-22 (wrapped)
 
-### Status: `/improve` pass complete — 17 data integrity & calculation fixes applied
+### Status: `/improve` pass complete + `/ce:compound` documented + deployed
 
 ### What shipped this session
 - **Deployed prior code review fixes** to Fly.io
@@ -34,10 +34,15 @@
 - Cache TTL is 24h. Persistent volume survives deploys but not TTL expiry.
 - Fly machine occasionally stops unexpectedly despite `auto_stop_machines = 'off'`.
 
+### Commits this session
+- `ca7ce07` — Fix 17 data integrity and calculation correctness issues from /improve audit
+- `60f1bd2` — Add Dockerfile and fly.toml for reproducible deploys
+- `aa946ef` — Add solution doc for calculation correctness fixes and CLAUDE.md
+
 ### Next concrete action
-1. Commit these changes
-2. Deploy to Fly (`fly deploy`)
-3. Next `/improve` due: 2026-06-22
+1. Next `/improve` due: 2026-06-22
+2. Dependency audit never run — consider `pip audit`
+3. Threshold recalibration deferred (prior session analysis showed all thresholds below p10)
 
 ### Architecture notes
 - Cache: `flask-caching` FileSystemCache at `/cache/dash` (Fly volume, 1GB)
