@@ -117,7 +117,10 @@ def layout() -> html.Div:
         subhead = "All clear this week — portfolio is running healthy."
 
     # Category benchmark (portfolio-wide)
-    bench_df = get_category_benchmark("Walmart")  # largest retailer as proxy
+    try:
+        bench_df = get_category_benchmark("Walmart")
+    except Exception:
+        bench_df = pd.DataFrame()
     bench_vs_pct = None
     if not bench_df.empty and "vs_category_pct" in bench_df.columns:
         valid = bench_df.dropna(subset=["vs_category_pct"])

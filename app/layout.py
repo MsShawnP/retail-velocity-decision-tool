@@ -230,8 +230,16 @@ def _sidebar() -> html.Div:
     )
     return html.Div([
         _brand_header(),
-        html.Button(
-            "☰ Show Filters & Navigation",
+        html.Button([
+            html.Span(
+                html.Img(
+                    src="/assets/menu.svg",
+                    style={"width": "18px", "height": "18px", "verticalAlign": "middle"},
+                ),
+                style={"marginRight": "0.4rem"},
+            ),
+            "Show Filters & Navigation",
+        ],
             id="sidebar-toggle",
             n_clicks=0,
             className="sidebar-toggle",

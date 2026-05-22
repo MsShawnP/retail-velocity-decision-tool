@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 
+import psycopg2
+
 from constants import (
     PHYSICAL_RETAILERS,
     REGIONAL_CHAINS,
@@ -47,7 +49,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                     results[f"table_{table}"] = (True, f"{count:,} rows")
                 else:
                     results[f"table_{table}"] = (False, "table exists but is empty")
-            except Exception as exc:
+            except psycopg2.Error as exc:
                 results[f"table_{table}"] = (False, f"missing or inaccessible: {exc}")
 
         # 2. Data coverage spans >=392 days (required for seasonal factor)
@@ -68,7 +70,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                     False,
                     f"{min_d} to {max_d} ({span} days) — need >=392 for seasonal factor",
                 )
-        except Exception as exc:
+        except psycopg2.Error as exc:
             results["date_coverage"] = (False, str(exc))
 
         # 3. No zero/null case_pack_qty in dim_products
@@ -84,7 +86,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                 results["case_pack_qty"] = (
                     False, f"{bad} products with null/zero case_pack_qty"
                 )
-        except Exception as exc:
+        except psycopg2.Error as exc:
             results["case_pack_qty"] = (False, str(exc))
 
         # 4. Volume tier values are all in {A, B, C}
@@ -100,7 +102,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                 results["volume_tiers"] = (
                     False, f"unexpected tiers: {bad_tiers}"
                 )
-        except Exception as exc:
+        except psycopg2.Error as exc:
             results["volume_tiers"] = (False, str(exc))
 
         # 5. Retailer names match expected constants
@@ -116,7 +118,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                 results["retailer_names"] = (
                     False, f"missing from DB: {sorted(missing)}"
                 )
-        except Exception as exc:
+        except psycopg2.Error as exc:
             results["retailer_names"] = (False, str(exc))
 
         # 6. Every scanned SKU has a matching cost row
@@ -134,7 +136,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                 results["sku_cost_coverage"] = (
                     False, f"{orphans} SKUs in scan data without cost records"
                 )
-        except Exception as exc:
+        except psycopg2.Error as exc:
             results["sku_cost_coverage"] = (False, str(exc))
 
         # 7. fct_distribution has valid authorized_dates
@@ -158,7 +160,7 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
                 results["distribution_dates"] = (
                     False, "fct_distribution is empty"
                 )
-        except Exception as exc:
+        except psycopg2.Error as exc:
             results["distribution_dates"] = (False, str(exc))
 
     return results

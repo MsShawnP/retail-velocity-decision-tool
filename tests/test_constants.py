@@ -3,7 +3,7 @@
 from constants import (
     DECISIONS,
     DECISION_TITLES,
-    NAVY,
+    INK,
     PHYSICAL_RETAILERS,
     RETAILER_THRESHOLDS,
     THRESHOLDS,
@@ -29,6 +29,6 @@ def test_retailer_thresholds_cover_physical():
         assert r in RETAILER_THRESHOLDS, f"Missing threshold for {r}"
 
 
-def test_navy_is_hex():
-    assert NAVY.startswith("#")
-    assert len(NAVY) == 7
+def test_ink_is_hex():
+    assert INK.startswith("#")
+    assert len(INK) == 7

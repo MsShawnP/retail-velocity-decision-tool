@@ -45,7 +45,15 @@ init_cache(server)
 
 @server.route("/health")
 def health():
-    return jsonify({"status": "ok"})
+    try:
+        from db import get_conn
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.close()
+        return jsonify({"status": "ok"})
+    except Exception:
+        return jsonify({"status": "db_unavailable"}), 503
 
 
 app.layout = create_layout()

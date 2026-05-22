@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
+import psycopg2
 import pytest
 
 from validation import EXPECTED_RETAILERS, log_validation_results, validate_data_contract
@@ -85,7 +86,7 @@ class TestTableExistence:
     def test_missing_table_fails(self, mock_gc):
         conn = MagicMock()
         cur = MagicMock()
-        cur.execute.side_effect = Exception("relation does not exist")
+        cur.execute.side_effect = psycopg2.ProgrammingError("relation does not exist")
         conn.cursor.return_value = cur
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
         mock_gc.return_value.__exit__ = MagicMock(return_value=False)

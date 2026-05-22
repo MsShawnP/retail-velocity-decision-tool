@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback_context, dcc, html, no_update
 
+from calcs import classify_quadrant
 from charts import apply_hbar_layout
 from components import (
     chart_legend,
@@ -101,21 +102,21 @@ def layout(
     threshold = RETAILER_THRESHOLDS.get(retailer, 1.0)
     if retailer == "All Retailers":
         threshold = RETAILER_THRESHOLDS.get("Walmart", 2.0)
-    latest = get_latest_week()
-
-    caption_text = (
-        f"Retailer scope: {retailer}  |  Window: last 13 weeks  "
-        f"|  Velocity threshold for at-risk: {threshold:.2f} units/store/week  "
-        f"|  Most recent week: {latest}"
-    )
 
     try:
+        latest = get_latest_week()
         df = get_rationalization_data(retailer, product_line)
     except Exception as exc:
         return error_card(
             "SKU Rationalization query failed",
             f"Could not load rationalization data for {retailer}: {exc}",
         )
+
+    caption_text = (
+        f"Retailer scope: {retailer}  |  Window: last 13 weeks  "
+        f"|  Velocity threshold for at-risk: {threshold:.2f} units/store/week  "
+        f"|  Most recent week: {latest}"
+    )
 
     if df.empty:
         msg = f"No SKUs with recent activity at {retailer}"
@@ -173,17 +174,7 @@ def layout(
             f"velocity to justify its shelf space."
         )
 
-    # Quadrant label assignment
-    def quadrant_label(row: pd.Series) -> str:
-        if row["high_velocity"] and row["high_margin"]:
-            return "Winner"
-        if row["high_velocity"] and not row["high_margin"]:
-            return "Volume play"
-        if not row["high_velocity"] and row["high_margin"]:
-            return "Niche / slow"
-        return "Cut candidate"
-
-    df["quadrant"] = df.apply(quadrant_label, axis=1)
+    df["quadrant"] = df.apply(classify_quadrant, axis=1)
 
     display_df = pd.DataFrame({
         "SKU":                df["sku"],
