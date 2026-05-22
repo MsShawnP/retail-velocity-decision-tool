@@ -121,16 +121,21 @@ def layout(
     # Tier boundaries derived from the SCORE RANGE
     score_min = float(df["score"].min())
     score_max = float(df["score"].max())
-    score_span = max(score_max - score_min, 1e-9)
-    solid_floor = score_min + score_span / 3.0
-    strongest_floor = score_min + 2.0 * score_span / 3.0
+    score_span = score_max - score_min
 
-    def _tier_for_score(s: float) -> str:
-        if s >= strongest_floor:
-            return "Strongest"
-        if s >= solid_floor:
-            return "Solid"
-        return "Worth considering"
+    if score_span < 1e-9:
+        def _tier_for_score(s: float) -> str:
+            return "All equivalent"
+    else:
+        solid_floor = score_min + score_span / 3.0
+        strongest_floor = score_min + 2.0 * score_span / 3.0
+
+        def _tier_for_score(s: float) -> str:
+            if s >= strongest_floor:
+                return "Strongest"
+            if s >= solid_floor:
+                return "Solid"
+            return "Worth considering"
 
     # Build display DataFrame (top 30)
     show = df.head(30).copy().reset_index(drop=True)

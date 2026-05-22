@@ -139,7 +139,50 @@ def validate_data_contract() -> dict[str, tuple[bool, str]]:
         except psycopg2.Error as exc:
             results["sku_cost_coverage"] = (False, str(exc))
 
-        # 7. fct_distribution has valid authorized_dates
+        # 7. stg_scan_data grain: each (store_id, week_ending, sku) should be unique
+        try:
+            cur.execute(
+                "SELECT COUNT(*) FROM ("
+                "  SELECT store_id, week_ending, sku"
+                "  FROM stg_scan_data"
+                "  GROUP BY store_id, week_ending, sku"
+                "  HAVING COUNT(*) > 1"
+                ") dupes"
+            )
+            dupes = cur.fetchone()[0]
+            if dupes == 0:
+                results["scan_data_grain"] = (
+                    True, "scan data is unique per (store, week, sku)"
+                )
+            else:
+                results["scan_data_grain"] = (
+                    False,
+                    f"{dupes} duplicate (store, week, sku) combos — "
+                    "AVG velocity may be diluted",
+                )
+        except psycopg2.Error as exc:
+            results["scan_data_grain"] = (False, str(exc))
+
+        # 8. No null wholesale_price or cogs_per_unit in stg_sku_costs
+        try:
+            cur.execute(
+                "SELECT COUNT(*) FROM stg_sku_costs"
+                " WHERE wholesale_price IS NULL OR cogs_per_unit IS NULL"
+            )
+            null_costs = cur.fetchone()[0]
+            if null_costs == 0:
+                results["cost_completeness"] = (
+                    True, "all SKU costs have wholesale_price and cogs_per_unit"
+                )
+            else:
+                results["cost_completeness"] = (
+                    False,
+                    f"{null_costs} SKU cost records with null price or COGS",
+                )
+        except psycopg2.Error as exc:
+            results["cost_completeness"] = (False, str(exc))
+
+        # 9. fct_distribution has valid authorized_dates
         try:
             cur.execute(
                 "SELECT COUNT(*),"

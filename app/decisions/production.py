@@ -97,7 +97,7 @@ def layout(
     # Metric totals
     total_units = int(df["weekly_units"].sum())
     total_cases = int(df["weekly_cases"].sum())
-    forecast_cases = int(df["forecast_4w_cases"].sum())
+    forecast_cases = int(df["forecast_4w_cases"].sum().round(0))
 
     # Insight
     if n_accel > 0 and n_decel > 0:

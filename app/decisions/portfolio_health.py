@@ -142,7 +142,7 @@ def layout() -> html.Div:
         ),
         html.Div(
             metric_card(
-                "Weekly Margin",
+                "Avg Weekly Margin (13wk)",
                 f"${s['total_weekly_margin']:,}",
             ),
             className="dh-metric",

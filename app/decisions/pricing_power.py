@@ -28,6 +28,7 @@ from constants import (
     DARK_RED,
     DARK_RED_FAINT,
     GREY,
+    GREY_BG,
     GREEN_FAINT,
     INK,
     ORANGE,
@@ -50,6 +51,7 @@ VERDICT_COLORS = {
     "Promote cautiously": ORANGE,
     "Stop promoting":     RED,
     "Promo backfired":    DARK_RED,
+    "Insufficient data":  GREY,
 }
 
 VERDICT_ROW_BG = {
@@ -57,12 +59,15 @@ VERDICT_ROW_BG = {
     "Promote cautiously": ORANGE_FAINT,
     "Stop promoting":     RED_FAINT,
     "Promo backfired":    DARK_RED_FAINT,
+    "Insufficient data":  GREY_BG,
 }
 
 
 def _verdict(row: pd.Series) -> str:
     """Single classification combining elasticity sign with recovery tier."""
-    if pd.notna(row["elasticity"]) and row["elasticity"] < 0:
+    if pd.isna(row["elasticity"]):
+        return "Insufficient data"
+    if row["elasticity"] < 0:
         return "Promo backfired"
     return {
         "Full Recovery":    "Promote again",
@@ -148,6 +153,7 @@ def layout(
     n_cautious = int((df["verdict"] == "Promote cautiously").sum())
     n_stop = int((df["verdict"] == "Stop promoting").sum())
     n_backfired = int((df["verdict"] == "Promo backfired").sum())
+    n_insufficient = int((df["verdict"] == "Insufficient data").sum())
 
     # Insight
     if n_stop + n_backfired > 0:
@@ -233,6 +239,10 @@ def layout(
         {
             "condition": "params.data.Outcome === 'Promo backfired'",
             "style": {"backgroundColor": DARK_RED_FAINT, "color": DARK_RED},
+        },
+        {
+            "condition": "params.data.Outcome === 'Insufficient data'",
+            "style": {"backgroundColor": GREY_BG, "color": GREY},
         },
     ]
 
@@ -359,7 +369,7 @@ def layout(
                 (n_cautious, "Promote cautiously"),
                 (n_stop, "Stop promoting"),
                 (n_backfired, "Promo backfired"),
-            ]),
+            ] + ([(n_insufficient, "Insufficient data")] if n_insufficient else [])),
         ],
         grid=grid,
         chart=[
