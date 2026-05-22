@@ -656,6 +656,33 @@ body {
     }
 }
 
+/* ============================================================
+   Retailer breakdown table (Promo ROI)
+   ============================================================ */
+
+.retailer-breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--ll-sans);
+    font-size: 14px;
+    margin-bottom: 1rem;
+}
+
+.retailer-breakdown-table th {
+    text-align: left;
+    padding: 6px 12px;
+    font-weight: 600;
+    color: var(--ll-text-sec);
+    border-bottom: 2px solid var(--ll-gridline);
+    font-size: 13px;
+}
+
+.retailer-breakdown-table td {
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--ll-gridline);
+    color: var(--ll-ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         transition-duration: 0.01ms !important;

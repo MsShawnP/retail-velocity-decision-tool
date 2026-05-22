@@ -86,6 +86,9 @@ def layout(
     effective_pl = product_line if scope == "Product line" else None
     effective_sku = sku_filter if scope == "Specific SKU" else None
 
+    if scope == "Specific SKU" and not effective_sku:
+        return empty_state("Select a SKU to view its pricing power analysis.")
+
     try:
         df = get_pricing_data(retailer, effective_sku, effective_pl)
     except Exception as exc:
@@ -93,6 +96,9 @@ def layout(
             "Pricing Power query failed",
             f"Could not load pricing data for {retailer}: {exc}",
         )
+
+    scope_is_sku = scope == "Specific SKU" and effective_sku
+    showing_fallback = scope_is_sku and len(df) > 1
 
     if df.empty:
         msg = f"No SKUs with valid baseline + promo data at {retailer}"
@@ -319,9 +325,22 @@ def layout(
     safe_ret = retailer.lower().replace(" ", "_")
     safe_scope = (effective_sku or effective_pl or "all").lower().replace(" ", "_")
 
+    # Fallback banner when specific SKU had no promo data
+    fallback_banner = []
+    if showing_fallback:
+        fallback_banner = [html.Div(
+            f"No promo data found for {effective_sku} — showing portfolio-wide view instead.",
+            style={
+                "backgroundColor": "#FFF3E0", "color": ORANGE,
+                "padding": "0.6rem 1rem", "borderRadius": "4px",
+                "fontSize": "0.9rem", "fontWeight": "600",
+                "marginBottom": "0.75rem",
+            },
+        )]
+
     # Assemble the full component tree
     return dashboard_layout(
-        header=[
+        header=fallback_banner + [
             html.H3(headline, className="dh-headline"),
             html.P(insight, className="dh-insight"),
             html.P(caption_text, className="dh-caption"),

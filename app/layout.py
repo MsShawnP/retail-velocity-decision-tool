@@ -138,7 +138,7 @@ def _filters_pruning(product_lines: list[str]) -> html.Div:
 
 def _filters_rationalization(product_lines: list[str]) -> html.Div:
     return html.Div(id="filters-rationalization", style={"display": "none"}, children=[
-        _filter_dropdown("rat-retailer", ["All Retailers"] + PHYSICAL_RETAILERS,
+        _filter_dropdown("rat-retailer", PHYSICAL_RETAILERS,
                          label="Retailer"),
         _filter_dropdown("rat-product-line", ["All"] + product_lines, label="Product Line"),
     ])
