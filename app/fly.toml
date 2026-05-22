@@ -1,0 +1,33 @@
+# fly.toml app configuration file generated for retail-velocity-decision-tool on 2026-05-22T15:29:48-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'retail-velocity-decision-tool'
+primary_region = 'iad'
+
+[[mounts]]
+  source = 'cache_data'
+  destination = '/cache'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[checks]
+  [checks.health]
+    port = 8080
+    type = 'http'
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '1m0s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
