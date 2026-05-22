@@ -99,9 +99,13 @@ def layout(
     product_line: str | None,
 ) -> html.Div:
     """Return the full Dash component tree for SKU Rationalization."""
-    threshold = RETAILER_THRESHOLDS.get(retailer, 1.0)
     if retailer == "All Retailers":
-        threshold = RETAILER_THRESHOLDS.get("Walmart", 2.0)
+        return empty_state(
+            "SKU Rationalization requires a specific retailer — each retailer has "
+            "a different velocity threshold, so portfolio-wide results would be "
+            "misleading. Select a retailer from the dropdown above."
+        )
+    threshold = RETAILER_THRESHOLDS.get(retailer, 1.0)
 
     try:
         latest = get_latest_week()

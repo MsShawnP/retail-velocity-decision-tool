@@ -168,6 +168,58 @@ def layout(
             f"Average lift was {avg_lift:.1f}% across {n_total} promos."
         )
 
+    # Per-retailer breakdown (when All Retailers selected)
+    is_all_retailers = retailer == "All Retailers"
+    retailer_breakdown = []
+    if is_all_retailers and "retailer" in df.columns:
+        ret_summary = (
+            df.groupby("retailer")
+            .agg(
+                promos=("promo_id", "count"),
+                avg_lift=("lift_pct", "mean"),
+                total_incr=("incremental_revenue", "sum"),
+                total_cost=("promo_cost", "sum"),
+                avg_roi=("roi_pct", "mean"),
+            )
+            .reset_index()
+            .sort_values("total_incr", ascending=False)
+        )
+        ret_rows = []
+        for _, r in ret_summary.iterrows():
+            roi_val = r["avg_roi"]
+            if pd.notna(roi_val) and roi_val >= roi_strong_pct:
+                color = TEAL
+            elif pd.notna(roi_val) and roi_val >= 0:
+                color = ORANGE
+            else:
+                color = RED
+            ret_rows.append(html.Tr([
+                html.Td(r["retailer"], style={"fontWeight": "600"}),
+                html.Td(str(int(r["promos"]))),
+                html.Td(f"{r['avg_lift']:+.1f}%"),
+                html.Td(f"${r['total_incr']:,.0f}"),
+                html.Td(f"${r['total_cost']:,.0f}"),
+                html.Td(
+                    f"{roi_val:+.1f}%" if pd.notna(roi_val) else "—",
+                    style={"color": color, "fontWeight": "600"},
+                ),
+            ]))
+        retailer_breakdown = [
+            html.H4("Per-retailer breakdown", style={"marginTop": "1rem", "marginBottom": "0.5rem"}),
+            html.P(
+                "Each retailer's promos measured independently — velocities are "
+                "not blended across different store bases.",
+                style={"color": GREY, "fontSize": "0.85rem", "marginBottom": "0.5rem"},
+            ),
+            html.Table([
+                html.Thead(html.Tr([
+                    html.Th("Retailer"), html.Th("Promos"), html.Th("Avg Lift"),
+                    html.Th("Incr. Revenue"), html.Th("Promo Cost"), html.Th("Avg ROI"),
+                ])),
+                html.Tbody(ret_rows),
+            ], className="retailer-breakdown-table"),
+        ]
+
     # Status legend
     legend_children = [
         html.B("ROI"),
@@ -342,7 +394,7 @@ def layout(
                 (n_marginal, "Marginal ROI"),
                 (n_negative, "Negative ROI"),
             ]),
-        ],
+        ] + retailer_breakdown,
         grid=grid,
         chart=[
             html.H4("Best and worst promos by return on spend", style={"marginTop": "0"}),

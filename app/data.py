@@ -530,10 +530,10 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
 
     if retailer == "All Retailers":
         promo_where = "1=1"
-        promo_params: list = [retailer]
+        promo_params: list = []
     else:
         promo_where = "p.retailer = %s"
-        promo_params = [retailer, retailer]
+        promo_params = [retailer]
 
     sql = f"""
         WITH ret_stores AS (
@@ -542,7 +542,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> pd.DataFrame:
         ),
         promo_list AS (
             SELECT promo_id, sku,
-                   %s AS retailer,
+                   p.retailer,
                    start_week, end_week,
                    ((end_week::date - start_week::date) / 7) AS duration_weeks,
                    discount_depth_pct, promo_type,
