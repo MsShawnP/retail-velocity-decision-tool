@@ -41,7 +41,7 @@
 
 ### Next concrete action
 1. Next `/improve` due: 2026-06-22
-2. Dependency audit never run — consider `pip audit`
+2. Next dep audit due: 2026-07-22
 3. Threshold recalibration deferred (prior session analysis showed all thresholds below p10)
 
 ### Architecture notes
