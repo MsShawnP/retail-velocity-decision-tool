@@ -7,23 +7,38 @@ pandas math.  This makes the business logic independently testable.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from constants import THRESHOLDS, VOLUME_TIER_MULT
 
 
+def _ensure_numeric(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """Coerce columns to float — handles psycopg2 Decimal objects."""
+    for c in cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    return df
+
+
 def apply_production_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Weekly units/cases, seasonal factor, 4-week forecast, trend & status."""
     df = df.copy()
+    df = _ensure_numeric(df, [
+        "sum_recent", "case_pack_qty", "sum_ly_forward", "sum_ly_current",
+        "phys_v_prior", "phys_v_recent",
+    ])
     df["weekly_units"] = (df["sum_recent"] / 4).round(0)
     cpq = df["case_pack_qty"].replace(0, pd.NA)
     df["weekly_cases"] = (df["weekly_units"] / cpq).round(2)
 
-    sf = df["sum_ly_forward"] / df["sum_ly_current"].replace(0, pd.NA)
+    ly_fwd = pd.to_numeric(df["sum_ly_forward"], errors="coerce")
+    ly_cur = pd.to_numeric(df["sum_ly_current"], errors="coerce").replace(0, np.nan)
+    sf = ly_fwd / ly_cur
     n_defaulted = int(sf.isna().sum())
     clip_lo = THRESHOLDS["seasonal_clip_lower"]
     clip_hi = THRESHOLDS["seasonal_clip_upper"]
-    sf = sf.where(sf.notna(), 1.0).clip(lower=clip_lo, upper=clip_hi)
+    sf = sf.fillna(1.0).clip(lower=clip_lo, upper=clip_hi)
     df["seasonal_factor"] = sf
     df["forecast_4w_units"] = (df["weekly_units"] * sf * 4).round(0)
     df["forecast_4w_cases"] = df["forecast_4w_units"] / cpq
@@ -61,6 +76,10 @@ def apply_promo_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     dropped because baseline_v <= 0 (insufficient pre-promo scan data).
     """
     df = df.copy()
+    df = _ensure_numeric(df, [
+        "baseline_v", "promo_v", "post_v", "doors", "duration_weeks",
+        "wholesale_price", "discount_depth_pct",
+    ])
     n_excluded = int((df["baseline_v"].isna() | (df["baseline_v"] <= 0)).sum())
     df = df[df["baseline_v"] > 0].reset_index(drop=True)
     if df.empty:
@@ -85,6 +104,7 @@ def apply_promo_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 def apply_pricing_calcs(df: pd.DataFrame) -> pd.DataFrame:
     """Elasticity, recovery ratio, recovery status."""
     df = df.copy()
+    df = _ensure_numeric(df, ["baseline_v", "promo_v", "post_v", "avg_discount"])
     df = df.dropna(subset=["baseline_v", "promo_v"])
     df = df[df["baseline_v"] > 0].reset_index(drop=True)
     if df.empty:
@@ -115,6 +135,7 @@ def apply_pricing_calcs(df: pd.DataFrame) -> pd.DataFrame:
 def classify_shelf_status(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """Classify SKUs as At Risk / Warning / Safe based on velocity threshold."""
     df = df.copy()
+    df = _ensure_numeric(df, ["current_v", "trailing_v"])
     df["trend_pct"] = (df["current_v"] - df["trailing_v"]) / df["trailing_v"].replace(0, pd.NA) * 100
     warn_mult = THRESHOLDS["shelf_warning_mult"]
     warn_upper = threshold * warn_mult
