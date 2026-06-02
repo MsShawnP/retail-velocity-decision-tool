@@ -172,7 +172,7 @@ def get_promo_skus(retailer: str) -> list[str]:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT DISTINCT sku FROM stg_promotions WHERE retailer = %s ORDER BY sku",
+            "SELECT DISTINCT sku FROM stg_promotions WHERE retailer_id = %s ORDER BY sku",
             (retailer,),
         )
         return [r[0] for r in cur.fetchall()]
@@ -600,7 +600,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
         promo_where = "1=1"
         promo_params: list = []
     else:
-        promo_where = "p.retailer = %s"
+        promo_where = "p.retailer_id = %s"
         promo_params = [retailer]
 
     sql = f"""
@@ -610,7 +610,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
         ),
         promo_list AS (
             SELECT promo_id, sku,
-                   p.retailer,
+                   p.retailer_id AS retailer,
                    start_week, end_week,
                    ((end_week::date - start_week::date) / 7) AS duration_weeks,
                    discount_depth_pct, promo_type,
@@ -933,7 +933,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         pricing_promo_where = "1=1"
         pricing_promo_params: list = []
     else:
-        pricing_promo_where = "retailer = %s"
+        pricing_promo_where = "retailer_id = %s"
         pricing_promo_params = [retailer]
 
     sql = f"""
