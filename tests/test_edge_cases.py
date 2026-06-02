@@ -148,6 +148,7 @@ class TestCategoryBenchmarkGraceful:
     def test_returns_dataframe_on_table_missing(self):
         """Simulate the table not existing — function should return df with NA cols."""
         with (
+            patch("data._load_baked_df", return_value=None),
             patch("data.get_latest_week", return_value="2025-03-15"),
             patch("data.get_conn") as mock_conn,
         ):
@@ -171,6 +172,7 @@ class TestCategoryBenchmarkGraceful:
     def test_returns_empty_when_no_cinderhaven_data(self):
         """If Cinderhaven has no data for a retailer, return empty."""
         with (
+            patch("data._load_baked_df", return_value=None),
             patch("data.get_latest_week", return_value="2025-03-15"),
             patch("data.get_conn") as mock_conn,
         ):

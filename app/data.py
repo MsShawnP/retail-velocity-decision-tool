@@ -1,16 +1,18 @@
 """Cinderhaven Velocity Tool -- data layer.
 
-All database queries live here. Every function uses flask-caching with
-FileSystemCache for memoization. All database connections use the
-``get_conn()`` context manager from ``db.py`` to guarantee connections
-are returned to the pool on exit.
+Serves pre-baked JSON artifacts from data/baked_views/ by default.
+Postgres is only queried as a fallback when a baked view is missing
+(development) or when the bake script refreshes data at deploy time.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
+from io import StringIO
+from pathlib import Path
 
 import pandas as pd
 import psycopg2
@@ -35,6 +37,43 @@ from constants import (
 from db import get_conn
 
 log = logging.getLogger("warm_cache")
+
+# ============================================================
+# Baked-data layer — reads from data/baked_views/ JSON artifacts
+# ============================================================
+
+_BAKED_DIR = Path(__file__).resolve().parent.parent / "data" / "baked_views"
+
+
+def _baked_key(prefix: str, *args: str) -> str:
+    """Build a baked-view filename from a prefix and optional arguments."""
+    parts = [prefix]
+    for a in args:
+        if a is not None:
+            parts.append(str(a).lower().replace(" ", "_"))
+    return "__".join(parts)
+
+
+def _load_baked_df(name: str) -> pd.DataFrame | None:
+    """Load a baked DataFrame (split-orient JSON). Returns None if missing."""
+    path = _BAKED_DIR / f"{name}.json"
+    if not path.exists():
+        return None
+    try:
+        return pd.read_json(StringIO(path.read_text(encoding="utf-8")), orient="split")
+    except Exception:
+        return None
+
+
+def _load_baked_json(name: str):
+    """Load a baked dict/list. Returns None if missing."""
+    path = _BAKED_DIR / f"{name}.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
 
 # ============================================================
 # Cache setup (FileSystemCache, 24-hour default)
@@ -74,6 +113,9 @@ def retailer_clause(retailer: str) -> tuple[str, list]:
 
 @cache.memoize(timeout=3600)
 def get_product_lines() -> list[str]:
+    baked = _load_baked_json("product_lines")
+    if baked is not None:
+        return baked
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -85,6 +127,10 @@ def get_product_lines() -> list[str]:
 @cache.memoize(timeout=3600)
 def get_skus_for_line(product_line: str) -> list[tuple[str, str]]:
     """Return [(sku, product_name), ...] for one product line."""
+    safe = product_line.lower().replace(" ", "_")
+    baked = _load_baked_json(f"skus__{safe}")
+    if baked is not None:
+        return [tuple(r) for r in baked]
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -109,6 +155,9 @@ def get_sku_meta(sku: str) -> tuple[str, str] | None:
 
 @cache.memoize(timeout=3600)
 def get_latest_week() -> str:
+    baked = _load_baked_json("latest_week")
+    if baked is not None:
+        return baked
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("SELECT MAX(week_ending) FROM stg_scan_data")
@@ -139,7 +188,12 @@ def get_portfolio_summary() -> dict:
 
     Returns a flat dict with counts, totals, and status distributions
     suitable for the portfolio health landing page.
+
+    Serves from baked JSON if available.
     """
+    baked = _load_baked_json("portfolio_summary")
+    if baked is not None:
+        return baked
     latest = get_latest_week()
 
     # -- Total physical doors across all retailers --
@@ -421,6 +475,10 @@ def get_data_quality_summary() -> dict:
 
 @cache.memoize(timeout=3600)
 def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFrame:
+    if product_line is None:
+        baked = _load_baked_df(_baked_key("shelf_defense", retailer))
+        if baked is not None:
+            return baked
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
 
@@ -458,6 +516,10 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
 
 @cache.memoize(timeout=3600)
 def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame:
+    if product_line is None:
+        baked = _load_baked_df(_baked_key("production", retailer))
+        if baked is not None:
+            return baked
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
 
@@ -522,6 +584,10 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
 
 @cache.memoize(timeout=3600)
 def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFrame, int]:
+    if sku_filter is None:
+        baked = _load_baked_df(_baked_key("promo_roi", retailer))
+        if baked is not None:
+            return baked, 0
     ret_sql, ret_params = retailer_clause(retailer)
 
     sku_clause = ""
@@ -630,6 +696,10 @@ def get_promo_weekly_velocity(promo_id: str, sku: str, retailer: str) -> pd.Data
 @cache.memoize(timeout=3600)
 def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     """Stores where focus_sku is NOT authorized but same-line SKUs perform well."""
+    safe_ret = (retailer or "all").lower().replace(" ", "_")
+    baked = _load_baked_df(f"expansion__{safe_ret}__{focus_sku}")
+    if baked is not None:
+        return baked
     latest = get_latest_week()
 
     ret_sql, ret_params = retailer_clause(retailer or "All Retailers")
@@ -679,11 +749,11 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
 
 @cache.memoize(timeout=3600)
 def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
-    """Per (sku, store) currently authorized at retailer: 13-week avg velocity.
-
-    Named get_pruning_data in the Dash layer; identical to get_pruning_pairs
-    in velocity_tool.py.
-    """
+    """Per (sku, store) currently authorized at retailer: 13-week avg velocity."""
+    if product_line is None:
+        baked = _load_baked_df(_baked_key("pruning", retailer))
+        if baked is not None:
+            return baked
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
 
@@ -730,6 +800,10 @@ def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
 @cache.memoize(timeout=3600)
 def get_rationalization_data(retailer: str, product_line: str | None) -> pd.DataFrame:
     """Per-SKU 13-week velocity, margin, and door count at the chosen retailer."""
+    if product_line is None:
+        baked = _load_baked_df(_baked_key("rationalization", retailer))
+        if baked is not None:
+            return baked
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
 
@@ -772,6 +846,9 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
 @cache.memoize(timeout=3600)
 def get_launch_data() -> pd.DataFrame:
     """One row per SKU launched in the last 52 weeks, with window averages."""
+    baked = _load_baked_df("launch_data")
+    if baked is not None:
+        return baked
     latest = get_latest_week()
 
     sql = """
@@ -839,11 +916,11 @@ def get_launch_weekly(sku: str) -> pd.DataFrame:
 @cache.memoize(timeout=3600)
 def get_pricing_data(retailer: str, sku_filter: str | None,
                      product_line_filter: str | None) -> pd.DataFrame:
-    """Per-SKU baseline / promo / post-promo velocity at one retailer.
-
-    Named get_pricing_data in the Dash layer; identical to
-    get_pricing_power_data in velocity_tool.py.
-    """
+    """Per-SKU baseline / promo / post-promo velocity at one retailer."""
+    if sku_filter is None and product_line_filter is None:
+        baked = _load_baked_df(_baked_key("pricing", retailer))
+        if baked is not None:
+            return baked
     ret_sql, ret_params = retailer_clause(retailer)
 
     sku_clause = ""
@@ -934,15 +1011,11 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
 
 @cache.memoize(timeout=3600)
 def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd.DataFrame:
-    """Category avg velocity per product line at a retailer (last 8 weeks).
-
-    Returns columns: product_line, category, cinderhaven_avg, category_avg,
-                     vs_category_pct.
-
-    Uses the stg_category_benchmarks table (seeded by seed_benchmarks.py)
-    for category-level averages, and computes Cinderhaven's own average
-    from stg_scan_data for comparison.
-    """
+    """Category avg velocity per product line at a retailer (last 8 weeks)."""
+    if product_line is None:
+        baked = _load_baked_df(_baked_key("category_benchmark", retailer))
+        if baked is not None:
+            return baked
     ret_sql, ret_params = retailer_clause(retailer)
     latest = get_latest_week()
 
