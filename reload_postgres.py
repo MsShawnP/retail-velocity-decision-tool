@@ -1,5 +1,10 @@
 """Reload Postgres tables from the SQLite source database.
 
+DISABLED: Platform ingest is now owned by Dagster/dbt. This legacy loader
+DROP/CREATEs canonical tables (dim_products, stg_sku_costs, fct_distribution,
+stg_stores, stg_scan_data, stg_promotions, stg_price_history) and would
+overwrite the pipeline's authoritative data if run. Kept for reference only.
+
 Requires: fly proxy 15432:5432 --app cinderhaven-db running in background.
 
 Usage:
@@ -8,6 +13,24 @@ Usage:
     python reload_postgres.py
 """
 from __future__ import annotations
+
+import sys
+
+def _guard() -> None:
+    print(
+        "DISABLED — platform ingest is owned by Dagster/dbt.\n"
+        "This legacy loader DROP/CREATEs canonical tables and would overwrite\n"
+        "authoritative pipeline data. Do not bypass this guard.\n"
+        "\n"
+        "Tables affected: dim_products, stg_sku_costs, fct_distribution,\n"
+        "stg_stores, stg_scan_data, stg_promotions, stg_price_history,\n"
+        "stg_category_benchmarks.\n"
+        "\n"
+        "If you need to reload data, use the Dagster/dbt pipeline."
+    )
+    sys.exit(1)
+
+_guard()
 
 import csv
 import io
