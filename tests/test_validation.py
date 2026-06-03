@@ -34,8 +34,8 @@ def _healthy_cursor():
     """Cursor that returns all-passing data for every check."""
     retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
     responses = [
-        # Check 1: 6 table counts
-        (100,), (50,), (30,), (20,), (10,), (5,),
+        # Check 1: 5 table counts (fct_scan_data, dim_stores, dim_products, fct_promotions, fct_distribution)
+        (100,), (50,), (30,), (10,), (5,),
         # Check 2: date coverage
         ("2024-01-01", "2025-03-01", 425),
         # Check 3: case_pack_qty
@@ -66,7 +66,7 @@ class TestTableExistence:
             gc.return_value.__enter__ = MagicMock(return_value=conn)
             gc.return_value.__exit__ = MagicMock(return_value=False)
             results = validate_data_contract()
-        assert results["table_stg_scan_data"][0] is True
+        assert results["table_fct_scan_data"][0] is True
         assert results["table_dim_products"][0] is True
 
     @patch("validation.get_conn")
@@ -74,7 +74,7 @@ class TestTableExistence:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         responses = [
-            (0,), (50,), (30,), (20,), (10,), (5,),
+            (0,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ]
@@ -83,8 +83,8 @@ class TestTableExistence:
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
         mock_gc.return_value.__exit__ = MagicMock(return_value=False)
         results = validate_data_contract()
-        assert results["table_stg_scan_data"][0] is False
-        assert "empty" in results["table_stg_scan_data"][1]
+        assert results["table_fct_scan_data"][0] is False
+        assert "empty" in results["table_fct_scan_data"][1]
 
     @patch("validation.get_conn")
     def test_missing_table_fails(self, mock_gc):
@@ -95,8 +95,8 @@ class TestTableExistence:
         mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
         mock_gc.return_value.__exit__ = MagicMock(return_value=False)
         results = validate_data_contract()
-        assert results["table_stg_scan_data"][0] is False
-        assert "missing" in results["table_stg_scan_data"][1]
+        assert results["table_fct_scan_data"][0] is False
+        assert "missing" in results["table_fct_scan_data"][1]
 
 
 class TestDateCoverage:
@@ -105,7 +105,7 @@ class TestDateCoverage:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 400),
             (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
@@ -120,7 +120,7 @@ class TestDateCoverage:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-06-01", "2025-03-01", 273),
             (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
@@ -138,7 +138,7 @@ class TestCasePackQty:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
@@ -153,7 +153,7 @@ class TestCasePackQty:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (3,), [], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
@@ -171,7 +171,7 @@ class TestVolumeTiers:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [("D",), ("E",)], retailers_rows, (0,), (0,), (0,), (100, 0),
         ])
@@ -189,7 +189,7 @@ class TestRetailerNames:
         conn = MagicMock()
         partial = [(r,) for r in list(EXPECTED_RETAILERS)[:2]]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [], partial, (0,), (0,), (0,), (100, 0),
         ])
@@ -207,7 +207,7 @@ class TestSKUCostCoverage:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [], retailers_rows, (5,), (0,), (0,), (100, 0),
         ])
@@ -225,7 +225,7 @@ class TestDistributionDates:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [], retailers_rows, (0,), (0,), (0,), (100, 10),
         ])
@@ -241,7 +241,7 @@ class TestDistributionDates:
         conn = MagicMock()
         retailers_rows = [(r,) for r in EXPECTED_RETAILERS]
         cur = _make_cursor([
-            (100,), (50,), (30,), (20,), (10,), (5,),
+            (100,), (50,), (30,), (10,), (5,),
             ("2024-01-01", "2025-03-01", 425),
             (0,), [], retailers_rows, (0,), (0,), (0,), (0, 0),
         ])
