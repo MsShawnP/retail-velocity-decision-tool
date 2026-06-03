@@ -16,7 +16,7 @@ for a decision-framework consulting practice.
 
 ### What Exists Today
 
-Fully deployed Dash application at retail-velocity-decision-tool.fly.dev.
+Fully deployed Dash application at velocity.lailarallc.com.
 9 decision modes operational. Portfolio health landing page with drill-down
 navigation. Narrative "so what" insights on every decision mode. Time-series
 trend charts on shelf defense, production, and launch health. Retailer pitch

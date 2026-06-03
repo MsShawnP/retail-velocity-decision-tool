@@ -49,7 +49,7 @@
 - DB: Postgres via psycopg2, PID-aware ThreadedConnectionPool (maxconn=10)
 - Deploy: `fly deploy` from local, Dockerfile builds from `app/` directory
 - Tests: 163 tests across 7+ modules, CI via GitHub Actions (ruff + pytest)
-- Live: https://retail-velocity-decision-tool.fly.dev/
+- Live: https://velocity.lailarallc.com/
 
 ---
 
