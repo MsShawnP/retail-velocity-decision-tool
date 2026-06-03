@@ -1,5 +1,17 @@
 # Handoff — Retail Velocity Decision Tool
 
+## 2026-06-03 22:15
+
+**What changed:** Repoint Velocity tool to dbt mart layer — stg_stores→dim_stores, stg_scan_data→fct_scan_data, stg_promotions→fct_promotions, stg_sku_costs removed (merged into dim_products). margin_per_unit promoted from Python re-derivation to dim_products mart column. stg_category_benchmarks kept local (Velocity-specific synthetic seed data). search_path reordered to public_marts first. reload_postgres.py disabled with hard guard.
+
+**Why:** The legacy reload_postgres.py could overwrite canonical platform tables with stale SQLite copies. Neutralized that risk, then migrated all reads to the contracted dbt mart surface so the tool consumes the same SSOT as every other platform consumer.
+
+**State:** All SQL reads use mart tables. 929 SQL comparisons against live Postgres: zero drifts. 164 tests passing (6 pre-existing portfolio failures unrelated). reload_postgres.py guarded. dbt dim_products has new margin_per_unit/margin_pct columns (materialized). stg_category_benchmarks unchanged (local seed).
+
+**Next:** Re-bake views against live Postgres with populated scan data to get non-empty baked artifacts, then redeploy to Fly.io.
+
+---
+
 ## Session ended: 2026-05-22 (wrapped)
 
 ### Status: `/improve` pass complete + `/ce:compound` documented + deployed
