@@ -1,6 +1,6 @@
 # Cinderhaven Velocity Decision Tool
 
-**Try it live → [https://velocity.lailarallc.com](https://velocity.lailarallc.com)**
+**Live:** https://velocity.lailarallc.com
 
 A prescriptive decision tool for specialty food CEOs who get velocity reports every Monday but don't know what decisions they should drive.
 
