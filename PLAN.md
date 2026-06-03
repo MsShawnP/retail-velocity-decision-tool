@@ -130,6 +130,24 @@ historically appeared (data functions, callbacks, edge cases). ✓ 80 tests
 
 Done when: All 17 findings fixed, 163 tests passing, no new lint issues. ✓
 
+### Move 11: Mart Layer Migration — DONE ✓
+
+Migrate all SQL reads from staging tables to dbt mart equivalents. Prevent
+reload_postgres.py from overwriting canonical platform tables.
+
+- [x] Disable reload_postgres.py with hard guard
+- [x] Add margin_per_unit, margin_pct to dim_products mart (dbt model + schema)
+- [x] Repoint stg_stores → dim_stores (chain_name → retailer)
+- [x] Repoint stg_scan_data → fct_scan_data
+- [x] Repoint stg_promotions → fct_promotions (retailer_id → retailer)
+- [x] Remove stg_sku_costs JOINs — read costs from dim_products
+- [x] Delete Python margin re-derivation — read mart margin_per_unit
+- [x] Update validation.py, seed_benchmarks.py, test files
+- [x] Reorder search_path: public_marts first
+- [x] Verify: 929 SQL comparisons, zero drifts at 1e-10
+
+Done when: No stg_* reads for shared data, margin from mart, verified parity. ✓
+
 ---
 
 ## Improvement History

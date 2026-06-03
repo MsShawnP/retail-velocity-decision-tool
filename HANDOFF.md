@@ -1,14 +1,14 @@
 # Handoff — Retail Velocity Decision Tool
 
-## 2026-06-03 22:15
+## 2026-06-03 22:20 (wrapped)
 
-**What changed:** Repoint Velocity tool to dbt mart layer — stg_stores→dim_stores, stg_scan_data→fct_scan_data, stg_promotions→fct_promotions, stg_sku_costs removed (merged into dim_products). margin_per_unit promoted from Python re-derivation to dim_products mart column. stg_category_benchmarks kept local (Velocity-specific synthetic seed data). search_path reordered to public_marts first. reload_postgres.py disabled with hard guard.
+**Started from:** Tool reading staging tables directly; reload_postgres.py could overwrite canonical platform tables.
 
-**Why:** The legacy reload_postgres.py could overwrite canonical platform tables with stale SQLite copies. Neutralized that risk, then migrated all reads to the contracted dbt mart surface so the tool consumes the same SSOT as every other platform consumer.
+**Did:** Disabled reload_postgres.py with hard guard. Repointed all SQL reads from stg_* to dbt mart equivalents (dim_stores, fct_scan_data, fct_promotions, dim_products). Added margin_per_unit/margin_pct to dim_products mart. Removed stg_sku_costs JOINs and Python margin re-derivation. Verified via 929 SQL comparisons against live Postgres — zero drifts.
 
-**State:** All SQL reads use mart tables. 929 SQL comparisons against live Postgres: zero drifts. 164 tests passing (6 pre-existing portfolio failures unrelated). reload_postgres.py guarded. dbt dim_products has new margin_per_unit/margin_pct columns (materialized). stg_category_benchmarks unchanged (local seed).
+**State:** All reads use mart layer. 164 tests passing (6 pre-existing portfolio test failures from baked-data bypass — not caused by this session). reload_postgres.py guarded. stg_category_benchmarks kept local. Baked views are empty DataFrames (scan data query windows return no rows). Pre-existing unstaged: README.md, pitch_export.py, test_canonical_regression.py.
 
-**Next:** Re-bake views against live Postgres with populated scan data to get non-empty baked artifacts, then redeploy to Fly.io.
+**Next:** Investigate why baked views return empty DataFrames (scan data date coverage vs query windows). Re-bake with populated data, redeploy to Fly.io. Fix the 6 portfolio test failures (mock _load_baked_json to return None). Review unstaged README.md/pitch_export.py changes.
 
 ---
 

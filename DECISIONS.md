@@ -120,6 +120,36 @@
 
 **Revisit when:** The tool needs to support mobile or tablet use (e.g., buyers pulling it up during in-store meetings). At that point, change `@media (max-width: 767.98px)` to `639.98px` in `app/assets/style.css` and verify all decision modes at the new breakpoint.
 
+## 2026-06-03: Velocity tool reads from dbt mart layer, not staging tables
+
+**Decision:** All SQL queries in data.py read from mart-layer tables (dim_stores, fct_scan_data, fct_promotions, dim_products) instead of staging tables (stg_stores, stg_scan_data, stg_promotions, stg_sku_costs). search_path is public_marts first.
+
+**Why:** Staging tables are dbt's internal implementation. The mart layer is the contracted surface — column names, types, and semantics are documented in schema.yml with tests. Reading staging directly couples the tool to dbt internals and bypasses any mart-level transformations (e.g., retailer_id → retailer_name join).
+
+**Scope:** All SQL in app/data.py, app/validation.py, app/seed_benchmarks.py. Does NOT apply to stg_category_benchmarks (Velocity-specific local seed, not a platform table).
+
+**Do not:** Add new queries that read stg_* or raw.* tables for shared data. If a field is missing from the mart, add it to the dbt model — do not work around by reading staging.
+
+## 2026-06-03: stg_category_benchmarks stays local — not migrated to dbt
+
+**Decision:** Keep stg_category_benchmarks as a Velocity-specific table created by seed_benchmarks.py, not a dbt model.
+
+**Why:** The table contains synthetic category benchmarks — Cinderhaven's own scan velocity multiplied by hardcoded factors to approximate category averages. This is Velocity-specific seed data, not a shared platform definition. The mart dim_category_benchmarks is a different model (product-line summary aggregates). Migrating synthetic multipliers into dbt would pollute the platform with tool-specific assumptions.
+
+**Scope:** seed_benchmarks.py creates/populates the table. data.py reads it with graceful fallback (try/except). It lives in public_staging schema by default.
+
+**Do not:** Load this table via reload_postgres.py (disabled) or any process that overwrites platform-managed tables.
+
+## 2026-06-03: reload_postgres.py disabled with hard guard
+
+**Decision:** Added a _guard() function that exits with a clear message before any code runs. The file body is intact but unreachable.
+
+**Why:** The script DROP/CREATEs 7 canonical tables (dim_products, stg_stores, stg_scan_data, etc.) from a local SQLite file. If run after Dagster/dbt has updated those tables, it overwrites authoritative data. No live process depends on it — it was a legacy manual loader.
+
+**Scope:** reload_postgres.py only. Do not delete the file (kept for reference).
+
+**Do not:** Remove the guard or bypass it. If data needs reloading, use the Dagster/dbt pipeline.
+
 ## 2026-05-22: Accept pool.getconn() having no timeout (#32)
 
 **Decision:** Leave `psycopg2.pool.ThreadedConnectionPool.getconn()` without a timeout. If all 10 connections are in use, the 11th caller blocks indefinitely.
