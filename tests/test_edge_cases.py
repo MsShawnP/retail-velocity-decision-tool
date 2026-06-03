@@ -74,7 +74,7 @@ class TestRetailerClauseEdgeCases:
     def test_unknown_retailer_treated_as_single(self):
         """A retailer name not in REGIONAL_CHAINS gets a simple WHERE clause."""
         sql, params = retailer_clause("Nonexistent Store")
-        assert sql == "s.chain_name = %s"
+        assert sql == "s.retailer = %s"
         assert params == ["Nonexistent Store"]
 
     def test_all_retailers_returns_no_params(self):

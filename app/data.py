@@ -103,8 +103,8 @@ def retailer_clause(retailer: str) -> tuple[str, list]:
         return ("1=1", [])
     if retailer == "Regional":
         ph = ",".join("%s" for _ in REGIONAL_CHAINS)
-        return (f"s.chain_name IN ({ph})", list(REGIONAL_CHAINS))
-    return ("s.chain_name = %s", [retailer])
+        return (f"s.retailer IN ({ph})", list(REGIONAL_CHAINS))
+    return ("s.retailer = %s", [retailer])
 
 
 # ============================================================
@@ -160,10 +160,10 @@ def get_latest_week() -> str:
         return baked
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT MAX(week_ending) FROM stg_scan_data")
+        cur.execute("SELECT MAX(week_ending) FROM fct_scan_data")
         result = cur.fetchone()[0]
         if result is None:
-            raise RuntimeError("stg_scan_data is empty — no week_ending data")
+            raise RuntimeError("fct_scan_data is empty — no week_ending data")
         return result
 
 
@@ -172,7 +172,7 @@ def get_promo_skus(retailer: str) -> list[str]:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT DISTINCT sku FROM stg_promotions WHERE retailer_id = %s ORDER BY sku",
+            "SELECT DISTINCT sku FROM fct_promotions WHERE retailer = %s ORDER BY sku",
             (retailer,),
         )
         return [r[0] for r in cur.fetchall()]
@@ -199,7 +199,7 @@ def get_portfolio_summary() -> dict:
     # -- Total physical doors across all retailers --
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM stg_stores")
+        cur.execute("SELECT COUNT(*) FROM dim_stores")
         total_doors = cur.fetchone()[0]
 
     # -- Production: active SKUs + trend distribution --
@@ -289,12 +289,12 @@ def get_weekly_velocity_trend(
     ph = ",".join(["%s"] * len(skus))
     sql = f"""
         WITH ret_stores AS (
-            SELECT store_id FROM stg_stores s
+            SELECT store_id FROM dim_stores s
             WHERE {ret_sql}
         )
         SELECT d.sku, pm.product_name, d.week_ending,
                AVG(d.units_sold) AS avg_velocity
-        FROM stg_scan_data d
+        FROM fct_scan_data d
         JOIN ret_stores rs ON d.store_id = rs.store_id
         JOIN dim_products pm ON d.sku = pm.sku
         WHERE d.sku IN ({ph})
@@ -316,11 +316,11 @@ def get_weekly_total_units(retailer: str, weeks: int = 12) -> pd.DataFrame:
     latest = get_latest_week()
     sql = f"""
         WITH ret_stores AS (
-            SELECT store_id FROM stg_stores s
+            SELECT store_id FROM dim_stores s
             WHERE {ret_sql}
         )
         SELECT d.week_ending, SUM(d.units_sold) AS total_units
-        FROM stg_scan_data d
+        FROM fct_scan_data d
         JOIN ret_stores rs ON d.store_id = rs.store_id
         WHERE d.week_ending > (%s::date - interval '{int(weeks * 7)} days')::date
         GROUP BY d.week_ending
@@ -342,13 +342,13 @@ def get_launch_velocity_curve(sku: str) -> pd.DataFrame:
             FROM fct_distribution WHERE sku = %s
         ),
         phys_stores AS (
-            SELECT store_id FROM stg_stores
+            SELECT store_id FROM dim_stores
         )
         SELECT sd.week_ending,
                AVG(sd.units_sold) AS avg_velocity,
                (sd.week_ending::date
                 - (SELECT launch_date FROM launch)::date) / 7 AS weeks_since_launch
-        FROM stg_scan_data sd
+        FROM fct_scan_data sd
         JOIN phys_stores ps ON sd.store_id = ps.store_id
         WHERE sd.sku = %s
           AND sd.week_ending >= (SELECT launch_date FROM launch)
@@ -381,11 +381,10 @@ def get_data_quality_summary() -> dict:
         cur = conn.cursor()
 
         tables = [
-            ("stg_scan_data", "Scan Data", "Weekly velocity scans"),
-            ("stg_stores", "Stores", "Store dimension"),
-            ("dim_products", "Products", "Product dimension"),
-            ("stg_sku_costs", "SKU Costs", "Cost dimension"),
-            ("stg_promotions", "Promotions", "Promotion events"),
+            ("fct_scan_data", "Scan Data", "Weekly velocity scans"),
+            ("dim_stores", "Stores", "Store dimension"),
+            ("dim_products", "Products", "Product + cost dimension"),
+            ("fct_promotions", "Promotions", "Promotion events"),
             ("fct_distribution", "Distribution", "Store-SKU authorization"),
         ]
         for tbl, label, desc in tables:
@@ -407,29 +406,29 @@ def get_data_quality_summary() -> dict:
             "SELECT MIN(week_ending)::text, MAX(week_ending)::text,"
             " COUNT(DISTINCT week_ending),"
             " COUNT(DISTINCT sku)"
-            " FROM stg_scan_data"
+            " FROM fct_scan_data"
         )
         row = cur.fetchone()
         min_date, max_date, n_weeks, n_skus = row
 
         cur.execute(
             "SELECT COUNT(DISTINCT store_id),"
-            " COUNT(DISTINCT chain_name)"
-            " FROM stg_stores"
+            " COUNT(DISTINCT retailer)"
+            " FROM dim_stores"
         )
         n_stores, n_retailers = cur.fetchone()
 
         cur.execute(
-            "SELECT COUNT(*) FROM stg_scan_data WHERE units_sold IS NULL"
+            "SELECT COUNT(*) FROM fct_scan_data WHERE units_sold IS NULL"
         )
         null_scans = cur.fetchone()[0]
 
         cur.execute(
-            "SELECT COUNT(*) FROM stg_scan_data WHERE units_sold = 0"
+            "SELECT COUNT(*) FROM fct_scan_data WHERE units_sold = 0"
         )
         zero_scans = cur.fetchone()[0]
 
-        cur.execute("SELECT COUNT(*) FROM stg_scan_data")
+        cur.execute("SELECT COUNT(*) FROM fct_scan_data")
         total_scans = cur.fetchone()[0]
 
     check_details = []
@@ -484,7 +483,7 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stg_stores s
+            SELECT s.store_id FROM dim_stores s
             WHERE {ret_sql}
         ),
         agg AS (
@@ -495,7 +494,7 @@ def get_shelf_defense_data(retailer: str, product_line: str | None) -> pd.DataFr
               AVG(CASE WHEN (%s::date - d.week_ending::date) >= 56
                         AND (%s::date - d.week_ending::date) < 112
                        THEN d.units_sold END) AS trailing_v
-            FROM stg_scan_data d
+            FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
             WHERE (%s::date - d.week_ending::date) < 112
             GROUP BY d.sku
@@ -525,7 +524,7 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stg_stores s
+            SELECT s.store_id FROM dim_stores s
             WHERE {ret_sql}
         ),
         physical AS (
@@ -537,7 +536,7 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
                        THEN d.units_sold END) AS phys_v_prior,
               COUNT(DISTINCT CASE WHEN (%s::date - d.week_ending::date) < 28
                                    THEN d.store_id END) AS doors
-            FROM stg_scan_data d
+            FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
             WHERE (%s::date - d.week_ending::date) < 56
             GROUP BY d.sku
@@ -550,7 +549,7 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
                        THEN d.units_sold END) AS sum_ly_current,
               SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 336 AND 364
                        THEN d.units_sold END) AS sum_ly_forward
-            FROM stg_scan_data d
+            FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
             WHERE (%s::date - d.week_ending::date) < 393
             GROUP BY d.sku
@@ -600,27 +599,27 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
         promo_where = "1=1"
         promo_params: list = []
     else:
-        promo_where = "p.retailer_id = %s"
+        promo_where = "p.retailer = %s"
         promo_params = [retailer]
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stg_stores s
+            SELECT s.store_id FROM dim_stores s
             WHERE {ret_sql}
         ),
         promo_list AS (
             SELECT promo_id, sku,
-                   p.retailer_id AS retailer,
+                   p.retailer,
                    start_week, end_week,
                    ((end_week::date - start_week::date) / 7) AS duration_weeks,
                    discount_depth_pct, promo_type,
                    'All Stores' AS store_scope
-            FROM stg_promotions p
+            FROM fct_promotions p
             WHERE {promo_where} {sku_clause}
         ),
         sku_store_first_scan AS (
             SELECT sku, store_id, MIN(week_ending) AS first_scan
-            FROM stg_scan_data
+            FROM fct_scan_data
             GROUP BY sku, store_id
         ),
         qualified_pairs AS (
@@ -633,19 +632,19 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
         SELECT
             p.promo_id, p.sku, p.retailer, p.start_week, p.end_week,
             p.duration_weeks, p.discount_depth_pct, p.promo_type, p.store_scope,
-            pm.product_name, pm.product_line, sc.wholesale_price,
-            (SELECT AVG(d.units_sold) FROM stg_scan_data d
+            pm.product_name, pm.product_line, pm.wholesale_price,
+            (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id
                AND d.week_ending BETWEEN (p.start_week::date - interval '28 days')::date
                                      AND (p.start_week::date - interval '1 days')::date
             ) AS baseline_v,
-            (SELECT AVG(d.units_sold) FROM stg_scan_data d
+            (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id
                AND d.week_ending BETWEEN p.start_week AND p.end_week
             ) AS promo_v,
-            (SELECT AVG(d.units_sold) FROM stg_scan_data d
+            (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id
                AND d.week_ending BETWEEN (p.end_week::date + interval '7 days')::date
@@ -656,7 +655,6 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
             ) AS doors
         FROM promo_list p
         JOIN dim_products pm ON p.sku = pm.sku
-        JOIN stg_sku_costs sc ON p.sku = sc.sku
         ORDER BY p.start_week DESC
     """
     with get_conn() as conn:
@@ -673,16 +671,16 @@ def get_promo_weekly_velocity(promo_id: str, sku: str, retailer: str) -> pd.Data
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stg_stores s
+            SELECT s.store_id FROM dim_stores s
             WHERE {ret_sql}
         ),
         prom AS (
-            SELECT start_week, end_week FROM stg_promotions
+            SELECT start_week, end_week FROM fct_promotions
             WHERE promo_id = %s AND sku = %s
             LIMIT 1
         )
         SELECT d.week_ending, AVG(d.units_sold) AS velocity
-        FROM stg_scan_data d, prom
+        FROM fct_scan_data d, prom
         WHERE d.sku = %s
           AND d.store_id IN (SELECT store_id FROM ret_stores)
           AND d.week_ending BETWEEN (prom.start_week::date - interval '28 days')::date
@@ -707,8 +705,8 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
     sql = f"""
         WITH focus AS (SELECT product_line FROM dim_products WHERE sku = %s),
         target_stores AS (
-            SELECT s.store_id, s.chain_name AS retailer, s.region, s.state, s.volume_tier
-            FROM stg_stores s
+            SELECT s.store_id, s.retailer, s.region, s.state, s.volume_tier
+            FROM dim_stores s
             WHERE ({ret_sql})
               AND s.store_id NOT IN (
                   SELECT store_id FROM fct_distribution
@@ -722,7 +720,7 @@ def get_expansion_data(focus_sku: str, retailer: str | None) -> pd.DataFrame:
                    AVG(sd.units_sold) AS avg_velocity
             FROM fct_distribution d
             JOIN dim_products pm ON d.sku = pm.sku
-            JOIN stg_scan_data sd ON sd.sku = d.sku AND sd.store_id = d.store_id
+            JOIN fct_scan_data sd ON sd.sku = d.sku AND sd.store_id = d.store_id
             WHERE pm.product_line = (SELECT product_line FROM focus)
               AND d.sku != %s
               AND (d.deauthorized_date IS NULL OR d.deauthorized_date > %s)
@@ -762,8 +760,8 @@ def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id, s.chain_name AS retailer, s.region, s.state, s.volume_tier
-            FROM stg_stores s
+            SELECT s.store_id, s.retailer, s.region, s.state, s.volume_tier
+            FROM dim_stores s
             WHERE {ret_sql}
         ),
         active AS (
@@ -776,19 +774,18 @@ def get_pruning_data(retailer: str, product_line: str | None) -> pd.DataFrame:
             a.sku, a.store_id,
             rs.retailer, rs.region, rs.state, rs.volume_tier,
             pm.product_name, pm.product_line,
-            sc.wholesale_price,
+            pm.wholesale_price,
             AVG(sd.units_sold) AS velocity
         FROM active a
         JOIN ret_stores rs ON a.store_id = rs.store_id
         JOIN dim_products pm ON a.sku = pm.sku
-        JOIN stg_sku_costs sc ON a.sku = sc.sku
-        LEFT JOIN stg_scan_data sd ON sd.sku = a.sku AND sd.store_id = a.store_id
+        LEFT JOIN fct_scan_data sd ON sd.sku = a.sku AND sd.store_id = a.store_id
                               AND (%s::date - sd.week_ending::date) < 91
         WHERE 1=1 {pl_clause}
         GROUP BY a.sku, a.store_id,
                  rs.retailer, rs.region, rs.state, rs.volume_tier,
                  pm.product_name, pm.product_line,
-                 sc.wholesale_price
+                 pm.wholesale_price
     """
     params = ret_params + [latest, latest] + pl_params
     with get_conn() as conn:
@@ -809,20 +806,19 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stg_stores s
+            SELECT s.store_id FROM dim_stores s
             WHERE {ret_sql}
         )
         SELECT pm.sku, pm.product_name, pm.product_line,
-               sc.wholesale_price, sc.cogs_per_unit,
+               pm.wholesale_price, pm.cogs_per_unit, pm.margin_per_unit,
                AVG(sd.units_sold) AS velocity,
                COUNT(DISTINCT sd.store_id) AS doors
-        FROM stg_scan_data sd
+        FROM fct_scan_data sd
         JOIN ret_stores rs ON sd.store_id = rs.store_id
         JOIN dim_products pm ON sd.sku = pm.sku
-        JOIN stg_sku_costs sc ON sd.sku = sc.sku
         WHERE (%s::date - sd.week_ending::date) < 91
         GROUP BY pm.sku, pm.product_name, pm.product_line,
-                 sc.wholesale_price, sc.cogs_per_unit
+                 pm.wholesale_price, pm.cogs_per_unit, pm.margin_per_unit
     """
     with get_conn() as conn:
         df = pd.read_sql(sql, conn, params=ret_params + [latest])
@@ -836,7 +832,7 @@ def get_rationalization_data(retailer: str, product_line: str | None) -> pd.Data
 
     df["wholesale_price"] = pd.to_numeric(df["wholesale_price"], errors="coerce")
     df["cogs_per_unit"] = pd.to_numeric(df["cogs_per_unit"], errors="coerce")
-    df["margin_per_unit"] = (df["wholesale_price"] - df["cogs_per_unit"]).round(2)
+    df["margin_per_unit"] = pd.to_numeric(df["margin_per_unit"], errors="coerce")
     df["margin_per_sw"] = (df["velocity"] * df["margin_per_unit"]).round(2)
     df["revenue_per_sw"] = (df["velocity"] * df["wholesale_price"]).round(2)
     df["weekly_total_margin"] = (df["margin_per_sw"] * df["doors"]).round(0)
@@ -859,7 +855,7 @@ def get_launch_data() -> pd.DataFrame:
             HAVING MIN(authorized_date) >= (%s::date - interval '364 days')::date
         ),
         phys_stores AS (
-            SELECT store_id FROM stg_stores
+            SELECT store_id FROM dim_stores
         )
         SELECT pm.sku, pm.product_name, pm.product_line, l.launch_date,
             AVG(CASE WHEN (sd.week_ending::date - l.launch_date::date) BETWEEN 0 AND 27
@@ -872,7 +868,7 @@ def get_launch_data() -> pd.DataFrame:
                      THEN sd.units_sold END) AS v_w14plus,
             AVG(CASE WHEN (%s::date - sd.week_ending::date) < 28
                      THEN sd.units_sold END) AS v_current
-        FROM stg_scan_data sd
+        FROM fct_scan_data sd
         JOIN launches l ON sd.sku = l.sku
         JOIN phys_stores ps ON sd.store_id = ps.store_id
         JOIN dim_products pm ON sd.sku = pm.sku
@@ -894,7 +890,7 @@ def get_launch_data() -> pd.DataFrame:
 def get_launch_weekly(sku: str) -> pd.DataFrame:
     sql = """
         WITH phys_stores AS (
-            SELECT store_id FROM stg_stores
+            SELECT store_id FROM dim_stores
         ),
         launch AS (
             SELECT MIN(authorized_date) AS launch_date
@@ -902,7 +898,7 @@ def get_launch_weekly(sku: str) -> pd.DataFrame:
         )
         SELECT sd.week_ending, AVG(sd.units_sold) AS velocity,
                (SELECT launch_date FROM launch) AS launch_date
-        FROM stg_scan_data sd
+        FROM fct_scan_data sd
         JOIN phys_stores ps ON sd.store_id = ps.store_id
         WHERE sd.sku = %s
           AND sd.week_ending >= (SELECT launch_date FROM launch)
@@ -933,29 +929,29 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         pricing_promo_where = "1=1"
         pricing_promo_params: list = []
     else:
-        pricing_promo_where = "retailer_id = %s"
+        pricing_promo_where = "retailer = %s"
         pricing_promo_params = [retailer]
 
     sql = f"""
         WITH ret_stores AS (
-            SELECT s.store_id FROM stg_stores s
+            SELECT s.store_id FROM dim_stores s
             WHERE {ret_sql}
         ),
         sku_promos AS (
             SELECT sku, start_week, end_week, discount_depth_pct
-            FROM stg_promotions WHERE {pricing_promo_where}
+            FROM fct_promotions WHERE {pricing_promo_where}
         ),
         promo_window AS (
             SELECT DISTINCT sp.sku, sd.week_ending
             FROM sku_promos sp
-            JOIN stg_scan_data sd ON sd.sku = sp.sku
+            JOIN fct_scan_data sd ON sd.sku = sp.sku
             JOIN ret_stores rs ON sd.store_id = rs.store_id
             WHERE sd.week_ending BETWEEN sp.start_week AND sp.end_week
         ),
         post_window AS (
             SELECT DISTINCT sp.sku, sd.week_ending
             FROM sku_promos sp
-            JOIN stg_scan_data sd ON sd.sku = sp.sku
+            JOIN fct_scan_data sd ON sd.sku = sp.sku
             JOIN ret_stores rs ON sd.store_id = rs.store_id
             WHERE sd.week_ending BETWEEN (sp.end_week::date + interval '7 days')::date
                                      AND (sp.end_week::date + interval '28 days')::date
@@ -973,7 +969,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
                           AND NOT EXISTS (SELECT 1 FROM post_window pow
                                            WHERE pow.sku = sd.sku AND pow.week_ending = sd.week_ending)
                          THEN sd.units_sold END) AS baseline_v
-            FROM stg_scan_data sd
+            FROM fct_scan_data sd
             JOIN ret_stores rs ON sd.store_id = rs.store_id
             WHERE sd.sku IN (SELECT DISTINCT sku FROM sku_promos)
               {sku_clause}
@@ -1022,12 +1018,12 @@ def get_category_benchmark(retailer: str, product_line: str | None = None) -> pd
     # Cinderhaven's 8-week avg by product line
     ch_sql = f"""
         WITH ret_stores AS (
-            SELECT store_id FROM stg_stores s
+            SELECT store_id FROM dim_stores s
             WHERE {ret_sql}
         )
         SELECT pm.product_line,
                AVG(d.units_sold) AS cinderhaven_avg
-        FROM stg_scan_data d
+        FROM fct_scan_data d
         JOIN ret_stores rs ON d.store_id = rs.store_id
         JOIN dim_products pm ON d.sku = pm.sku
         WHERE (%s::date - d.week_ending::date) < 56
