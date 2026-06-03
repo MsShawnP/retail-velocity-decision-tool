@@ -73,3 +73,13 @@
 **Fix:** Computed explicit y-axis range that collects all data values plus reference line values, adds 10% padding, and sets `yaxis.range` + `autorange=False`.
 
 **Lesson:** Never rely on Plotly autorange when you have reference lines via `add_hline`/`add_vline`. Always compute the range explicitly to include them.
+
+## 2026-06-03: Baked-view diff produced empty DataFrames — had to supplement with SQL verification
+
+**What happened:** During the mart migration verification, both baseline and refactored bake_views.py runs produced 67 files but all DataFrame-based views were empty (0 rows). The diff script reported "18 fields compared" across 67 files — only the flat dicts (portfolio_summary) and lists (product_lines, SKU lists) had data.
+
+**Why it failed:** The scan data in the live database has `latest_week = 2027-01-02` (synthetic future date), and the query windows (`latest_week - N days`) don't overlap with the actual scan data date range. Every velocity/margin query returns an empty result set.
+
+**Fix:** Supplemented with direct SQL verification — compared mart columns against staging equivalents for all 50 SKUs, 640 stores, 138 promos, and 1.4M scan rows. This proved column-level parity without depending on the query windows.
+
+**Lesson:** When verifying a refactor with a baseline diff, check that the baseline actually contains data before trusting the diff result. Empty-vs-empty always passes. Direct SQL comparisons (mart column = staging column) are more robust than end-to-end bake comparisons when the data state is sparse.
