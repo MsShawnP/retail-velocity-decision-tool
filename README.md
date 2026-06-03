@@ -24,7 +24,7 @@ Each decision mode includes a data grid, a chart, and a narrative "so what" insi
 
 ## The dataset
 
-Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 50 SKUs across three product lines (artisan sauces, specialty condiments, pantry staples). The dataset includes:
+Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 50 SKUs across 5 product lines (artisan sauces, specialty condiments, pantry staples). The dataset includes:
 
 - **1.2M rows** of weekly scan data across 902 stores
 - **6 retail channels:** Walmart (~500 doors), Costco (~80), Whole Foods (~120), Regional (~200), UNFI distribution, DTC
@@ -81,3 +81,6 @@ This is the flagship portfolio piece for a decision-framework consulting practic
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+Built by [Lailara LLC](https://lailarallc.com) — data hygiene and analytics consulting for specialty food brands scaling into national retail.
