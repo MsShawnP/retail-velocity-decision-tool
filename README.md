@@ -48,10 +48,10 @@ cd app && python run.py
 
 The app connects to a Postgres database. To run locally, start the shared
 Docker Postgres from
-[cinderhaven-data-platform](https://github.com/MsShawnP/cinderhaven-data-platform):
+Cinderhaven Data Platform:
 
 ```bash
-# In the cinderhaven-data-platform repo:
+# In the Cinderhaven Data Platform repo:
 docker compose up
 
 # Then in this repo:

@@ -36,7 +36,7 @@
 
 **Decision:** Created the `fct_distribution` table via direct SQL on the Fly Postgres instance rather than running dbt.
 
-**Why:** The dbt model existed (`cinderhaven-data-platform/models/marts/fct_distribution.sql`) but was never materialized. The dbt profile points at localhost, not the remote Fly Postgres. Running `CREATE TABLE fct_distribution AS SELECT ...` directly was the fastest path to unblocking pruning, expansion, and Story mode — all of which depend on this table.
+**Why:** The dbt model existed (Cinderhaven Data Platform `models/marts/fct_distribution.sql`) but was never materialized. The dbt profile points at localhost, not the remote Fly Postgres. Running `CREATE TABLE fct_distribution AS SELECT ...` directly was the fastest path to unblocking pruning, expansion, and Story mode — all of which depend on this table.
 
 **Tradeoff:** Table won't auto-refresh when dbt runs. Acceptable for now — distribution data changes infrequently. Will need a proper dbt materialization path when the data platform CI pipeline runs against production.
 
