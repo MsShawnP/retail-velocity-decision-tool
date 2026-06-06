@@ -1,6 +1,6 @@
 # Cinderhaven Velocity Decision Tool
 
-**Live:** https://velocity.lailarallc.com
+**Try it live → [https://velocity.lailarallc.com](https://velocity.lailarallc.com)**
 
 A prescriptive decision tool for specialty food CEOs who get velocity reports every Monday but don't know what decisions they should drive.
 
@@ -24,10 +24,11 @@ Each decision mode includes a data grid, a chart, and a narrative "so what" insi
 
 ## The dataset
 
-Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 50 SKUs across 5 product lines (artisan sauces, specialty condiments, pantry staples). The dataset includes:
+Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 50 SKUs across five product lines (Artisan Sauces, Pantry Staples, Specialty Condiments, Dried Goods, Snack Bites). The dataset includes:
 
 - **1.2M rows** of weekly scan data across 902 stores
-- **6 retail channels:** Walmart (~500 doors), Costco (~80), Whole Foods (~120), Regional (~200), UNFI distribution, DTC
+- **6 contracted retailers:** Walmart (~500 doors), Costco (~80), Whole Foods (~120), Sprouts, Kroger, Regional Group
+- **3 distributors + DTC:** UNFI, KeHE, DPI Northwest, Shopify (DTC)
 - Realistic promotional history with retailer-specific patterns
 - Data-quality-driven chargebacks traceable to product master defects
 - Seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
@@ -35,6 +36,17 @@ Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M speci
 > **Data source:** the Cinderhaven Data Platform — a Postgres database
 > with dbt-managed staging, intermediate, and mart tables, hosted on
 > Fly.io with local Docker for development.
+
+## Data Contract
+
+This tool consumes the full Cinderhaven canonical dataset:
+
+- **50 SKUs** across 5 product lines (Artisan Sauces, Pantry Staples, Specialty Condiments, Dried Goods, Snack Bites)
+- **6 contracted retailers:** Walmart, Costco, Whole Foods, Sprouts, Kroger, Regional Group
+- **3 distributors:** UNFI, KeHE, DPI Northwest
+- **1 DTC channel:** Shopify
+
+All decision modes operate on the full SKU set and all channels.
 
 ## Running locally
 
@@ -48,10 +60,10 @@ cd app && python run.py
 
 The app connects to a Postgres database. To run locally, start the shared
 Docker Postgres from
-Cinderhaven Data Platform:
+[refactor-older-cinderhaven-projects](https://github.com/MsShawnP/refactor-older-cinderhaven-projects):
 
 ```bash
-# In the Cinderhaven Data Platform repo:
+# In the refactor-older-cinderhaven-projects repo:
 docker compose up
 
 # Then in this repo:
@@ -81,6 +93,3 @@ This is the flagship portfolio piece for a decision-framework consulting practic
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
----
-Built by [Lailara LLC](https://lailarallc.com) — data hygiene and analytics consulting for specialty food brands scaling into national retail.
