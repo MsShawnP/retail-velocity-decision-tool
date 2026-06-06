@@ -68,6 +68,8 @@ def _gather(retailer: str, product_line: str | None, threshold: float) -> dict:
 
 
 def _display_shelf(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    if df.empty:
+        return df
     return pd.DataFrame({
         "SKU": df["sku"],
         "Product Name": df["product_name"],
@@ -81,6 +83,8 @@ def _display_shelf(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
 
 
 def _display_production(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
     cols = {
         "SKU": df["sku"],
         "Product Name": df["product_name"],
@@ -95,6 +99,8 @@ def _display_production(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _display_rationalization(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
     return pd.DataFrame({
         "SKU": df["sku"],
         "Product Name": df["product_name"],
@@ -106,6 +112,8 @@ def _display_rationalization(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _display_launch(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
     cols = {
         "SKU": df["sku"],
         "Product Name": df["product_name"],
