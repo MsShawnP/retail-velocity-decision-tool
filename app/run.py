@@ -33,6 +33,7 @@ from decisions.rationalization import register_callbacks as rationalization_cbs
 from decisions.launch_health import register_callbacks as launch_cbs
 from decisions.pricing_power import register_callbacks as pricing_cbs
 from layout import create_layout
+from lailara_frame import wrap
 
 app = Dash(
     __name__,
@@ -56,7 +57,12 @@ def health():
         return jsonify({"status": "db_unavailable"}), 503
 
 
-app.layout = create_layout()
+app.layout = wrap(
+    create_layout(),
+    tool_name="Velocity Tool",
+    no_container=True,
+    footer_note="Data: Cinderhaven Provisions. Trailing 52 weeks, 6 retail channels.",
+)
 register_callbacks(app)
 shelf_cbs(app)
 prod_cbs(app)
