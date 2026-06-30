@@ -26,6 +26,13 @@ env/
 # Environment
 .env
 
+# Security - secret leak prevention
+.env.*
+*.pem
+*.key
+credentials.*
+secrets.*
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
