@@ -3,15 +3,9 @@
 Verifies the baked SQLite artifact matches the Cinderhaven data contract.
 If data-gen scripts are re-run, these tests catch accidental drift.
 
-Canonical contract (target):
+Canonical contract:
     - 50 SKUs, 5 product lines, 6 retailers
     - Retailers: Walmart, Costco, Whole Foods, Sprouts, Kroger, Regional Group
-
-Current state (this repo):
-    - 90 SKUs across 3 product lines (Artisan Sauces, Specialty Condiments,
-      Pantry Staples).  TODO: migrate to 50 SKUs / 5 product lines.
-    - Retailers: Walmart, Costco, Whole Foods, + regional independents + UNFI + DTC.
-      TODO: add Kroger and Sprouts channels.
 """
 
 from __future__ import annotations
@@ -41,27 +35,27 @@ class TestCinderhavenCanonicalRegression:
     # ------------------------------------------------------------------
 
     def test_sku_count(self, db):
-        """Current dataset has 90 SKUs.  TODO: converge to canonical 50."""
+        """Canonical: 50 SKUs."""
         (count,) = db.execute("SELECT COUNT(DISTINCT sku) FROM product_master").fetchone()
-        assert count == 90, f"Expected 90 SKUs (current), got {count}"
+        assert count == 50, f"Expected 50 SKUs (canonical), got {count}"
 
     # ------------------------------------------------------------------
     # Product lines
     # ------------------------------------------------------------------
 
     def test_product_line_count(self, db):
-        """Current dataset has 3 product lines.  TODO: expand to canonical 5."""
+        """Canonical: 5 product lines."""
         (count,) = db.execute(
             "SELECT COUNT(DISTINCT product_line) FROM product_master"
         ).fetchone()
-        assert count == 3, f"Expected 3 product lines (current), got {count}"
+        assert count == 5, f"Expected 5 product lines (canonical), got {count}"
 
     def test_product_line_names(self, db):
         rows = db.execute(
             "SELECT DISTINCT product_line FROM product_master ORDER BY product_line"
         ).fetchall()
         names = {r[0] for r in rows}
-        expected = {"Artisan Sauces", "Specialty Condiments", "Pantry Staples"}
+        expected = {"Artisan Sauces", "Pantry Staples", "Specialty Condiments", "Dried Goods", "Snack Bites"}
         assert names == expected, f"Product line mismatch: {names}"
 
     # ------------------------------------------------------------------
@@ -69,24 +63,16 @@ class TestCinderhavenCanonicalRegression:
     # ------------------------------------------------------------------
 
     def test_retailer_count(self, db):
-        """Stores table has 10 distinct retailer channels."""
+        """Stores table has 6 distinct retailer channels (canonical)."""
         (count,) = db.execute("SELECT COUNT(DISTINCT retailer) FROM stores").fetchone()
-        assert count == 10, f"Expected 10 retailers, got {count}"
+        assert count == 6, f"Expected 6 retailers, got {count}"
 
-    def test_core_retailers_present(self, db):
-        """Walmart, Costco, and Whole Foods must always be present."""
+    def test_all_canonical_retailers_present(self, db):
+        """All 6 canonical retailers must be present."""
         rows = db.execute("SELECT DISTINCT retailer FROM stores").fetchall()
         retailers = {r[0] for r in rows}
-        for name in ("Walmart", "Costco", "Whole Foods"):
-            assert name in retailers, f"Core retailer {name!r} missing from stores"
-
-    def test_kroger_sprouts_missing_note(self, db):
-        """Kroger and Sprouts are NOT yet in this dataset.  TODO: add them."""
-        rows = db.execute("SELECT DISTINCT retailer FROM stores").fetchall()
-        retailers = {r[0] for r in rows}
-        # This test documents the gap -- it passes because they're absent.
-        assert "Kroger" not in retailers, "Kroger now present -- update canonical counts"
-        assert "Sprouts" not in retailers, "Sprouts now present -- update canonical counts"
+        for name in ("Walmart", "Costco", "Whole Foods", "Kroger", "Sprouts", "Regional Group"):
+            assert name in retailers, f"Canonical retailer {name!r} missing from stores"
 
     # ------------------------------------------------------------------
     # Table existence
