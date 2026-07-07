@@ -1,10 +1,10 @@
 # Cinderhaven Velocity Decision Tool
 
-**Try it live → [https://velocity.lailarallc.com](https://velocity.lailarallc.com)**
-
 A prescriptive decision tool for specialty food CEOs who get velocity reports every Monday but don't know what decisions they should drive.
 
-## What this is
+**Try it live → [https://velocity.lailarallc.com](https://velocity.lailarallc.com)**
+
+## What it does
 
 Most velocity reports tell you what happened. This tool tells you what to do next. The default view is a portfolio health dashboard that surfaces risk indicators across every decision area. The CEO sees what needs attention immediately, then drills into the decision mode that answers it.
 
@@ -22,33 +22,22 @@ Most velocity reports tell you what happened. This tool tells you what to do nex
 
 Each decision mode includes a data grid, a chart, and a narrative "so what" insight. Shelf Defense, Production Planning, and Launch Trajectory also include time-series trend views.
 
+## Why it matters
+
+A $15M–$50M brand pays for syndicated data and gets back description, not prescription: velocity by SKU by store, week after week, with no verdict attached. The decisions that data should drive — defend the shelf slot, cut the SKU, reprice, expand, prune — get made on instinct or not at all. Framing the same data as nine answerable questions turns the Monday report from a reading assignment into a decision queue, and puts the "so what" next to every number. The report isn't the point. The point is knowing what to do next.
+
 ## The dataset
 
-Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 50 SKUs across five product lines (Artisan Sauces, Pantry Staples, Specialty Condiments, Dried Goods, Snack Bites). The dataset includes:
+Built on a synthetic dataset for Cinderhaven Provisions, a fictional ~$25M specialty food company with 50 SKUs across five product lines (Artisan Sauces, Pantry Staples, Specialty Condiments, Dried Goods, Snack Bites):
 
 - **1.2M rows** of weekly scan data across 902 stores
 - **6 contracted retailers:** Walmart (~500 doors), Costco (~80), Whole Foods (~120), Sprouts, Kroger, Regional Group
 - **3 distributors + DTC:** UNFI, KeHE, DPI Northwest, Shopify (DTC)
-- Realistic promotional history with retailer-specific patterns
-- Data-quality-driven chargebacks traceable to product master defects
-- Seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
+- Realistic promotional history, data-quality-driven chargebacks traceable to product master defects, seasonal patterns, stockout events, new product cannibalization, price changes, and organic velocity trends
 
-> **Data source:** the Cinderhaven Data Platform — a Postgres database
-> with dbt-managed staging, intermediate, and mart tables, hosted on
-> Fly.io with local Docker for development.
+Data source: the Cinderhaven Data Platform — a Postgres database with dbt-managed staging, intermediate, and mart tables, hosted on Fly.io with local Docker for development. All decision modes operate on the full 50-SKU set and all channels.
 
-## Data Contract
-
-This tool consumes the full Cinderhaven canonical dataset:
-
-- **50 SKUs** across 5 product lines (Artisan Sauces, Pantry Staples, Specialty Condiments, Dried Goods, Snack Bites)
-- **6 contracted retailers:** Walmart, Costco, Whole Foods, Sprouts, Kroger, Regional Group
-- **3 distributors:** UNFI, KeHE, DPI Northwest
-- **1 DTC channel:** Shopify
-
-All decision modes operate on the full SKU set and all channels.
-
-## Running locally
+## Quick start
 
 ```bash
 git clone https://github.com/MsShawnP/retail-velocity-decision-tool.git
@@ -58,9 +47,7 @@ cp .env.example .env   # set DATABASE_URL
 cd app && python run.py
 ```
 
-The app connects to a Postgres database. To run locally, start the shared
-Docker Postgres from
-[refactor-older-cinderhaven-projects](https://github.com/MsShawnP/refactor-older-cinderhaven-projects):
+The app connects to a Postgres database. To run locally, start the shared Docker Postgres from [refactor-older-cinderhaven-projects](https://github.com/MsShawnP/refactor-older-cinderhaven-projects):
 
 ```bash
 # In the refactor-older-cinderhaven-projects repo:
@@ -70,7 +57,7 @@ docker compose up
 cd app && python run.py
 ```
 
-## Built with
+## Tech stack
 
 - **Dash** — interactive decision tool
 - **Dash Bootstrap Components** — layout grid, cards, tabs
@@ -84,11 +71,7 @@ cd app && python run.py
 
 ## Context
 
-This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M-$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](link), the [GTIN Validator](https://github.com/MsShawnP/gtin-validator), and a 53-query SQL library for retail data analysis.
-
----
-
-*"The report isn't the point. The point is knowing what to do next."*
+This is the flagship portfolio piece for a decision-framework consulting practice targeting specialty food operators at $15M–$50M scaling into national retail. Adjacent pieces include the [Cinderhaven Product Data Audit Report](https://audit.lailarallc.com), the [GTIN Validator](https://github.com/MsShawnP/gtin-validator), and a 53-query SQL library for retail data analysis.
 
 ## License
 
