@@ -534,7 +534,7 @@ def register_callbacks(app) -> None:
         elif roi > 0:
             line_color = TEAL
         else:
-            line_color = RED
+            line_color = BAR_RED
 
         # Narrative
         lift_val = lift if lift is not None and not pd.isna(lift) else 0.0
