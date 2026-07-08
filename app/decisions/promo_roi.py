@@ -24,6 +24,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BAR_RED,
     CANVAS,
     FONT_SANS,
     GREEN_FAINT,
@@ -62,7 +63,7 @@ def _bar_color_for_roi(r: float) -> str:
         return TEAL
     if r >= 0:
         return ORANGE
-    return RED
+    return BAR_RED
 
 
 # ============================================================
@@ -413,7 +414,7 @@ def layout(
             chart_legend([
                 (TEAL,   f"Strong ROI (>{roi_strong_pct:.2f}%)"),
                 (ORANGE, f"Marginal ROI (0–{roi_strong_pct:.2f}%)"),
-                (RED,    "Negative ROI (<0%)"),
+                (BAR_RED, "Negative ROI (<0%)"),
             ]),
             *chart_children,
             html.H4("Drill into one promo", style={"marginTop": "1rem"}),
@@ -599,7 +600,7 @@ def register_callbacks(app) -> None:
             html.P(narrative, style={"fontWeight": "500"}),
             chart_legend([
                 (TEAL, "Positive ROI (made money)"),
-                (RED,  "Negative ROI (lost money)"),
+                (BAR_RED, "Negative ROI (lost money)"),
             ]),
             dcc.Graph(figure=fig, id="promo-detail-chart", responsive=True, style={"width": "100%"}),
         ])

@@ -28,8 +28,9 @@ WHITE        = "#ffffff"
 PAGE_BG      = "#f5f3ee"   # canvas — warm off-white replaces cold grey
 
 # Brand red (Economist Red)
-RED          = "#cc100a"   # Red-42: brand accent, critical status
+RED          = "#cc100a"   # Red-42: INK ONLY — labels, values, text, 1px rules
 DARK_RED     = "#7a0906"   # Red-18: emphasis, promo-backfired bars
+BAR_RED      = "#8e0b07"   # Red-20: red bar/point FILLS (RED #cc100a is never a fill)
 
 # Accent — Chicago (blue)
 CHICAGO      = "#1f2e7a"   # Chicago-20: primary button, chart anchor
@@ -197,18 +198,18 @@ CATEGORY_MAP = {
 # Status -> bar/line/text color
 # ============================================================
 # Universal color rule across the app:
-#   TEAL  = positive / good / healthy
-#   RED   = negative / bad / problem
-#   ORANGE = caution / watch / mixed
+#   TEAL    = positive / good / healthy
+#   BAR_RED = negative / bad / problem (bar & point FILLS; RED is ink-only)
+#   ORANGE  = caution / watch / mixed
 #   NAVY_MED = neutral / stable / informational
 
-SHELF_STATUS_COLORS = {"At Risk": RED, "Warning": ORANGE, "Safe": TEAL}
+SHELF_STATUS_COLORS = {"At Risk": BAR_RED, "Warning": ORANGE, "Safe": TEAL}
 # Production: accelerating velocity is GOOD news (your product is selling),
 # decelerating is BAD (slowing down), stable is neutral.
-PRODUCTION_STATUS_COLORS = {"Accelerating": TEAL, "Decelerating": RED, "Stable": CHICAGO}
+PRODUCTION_STATUS_COLORS = {"Accelerating": TEAL, "Decelerating": BAR_RED, "Stable": CHICAGO}
 # Pruning: Mild still means "some stores below threshold" -- that's a small
 # concern, not a positive, so it reads as neutral (navy) rather than teal.
-PRUNING_SEVERITY_COLORS = {"Critical": RED, "Concerning": ORANGE, "Mild": CHICAGO}
+PRUNING_SEVERITY_COLORS = {"Critical": BAR_RED, "Concerning": ORANGE, "Mild": CHICAGO}
 
 # ============================================================
 # Status -> (row bg, row text) for colored tables

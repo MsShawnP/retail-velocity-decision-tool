@@ -27,6 +27,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BAR_RED,
     GREEN_FAINT,
     GREY,
     GREY_BG,
@@ -369,7 +370,7 @@ def _build_cut_tab(
         y=cut_chart["_label"],
         x=cut_chart["Total Weekly Margin"],
         orientation="h",
-        marker_color=RED,
+        marker_color=BAR_RED,
         text=[
             f"${m:,.2f} · {int(d)} doors"
             for m, d in zip(cut_chart["Total Weekly Margin"], cut_chart["Doors"])
@@ -554,7 +555,7 @@ def _build_portfolio_tab(
     CHART_BUCKET_COLORS = {
         LOW_DIST:        CHICAGO,
         "Niche / slow":  ORANGE,
-        "Cut candidate": RED,
+        "Cut candidate": BAR_RED,
     }
 
     bottom["_label"] = bottom["SKU"] + " · " + bottom["Product Name"].str.slice(0, 26)
@@ -625,7 +626,7 @@ def _build_portfolio_tab(
                     chart_legend([
                         (CHICAGO, "Low distribution (Winner / Volume play, too few doors)"),
                         (ORANGE,   "Niche / slow (low velocity, high margin)"),
-                        (RED,      "Cut candidate (below both medians)"),
+                        (BAR_RED,  "Cut candidate (below both medians)"),
                     ]),
                     dcc.Graph(figure=fig, id="rationalization-portfolio-chart", responsive=True, style={"width": "100%"}),
                 ],

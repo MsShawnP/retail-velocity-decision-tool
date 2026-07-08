@@ -21,6 +21,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BAR_RED,
     GREY,
     GREY_LIGHT,
     INK,
@@ -130,7 +131,7 @@ def layout() -> html.Div:
     # Chart: data volume by table (horizontal bar)
     fig = go.Figure()
     tables = table_df.sort_values("rows", ascending=True)
-    colors = [TEAL if s == "Pass" else RED for s in tables["status"]]
+    colors = [TEAL if s == "Pass" else BAR_RED for s in tables["status"]]
     fig.add_trace(go.Bar(
         y=tables["table"],
         x=tables["rows"],

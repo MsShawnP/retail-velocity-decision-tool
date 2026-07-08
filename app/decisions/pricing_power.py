@@ -25,6 +25,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BAR_RED,
     DARK_RED,
     DARK_RED_FAINT,
     GREY,
@@ -49,7 +50,7 @@ from data import get_pricing_data
 VERDICT_COLORS = {
     "Promote again":      TEAL,
     "Promote cautiously": ORANGE,
-    "Stop promoting":     RED,
+    "Stop promoting":     BAR_RED,
     "Promo backfired":    DARK_RED,
     "Insufficient data":  GREY,
 }
@@ -341,7 +342,7 @@ def layout(
         fallback_banner = [html.Div(
             f"No promo data found for {effective_sku} — showing portfolio-wide view instead.",
             style={
-                "backgroundColor": "#FFF3E0", "color": ORANGE,
+                "backgroundColor": ORANGE_FAINT, "color": ORANGE,
                 "padding": "0.6rem 1rem", "borderRadius": "4px",
                 "fontSize": "0.9rem", "fontWeight": "600",
                 "marginBottom": "0.75rem",
@@ -378,7 +379,7 @@ def layout(
             chart_legend([
                 (TEAL,     "Promote again (lift + full recovery)"),
                 (ORANGE,   "Promote cautiously (lift + partial recovery)"),
-                (RED,      "Stop promoting (lift + slow recovery)"),
+                (BAR_RED,  "Stop promoting (lift + slow recovery)"),
                 (DARK_RED, "Promo backfired (velocity dropped)"),
             ]),
             dcc.Graph(figure=fig, id="pricing-power-chart", responsive=True, style={"width": "100%"}),

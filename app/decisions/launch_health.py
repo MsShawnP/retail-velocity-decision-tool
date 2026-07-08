@@ -25,6 +25,7 @@ from components import (
     status_legend,
 )
 from constants import (
+    BAR_RED,
     CANVAS,
     FONT_SANS,
     GREY,
@@ -51,7 +52,7 @@ from data import get_latest_week, get_launch_data, get_launch_velocity_curve, ge
 LAUNCH_STATUS_COLORS = {
     "On Track": TEAL,
     "Needs Attention": ORANGE,
-    "Failing": RED,
+    "Failing": BAR_RED,
 }
 
 
@@ -314,7 +315,7 @@ def layout() -> html.Div:
     detail_legend = chart_legend([
         (TEAL,   f"On Track (≥{threshold:.2f}, holding ≥{on_track_pct:.2f}% of initial)"),
         (ORANGE, f"Needs Attention ({threshold * failing_floor_val:.2f}–{threshold:.2f}, or slipping)"),
-        (RED,    f"Failing (<{threshold * failing_floor_val:.2f} or down ≥{failing_drop_pct:.2f}% from start)"),
+        (BAR_RED, f"Failing (<{threshold * failing_floor_val:.2f} or down ≥{failing_drop_pct:.2f}% from start)"),
     ])
 
     # Assemble the full component tree
@@ -344,7 +345,7 @@ def layout() -> html.Div:
             html.H4(chart_title, style={"marginTop": "0"}),
             html.P(chart_caption, style={"color": GREY, "fontSize": "0.85rem"}),
             chart_legend([
-                (RED,    "Failing"),
+                (BAR_RED, "Failing"),
                 (ORANGE, "Needs Attention"),
                 (TEAL,   "On Track"),
             ]),
