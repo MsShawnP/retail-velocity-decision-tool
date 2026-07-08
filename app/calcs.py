@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from constants import THRESHOLDS, VOLUME_TIER_MULT
+from constants import PROMO_DEFAULT_GROSS_MARGIN, THRESHOLDS, VOLUME_TIER_MULT
 
 
 def _ensure_numeric(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
@@ -69,8 +69,37 @@ def apply_production_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_defaulted
 
 
+def _promo_unit_cost(df: pd.DataFrame) -> pd.Series:
+    """Per-unit COGS for the promo SKUs.
+
+    Prefers the real cogs_per_unit, then derives cost from margin_per_unit
+    (cost = wholesale - margin), and finally falls back to a documented
+    default gross-margin assumption when neither is supplied (older baked
+    snapshots). The live query joins dim_products, so real COGS is normally
+    used and the fallback is only a safety net.
+    """
+    price = pd.to_numeric(df["wholesale_price"], errors="coerce")
+    cost = pd.Series(np.nan, index=df.index, dtype="float64")
+    if "cogs_per_unit" in df.columns:
+        cost = pd.to_numeric(df["cogs_per_unit"], errors="coerce")
+    if "margin_per_unit" in df.columns:
+        derived = price - pd.to_numeric(df["margin_per_unit"], errors="coerce")
+        cost = cost.where(cost.notna(), derived)
+    fallback = price * (1 - PROMO_DEFAULT_GROSS_MARGIN)
+    return cost.where(cost.notna(), fallback)
+
+
 def apply_promo_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Baseline guard, lift/dip, incremental units/revenue, promo cost, ROI.
+    """Baseline guard, lift/dip, incremental units, and MARGIN-based promo ROI.
+
+    ROI is the net incremental contribution earned per dollar of promotional
+    markdown — a true profit measure, not a revenue return. Two inflation
+    traps are avoided:
+      * COGS is netted (contribution, not gross revenue) so "Strong ROI"
+        genuinely means the promo made money.
+      * The markdown (promo cost) is charged on EVERY unit sold during the
+        promo, not just the baseline units, so the denominator isn't
+        understated.
 
     Returns (result_df, n_excluded) where n_excluded is the count of promos
     dropped because baseline_v <= 0 (insufficient pre-promo scan data).
@@ -78,7 +107,7 @@ def apply_promo_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     df = df.copy()
     df = _ensure_numeric(df, [
         "baseline_v", "promo_v", "post_v", "doors", "duration_weeks",
-        "wholesale_price", "discount_depth_pct",
+        "wholesale_price", "discount_depth_pct", "cogs_per_unit", "margin_per_unit",
     ])
     n_excluded = int((df["baseline_v"].isna() | (df["baseline_v"] <= 0)).sum())
     df = df[df["baseline_v"] > 0].reset_index(drop=True)
@@ -89,14 +118,29 @@ def apply_promo_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     df["lift_pct"] = (pv - bv) / bv * 100
     df["dip_pct"] = (pov - bv) / bv * 100
     df["incremental_units"] = ((pv - bv) * df["doors"] * df["duration_weeks"]).round(0)
-    df["incremental_revenue"] = (
-        df["incremental_units"] * df["wholesale_price"] * (1 - df["discount_depth_pct"])
+
+    # Realized (discounted) price actually paid during the promo.
+    promo_price = df["wholesale_price"] * (1 - df["discount_depth_pct"])
+    df["incremental_revenue"] = (df["incremental_units"] * promo_price).round(0)
+
+    # Contribution earned on each incremental unit, sold at the promo price
+    # net of COGS. This is the profit the promo actually generated.
+    unit_cost = _promo_unit_cost(df)
+    df["incremental_contribution"] = (
+        df["incremental_units"] * (promo_price - unit_cost)
     ).round(0)
+
+    # Promo markdown = the discount given away on EVERY unit sold during the
+    # promo (baseline + incremental), which is the real cost of running it.
     df["promo_cost"] = (
-        bv * df["doors"] * df["duration_weeks"] * df["wholesale_price"] * df["discount_depth_pct"]
+        pv * df["doors"] * df["duration_weeks"]
+        * df["wholesale_price"] * df["discount_depth_pct"]
     ).round(0)
+
+    # Margin-based ROI: net incremental contribution over the markdown spent.
     df["roi_pct"] = (
-        (df["incremental_revenue"] - df["promo_cost"]) / df["promo_cost"].replace(0, pd.NA) * 100
+        (df["incremental_contribution"] - df["promo_cost"])
+        / df["promo_cost"].replace(0, pd.NA) * 100
     )
     return df, n_excluded
 

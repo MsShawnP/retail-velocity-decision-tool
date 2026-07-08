@@ -134,7 +134,7 @@ def layout(
     n_marginal = int((df["roi_tier"] == "Marginal ROI").sum())
     n_negative = int((df["roi_tier"] == "Negative ROI").sum())
     avg_lift = df["lift_pct"].mean()
-    total_incr = df["incremental_revenue"].sum()
+    total_incr = df["incremental_contribution"].sum()
     total_cost = df["promo_cost"].sum()
     if pd.isna(avg_lift):
         avg_lift = 0.0
@@ -165,14 +165,14 @@ def layout(
     if n_negative > 0:
         insight = (
             f"These {n_total} promos generated ${total_incr:,.0f} in incremental "
-            f"revenue against ${total_cost:,.0f} in spend. "
+            f"margin against ${total_cost:,.0f} in markdown. "
             f"{n_negative} promo{'s' if n_negative != 1 else ''} lost money — "
             f"consider reallocating that spend to the {n_strong} that delivered."
         )
     else:
         insight = (
-            f"${total_incr:,.0f} in incremental revenue on ${total_cost:,.0f} "
-            f"in promo spend — a net return of ${net:,.0f}. "
+            f"${total_incr:,.0f} in incremental margin on ${total_cost:,.0f} "
+            f"in promo markdown — a net return of ${net:,.0f}. "
             f"Average lift was {avg_lift:.1f}% across {n_total} promos."
         )
 
@@ -185,7 +185,7 @@ def layout(
             .agg(
                 promos=("promo_id", "count"),
                 avg_lift=("lift_pct", "mean"),
-                total_incr=("incremental_revenue", "sum"),
+                total_incr=("incremental_contribution", "sum"),
                 total_cost=("promo_cost", "sum"),
                 avg_roi=("roi_pct", "mean"),
             )
@@ -222,7 +222,7 @@ def layout(
             html.Table([
                 html.Thead(html.Tr([
                     html.Th("Retailer"), html.Th("Promos"), html.Th("Avg Lift"),
-                    html.Th("Incr. Revenue"), html.Th("Promo Cost"), html.Th("Avg ROI"),
+                    html.Th("Incr. Margin"), html.Th("Markdown"), html.Th("Avg ROI"),
                 ])),
                 html.Tbody(ret_rows),
             ], className="retailer-breakdown-table"),
@@ -231,11 +231,13 @@ def layout(
     # Status legend
     legend_children = [
         html.B("ROI"),
-        " = (incremental revenue − promo cost) ÷ promo cost × 100. ",
+        " = (incremental margin − promo markdown) ÷ promo markdown × 100. "
+        "Margin nets each incremental unit's COGS; markdown is the discount "
+        "given on every unit sold during the promo. ",
         html.B("Strong", style={"color": TEAL}),
-        f" (>{roi_strong_pct:.2f}%) = earned back more than double the spend. ",
+        f" (>{roi_strong_pct:.2f}%) = incremental margin more than double the markdown. ",
         html.B("Marginal", style={"color": ORANGE}),
-        f" (0–{roi_strong_pct:.2f}%) = covered costs but modest return. ",
+        f" (0–{roi_strong_pct:.2f}%) = margin covered the markdown, modest return. ",
         html.B("Negative", style={"color": RED}),
         " (<0%) = lost money. Baseline = 4 weeks pre-promo at the same retailer.",
     ]
@@ -254,8 +256,8 @@ def layout(
         "Promo":        df["promo_v"].round(2),
         "Lift %":       df["lift_pct"].round(2),
         "Dip %":        df["dip_pct"].round(2),
-        "Incr. $":      df["incremental_revenue"].round(2),
-        "Cost $":       df["promo_cost"].round(2),
+        "Incr. margin $": df["incremental_contribution"].round(2),
+        "Markdown $":   df["promo_cost"].round(2),
         "ROI %":        df["roi_pct"].round(2),
         "Tier":         df["roi_tier"],
     }).reset_index(drop=True)
@@ -279,9 +281,9 @@ def layout(
          "valueFormatter": {"function": "params.value == null ? '—' : d3.format('+.2f')(params.value) + '%'"}},
         {"field": "Dip %", "headerName": "Dip %", "sortable": True, "filter": "agNumberColumnFilter", "width": 80,
          "valueFormatter": {"function": "params.value == null ? '—' : d3.format('+.2f')(params.value) + '%'"}},
-        {"field": "Incr. $", "headerName": "Incr. $", "sortable": True, "filter": "agNumberColumnFilter", "width": 100,
+        {"field": "Incr. margin $", "headerName": "Incr. margin $", "sortable": True, "filter": "agNumberColumnFilter", "width": 120,
          "valueFormatter": {"function": "params.value == null ? '—' : '$' + d3.format(',.2f')(params.value)"}},
-        {"field": "Cost $", "headerName": "Cost $", "sortable": True, "filter": "agNumberColumnFilter", "width": 100,
+        {"field": "Markdown $", "headerName": "Markdown $", "sortable": True, "filter": "agNumberColumnFilter", "width": 110,
          "valueFormatter": {"function": "params.value == null ? '—' : '$' + d3.format(',.2f')(params.value)"}},
         {"field": "ROI %", "headerName": "ROI %", "sortable": True, "filter": "agNumberColumnFilter", "width": 80,
          "valueFormatter": {"function": "params.value == null ? '—' : d3.format('+.2f')(params.value) + '%'"}},
@@ -336,16 +338,16 @@ def layout(
             customdata=list(zip(
                 bars["Product Name"],
                 bars["Lift %"],
-                bars["Incr. $"],
-                bars["Cost $"],
+                bars["Incr. margin $"],
+                bars["Markdown $"],
                 bar_tiers,
             )),
             hovertemplate=(
                 "<b>%{y}</b><br>%{customdata[0]}<br>"
                 "ROI: %{x:+.2f}%<br>"
                 "Lift: %{customdata[1]:+.2f}%<br>"
-                "Incremental revenue: $%{customdata[2]:,.2f}<br>"
-                "Promo cost: $%{customdata[3]:,.2f}<br>"
+                "Incremental margin: $%{customdata[2]:,.2f}<br>"
+                "Promo markdown: $%{customdata[3]:,.2f}<br>"
                 "Tier: %{customdata[4]}<extra></extra>"
             ),
         ))
@@ -390,8 +392,8 @@ def layout(
             html.Div(
                 [
                     html.Div(metric_card("Avg lift", f"{avg_lift:+.2f}%"), className="dh-metric"),
-                    html.Div(metric_card("Incremental revenue", f"${total_incr:,.2f}"), className="dh-metric"),
-                    html.Div(metric_card("Total promo cost", f"${total_cost:,.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Incremental margin", f"${total_incr:,.2f}"), className="dh-metric"),
+                    html.Div(metric_card("Total markdown", f"${total_cost:,.2f}"), className="dh-metric"),
                     html.Div(metric_card("Strong ROI promos", f"{n_strong} / {n_total}"), className="dh-metric"),
                 ],
                 className="dh-metrics",

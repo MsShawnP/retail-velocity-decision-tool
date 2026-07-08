@@ -34,6 +34,8 @@ def _promo_row(**overrides) -> dict:
         "promo_type": "percentage_off",
         "store_scope": "all",
         "wholesale_price": 5.00,
+        "cogs_per_unit": 3.00,
+        "margin_per_unit": 2.00,
         "baseline_v": 10.0,
         "promo_v": 15.0,
         "post_v": 9.5,
@@ -96,23 +98,70 @@ class TestIncrementalUnits:
 
 
 class TestPromoCost:
-    def test_basic_calculation(self):
+    def test_markdown_charged_on_all_promo_units(self):
+        # The markdown is the discount given on EVERY unit sold during the
+        # promo (promo_v), not just the baseline units.
         df = _apply_promo_calcs(pd.DataFrame([
-            _promo_row(baseline_v=10.0, doors=100, duration_weeks=2,
-                       wholesale_price=5.0, discount_depth_pct=0.20)
+            _promo_row(baseline_v=10.0, promo_v=15.0, doors=100,
+                       duration_weeks=2, wholesale_price=5.0,
+                       discount_depth_pct=0.20)
         ]))
-        expected = round(10.0 * 100 * 2 * 5.0 * 0.20)
+        expected = round(15.0 * 100 * 2 * 5.0 * 0.20)  # promo_v, not baseline_v
         assert df["promo_cost"].iloc[0] == expected
 
 
-class TestROI:
-    def test_positive_roi(self):
+class TestIncrementalContribution:
+    def test_nets_cogs_at_promo_price(self):
         df = _apply_promo_calcs(pd.DataFrame([
             _promo_row(baseline_v=10.0, promo_v=20.0, doors=100,
                        duration_weeks=2, wholesale_price=5.0,
-                       discount_depth_pct=0.10)
+                       discount_depth_pct=0.10, cogs_per_unit=3.0)
         ]))
-        assert df["roi_pct"].iloc[0] == pytest.approx(800.0)
+        incr_units = (20.0 - 10.0) * 100 * 2            # 2000
+        promo_price = 5.0 * (1 - 0.10)                  # 4.5
+        expected = round(incr_units * (promo_price - 3.0))  # 2000 * 1.5 = 3000
+        assert df["incremental_contribution"].iloc[0] == expected
+
+    def test_falls_back_to_default_margin_without_cogs(self):
+        from constants import PROMO_DEFAULT_GROSS_MARGIN
+        row = _promo_row(baseline_v=10.0, promo_v=20.0, doors=100,
+                         duration_weeks=2, wholesale_price=5.0,
+                         discount_depth_pct=0.10)
+        del row["cogs_per_unit"]
+        del row["margin_per_unit"]
+        df = _apply_promo_calcs(pd.DataFrame([row]))
+        incr_units = (20.0 - 10.0) * 100 * 2
+        promo_price = 5.0 * (1 - 0.10)
+        unit_cost = 5.0 * (1 - PROMO_DEFAULT_GROSS_MARGIN)
+        expected = round(incr_units * (promo_price - unit_cost))
+        assert df["incremental_contribution"].iloc[0] == expected
+
+
+class TestROI:
+    def test_margin_based_positive_roi(self):
+        # incr units 2000, promo_price 4.5, cogs 3.0 -> contribution 3000;
+        # markdown 20*100*2*5*0.10 = 2000; roi = (3000-2000)/2000 = 50%.
+        df = _apply_promo_calcs(pd.DataFrame([
+            _promo_row(baseline_v=10.0, promo_v=20.0, doors=100,
+                       duration_weeks=2, wholesale_price=5.0,
+                       discount_depth_pct=0.10, cogs_per_unit=3.0)
+        ]))
+        assert df["roi_pct"].iloc[0] == pytest.approx(50.0)
+
+    def test_margin_roi_below_gross_revenue_roi(self):
+        # Netting COGS and charging markdown on all units must not inflate:
+        # margin ROI is strictly below the old revenue-based ROI.
+        row = _promo_row(baseline_v=10.0, promo_v=20.0, doors=100,
+                         duration_weeks=2, wholesale_price=5.0,
+                         discount_depth_pct=0.10, cogs_per_unit=3.0)
+        df = _apply_promo_calcs(pd.DataFrame([row]))
+        incr_units = (20.0 - 10.0) * 100 * 2
+        promo_price = 5.0 * (1 - 0.10)
+        old_revenue_roi = (
+            (incr_units * promo_price - 10.0 * 100 * 2 * 5.0 * 0.10)
+            / (10.0 * 100 * 2 * 5.0 * 0.10) * 100
+        )
+        assert df["roi_pct"].iloc[0] < old_revenue_roi
 
     def test_promo_cost_zero_produces_nan_roi(self):
         df = _apply_promo_calcs(pd.DataFrame([

@@ -633,6 +633,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
             p.promo_id, p.sku, p.retailer, p.start_week, p.end_week,
             p.duration_weeks, p.discount_depth_pct, p.promo_type, p.store_scope,
             pm.product_name, pm.product_line, pm.wholesale_price,
+            pm.cogs_per_unit, pm.margin_per_unit,
             (SELECT AVG(d.units_sold) FROM fct_scan_data d
              JOIN qualified_pairs qp ON qp.sku = d.sku AND qp.store_id = d.store_id
              WHERE qp.promo_id = p.promo_id

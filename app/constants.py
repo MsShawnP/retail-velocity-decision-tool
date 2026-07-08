@@ -184,6 +184,12 @@ VOLUME_TIER_MULT = {"A": 1.3, "B": 1.0, "C": 0.7}
 
 LAUNCH_BENCHMARK = 4.0
 
+# Promo ROI: fallback gross margin on wholesale price, used ONLY when a SKU's
+# real cogs_per_unit / margin_per_unit is not supplied. The live query joins
+# dim_products for real per-SKU COGS, so this fallback is a safety net for
+# older baked snapshots. Assumption — confirm against Cinderhaven's cost data.
+PROMO_DEFAULT_GROSS_MARGIN = 0.40
+
 # ============================================================
 # Category mapping (product_line → market category)
 # ============================================================
