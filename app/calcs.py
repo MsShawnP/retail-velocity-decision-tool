@@ -227,7 +227,12 @@ def classify_quadrant(row: pd.Series) -> str:
 
 
 def apply_expansion_calcs(df: pd.DataFrame) -> pd.DataFrame:
-    """Volume-tier-weighted score and tertile tier bucketing."""
+    """Volume-tier-weighted score and equal-interval tier bucketing.
+
+    Tiers split the score RANGE into three equal intervals (min..max),
+    not equal-count quantiles — so this is not a tertile/quantile split
+    and a bucket can hold any number of SKUs.
+    """
     df = df.copy()
     df["tier_mult"] = df["volume_tier"].map(VOLUME_TIER_MULT).fillna(1.0)
     df["score"] = (df["avg_velocity"] * df["tier_mult"]).round(2)

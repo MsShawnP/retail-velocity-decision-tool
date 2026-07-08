@@ -83,7 +83,7 @@ def _filters_shelf_defense(product_lines: list[str]) -> html.Div:
             label="Delisting threshold (units/store/wk)",
         ),
         _caption(
-            "Retailers don't publish this number -- use your buyer "
+            "Retailers don't publish this number — use your buyer "
             "conversations and category reviews to set it."
         ),
         _filter_dropdown("shelf-product-line", ["All"] + product_lines, label="Product Line"),
@@ -279,6 +279,15 @@ def _sidebar() -> html.Div:
 
 def _main_content() -> html.Div:
     return html.Div([
+        html.Div([
+            html.H1("Retail Velocity Decision Tool", className="hero-title"),
+            html.P(
+                "Velocity is units sold per store per week — the number a retailer "
+                "watches to decide whether a SKU keeps its shelf space or gets "
+                "delisted. Each mode below turns Cinderhaven's scan data into that call.",
+                className="hero-sub",
+            ),
+        ], className="hero"),
         dcc.Loading(
             id="main-loading",
             type="default",

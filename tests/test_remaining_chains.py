@@ -133,7 +133,7 @@ class TestExpansionScore:
 
 
 class TestExpansionTiers:
-    def test_tertile_bucketing(self):
+    def test_equal_interval_bucketing(self):
         rows = [
             _expansion_row(store_id=1, avg_velocity=10.0, volume_tier="B"),
             _expansion_row(store_id=2, avg_velocity=5.0, volume_tier="B"),

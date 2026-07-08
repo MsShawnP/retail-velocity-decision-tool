@@ -147,7 +147,7 @@ DECISIONS = [
 ]
 DECISION_TITLES = {
     DECISIONS[0]: "Shelf Defense",
-    DECISIONS[1]: "Production Planning -- Next 4 Weeks",
+    DECISIONS[1]: "Production Planning — Next 4 Weeks",
     DECISIONS[2]: "Promo ROI",
     DECISIONS[3]: "Distribution Expansion",
     DECISIONS[4]: "Distribution Pruning",
