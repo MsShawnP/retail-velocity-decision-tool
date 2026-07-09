@@ -19,16 +19,19 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "app"))
 
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql://postgres:REDACTED@localhost:5432/cinderhaven",
-)
-
 OUT = REPO / "data" / "baked_views"
 
 import pathlib
 from dotenv import load_dotenv
 load_dotenv(REPO / ".env")
+
+if not os.environ.get("DATABASE_URL"):
+    sys.exit(
+        "DATABASE_URL is not set. Start the Fly proxy and provide it, e.g.:\n"
+        "  flyctl proxy 5432 -a cinderhaven-db\n"
+        "  DATABASE_URL=postgresql://... python scripts/bake_views.py\n"
+        "(or put DATABASE_URL in a local .env — never commit it)"
+    )
 
 import dash_bootstrap_components as dbc
 from dash import Dash
