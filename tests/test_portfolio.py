@@ -61,6 +61,10 @@ def _fake_rat_df():
 @pytest.fixture()
 def portfolio_summary():
     with (
+        # get_portfolio_summary serves a baked JSON snapshot when present, which
+        # pre-empts the mocked data seams below. Force the computation path so the
+        # aggregation logic is what's exercised.
+        patch("data._load_baked_json", return_value=None),
         patch("data.get_conn") as mock_conn,
         patch("data.get_latest_week", return_value="2025-03-15"),
         patch("data.get_production_data", return_value=_fake_prod_df()),

@@ -10,6 +10,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F401"]  # unused imports in conftest are intentional
+"app/run.py" = ["E402"]  # imports are deliberately deferred until after load_dotenv + sentry init
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -16,7 +16,6 @@ import pandas as pd
 from dash import html
 
 from constants import (
-    INK,
     RED,
     TEXT_SEC,
 )

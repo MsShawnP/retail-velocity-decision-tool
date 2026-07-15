@@ -20,8 +20,14 @@ DB_PATH = Path(__file__).resolve().parent.parent / "data" / "cinderhaven_product
 
 @pytest.fixture(scope="module")
 def db():
-    """Return a read-only connection to the baked SQLite artifact."""
-    assert DB_PATH.exists(), f"Baked data artifact not found: {DB_PATH}"
+    """Return a read-only connection to the baked SQLite artifact.
+
+    The 165 MB artifact is gitignored and absent in CI, so skip these drift
+    guards when it isn't present. They run locally and wherever the baked data
+    is available.
+    """
+    if not DB_PATH.exists():
+        pytest.skip(f"Baked data artifact not present: {DB_PATH}")
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     yield conn
     conn.close()

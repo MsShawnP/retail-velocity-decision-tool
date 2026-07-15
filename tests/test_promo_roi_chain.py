@@ -11,13 +11,13 @@ import pandas as pd
 import pytest
 
 from calcs import apply_promo_calcs as _raw_apply_promo_calcs
+from constants import THRESHOLDS
+from decisions.promo_roi import _roi_tier
 
 
 def _apply_promo_calcs(df):
     result, _ = _raw_apply_promo_calcs(df)
     return result
-from constants import THRESHOLDS
-from decisions.promo_roi import _roi_tier
 
 
 def _promo_row(**overrides) -> dict:

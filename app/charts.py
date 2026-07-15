@@ -74,7 +74,7 @@ def apply_hbar_layout(
 
     Auto-computes left_margin from the longest label when not specified.
     """
-    max_len = max((len(str(l)) for l in labels if l is not None), default=10)
+    max_len = max((len(str(label)) for label in labels if label is not None), default=10)
     max_len = min(max_len, 40)
     auto_margin = int(max_len * label_font_size * 0.55) + 30
     if left_margin is None:

@@ -19,6 +19,7 @@ from constants import (
     PORTFOLIO_HEALTH,
     RETAILER_THRESHOLDS,
 )
+from components import error_card
 from data import get_promo_skus, get_product_lines, get_skus_for_line
 from pitch_export import build_pitch_excel, build_pitch_pdf
 from decisions.portfolio_health import layout as portfolio_layout
