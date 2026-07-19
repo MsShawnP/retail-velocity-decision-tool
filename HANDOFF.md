@@ -75,3 +75,16 @@
 
 ### Commits
 - `acd5228` — Fix 13 bugs from multi-agent code review
+
+## 2026-07-18 22:35
+
+**Started from:** Reported empty promo/velocity data despite ~123 reseeded promos; hypothesis was fct_/dim_ layer not rebuilt from stg_. Diagnose → fix → deploy.
+
+**Did:** Connected to cinderhaven-db via flyctl proxy; ran diagnostics. Disproved the hypothesis — fct_promotions=123, fct_scan_data=1.3M rows, promo dates sit inside scan coverage, Regional→Regional Group mapping is correct. Found the app serves baked JSON (data/baked_views/), not the live DB. Discovered fct_scan_data has ZERO indexes → promo_roi's per-promo correlated subqueries seq-scan 97MB, exceeding the pool's 30s statement_timeout, so a fresh re-bake times out on the 5 physical retailers. Then discovered HEAD already contains the fix (commits 40c6e21 "rebake serving views" + a7f4e58 "ship baked_views into image"): populated promo_roi (walmart=22 rows etc.), latest_week=2025-12-27. The working tree I read at start was STALE (old CHP-0001 keys, empty promos, 2027-01-02); it was restored to HEAD mid-session.
+
+**State:** Repo clean, working tree == HEAD (4754238). HEAD baked views correct/populated. DB healthy but still unindexed. Proxy stopped; temp credential file deleted. My discarded re-bake backed up in scratchpad only. SECURITY: scripts/bake_views.py:24 still has the live DB password hardcoded + committed (untouched this session). Prod-vs-HEAD deploy status NOT verified.
+
+**Next:**
+1. VERIFY DEPLOY FIRST — curl velocity.lailarallc.com / check `fly releases`. If prod lags 40c6e21/a7f4e58, the empty-data symptom is a deploy gap → `fly deploy`, not a data bug.
+2. Remove hardcoded DB password from scripts/bake_views.py:24 (read DATABASE_URL from env only), rotate the Fly credential, then purge git history (filter-repo/BFG — destructive, confirm before running).
+3. Optional durable fix: CREATE INDEX CONCURRENTLY ON public_marts.fct_scan_data (sku, store_id, week_ending) so future re-bakes don't time out.

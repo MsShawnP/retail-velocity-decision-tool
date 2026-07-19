@@ -83,3 +83,19 @@
 **Fix:** Supplemented with direct SQL verification — compared mart columns against staging equivalents for all 50 SKUs, 640 stores, 138 promos, and 1.4M scan rows. This proved column-level parity without depending on the query windows.
 
 **Lesson:** When verifying a refactor with a baseline diff, check that the baseline actually contains data before trusting the diff result. Empty-vs-empty always passes. Direct SQL comparisons (mart column = staging column) are more robust than end-to-end bake comparisons when the data state is sparse.
+
+## 2026-07-18: Diagnosed the DB layer before verifying HEAD already had the fix
+
+**What happened:** Reported symptom was empty promo/velocity data in the live app. I spent the session connecting to Postgres and re-baking views, when HEAD already contained the fix — commits `40c6e21` (rebake serving views; fix empty promo_roi) and `a7f4e58` (ship baked_views into image), with populated `promo_roi__*` (walmart=22 rows) and `latest_week`=2025-12-27. The local working tree I read at the start was STALE (old `CHP-0001` keys, empty promos, `latest_week`=2027-01-02), not HEAD.
+
+**Why it failed:** I trusted the working-tree files as ground truth and jumped to DB diagnosis without first running `git status` / comparing the tree to HEAD, and without checking whether the live deployment matched HEAD. The global CLAUDE.md rule "verify deployment matches HEAD before debugging UI issues" is exactly this case: a symptom that HEAD's code can't produce (empty promos) is the tell for a stale tree or an undeployed prod.
+
+**Lesson:** For any "live app shows wrong/stale data" report, FIRST: (1) `git status` + diff working tree vs HEAD, (2) check `fly releases` / curl the live asset vs HEAD. Only diagnose the data/DB layer after confirming HEAD doesn't already fix it and prod is actually on HEAD.
+
+## 2026-07-18: Re-baking promo_roi times out — fct_scan_data has no indexes
+
+**What happened:** Re-running `scripts/bake_views.py` from an emptied `baked_views/` produced empty views for the 5 physical retailers (Walmart, Costco, Kroger, Sprouts, Whole Foods): `canceling statement due to statement timeout`. The distributor/regional retailers (small/no promo data) baked fine.
+
+**Why it failed:** `public_marts.fct_scan_data` (1.3M rows, 97MB) has ZERO indexes. `get_promo_roi_data` runs three correlated subqueries per promo, each joining `fct_scan_data` on `(sku, store_id)` + a `week_ending` range — with no index every subquery seq-scans the whole table. One physical retailer didn't finish in 2 minutes, far past the pool's hardcoded 30s `statement_timeout` (`app/db.py:66`).
+
+**Lesson:** The committed baked views hide this fragility — they were baked successfully at some earlier point, but a fresh re-bake against current data volume fails. Add `CREATE INDEX CONCURRENTLY ON public_marts.fct_scan_data (sku, store_id, week_ending)` before relying on re-baking. Raising the bake timeout alone works but leaves a 20-60 min fragile bake.

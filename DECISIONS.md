@@ -157,3 +157,13 @@
 **Why:** With 1 gunicorn worker and synchronous Dash callbacks, exhausting 10 connections requires 10 simultaneous in-flight queries — effectively impossible. The `statement_timeout=30000` already bounds how long any single connection is held (30s max), so even a worst-case block is self-correcting.
 
 **Revisit when:** Scaling to multiple gunicorn workers or adding async query patterns. Multiple workers sharing the same pool makes exhaustion realistic. Fix by wrapping `getconn()` in a `threading.Timer` or switching to SQLAlchemy's pool (which has native `pool_timeout`).
+
+## 2026-07-18: fct_scan_data must be indexed for the promo_roi bake (don't just raise the timeout)
+
+**Decision:** The durable fix for the timing-out `promo_roi`/`category_benchmark` bake is an index on `public_marts.fct_scan_data (sku, store_id, week_ending)`, not raising `statement_timeout`.
+
+**Why:** The bake's per-promo correlated subqueries seq-scan the unindexed 1.3M-row table. An index makes them fast, fixes the bake and any live-DB fallback, and helps other apps on the shared cinderhaven-db. Merely lifting the 30s timeout leaves a 20-60 min bake that silently re-empties physical-retailer views as data grows.
+
+**Scope:** Any re-bake of serving views; the shared cinderhaven-db `fct_scan_data` table.
+
+**Do not:** Ship a "fix" that only bumps the bake's statement_timeout without adding the index — it masks the fragility and will regress at the next data-size increase.
