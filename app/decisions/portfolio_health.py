@@ -11,15 +11,51 @@ from dash import html
 
 import pandas as pd
 
+from calcs import classify_shelf_status
 from components import error_card, metric_card
 from constants import (
     BAR_RED,
     CHICAGO,
     ORANGE,
+    PHYSICAL_RETAILERS,
     RED,
+    RETAILER_THRESHOLDS,
     TEAL,
 )
-from data import get_category_benchmark, get_portfolio_summary
+from data import (
+    get_category_benchmark,
+    get_portfolio_summary,
+    get_rationalization_data,
+    get_shelf_defense_data,
+)
+
+
+def _shelf_at_risk_dollars() -> tuple[int, float]:
+    """Unique at-risk SKUs and their weekly wholesale revenue on shelf.
+
+    Same per-retailer classification the portfolio summary uses; dollars come
+    from the rationalization view (velocity x doors x wholesale = revenue_per_sw
+    x doors, per SKU, latest 13-week velocity). Returns (0, 0.0) on any failure
+    so the headline can degrade to the inventory line.
+    """
+    try:
+        at_risk: set[str] = set()
+        for ret in PHYSICAL_RETAILERS:
+            shelf = get_shelf_defense_data(ret, None)
+            if shelf.empty:
+                continue
+            shelf = classify_shelf_status(shelf, RETAILER_THRESHOLDS.get(ret, 2.0))
+            at_risk |= set(shelf.loc[shelf["status"] == "At Risk", "sku"])
+        if not at_risk:
+            return 0, 0.0
+        rat = get_rationalization_data("All Retailers", None)
+        if rat.empty:
+            return len(at_risk), 0.0
+        rows = rat[rat["sku"].isin(at_risk)]
+        weekly_revenue = float((rows["revenue_per_sw"] * rows["doors"]).sum())
+        return len(at_risk), weekly_revenue
+    except Exception:
+        return 0, 0.0
 
 
 def _risk_card(
@@ -98,7 +134,7 @@ def layout() -> html.Div:
             f"Could not aggregate portfolio data: {exc}",
         )
 
-    headline = (
+    inventory_line = (
         f"Cinderhaven Provisions runs {s['total_skus']} active SKUs "
         f"across {s['total_retailers']} retailers "
         f"and {s['total_doors']:,} doors."
@@ -109,12 +145,26 @@ def layout() -> html.Div:
         + s["prod_decelerating"]
         + s["launches_failing"]
     )
-    if attention_items > 0:
+
+    # Lead with the finding, dollarized; the inventory line demotes to subhead.
+    n_risk, risk_revenue = _shelf_at_risk_dollars()
+    if n_risk and risk_revenue > 0:
+        headline = (
+            f"{n_risk} SKUs below the delisting threshold — "
+            f"${risk_revenue:,.0f}/week of shelf revenue at risk."
+        )
+        subhead = (
+            f"{inventory_line} {attention_items} items need attention "
+            f"this week — drill into a decision area below."
+        )
+    elif attention_items > 0:
+        headline = inventory_line
         subhead = (
             f"{attention_items} items need attention this week — "
             f"drill into a decision area below."
         )
     else:
+        headline = inventory_line
         subhead = "All clear this week — portfolio is running healthy."
 
     # Category benchmark (portfolio-wide)
