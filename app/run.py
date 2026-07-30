@@ -37,6 +37,8 @@ from lailara_frame import wrap
 
 app = Dash(
     __name__,
+    title="Retail Velocity Decision Tool | Lailara LLC",
+    update_title=None,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
 )
