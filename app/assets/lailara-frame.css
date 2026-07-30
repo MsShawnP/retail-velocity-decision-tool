@@ -202,6 +202,9 @@
   /* Layout — from lailarallc.com globals.css (authoritative over design-spec 900px) */
   --ll-max-width:      1200px;
   --ll-body-max-width: 720px;
+  --ll-body-max-width-narrow: 560px;  /* helper text, captions, form hints  */
+  --ll-body-max-width-wide:   900px;  /* wide narrative, changelogs         */
+  --ll-display-max-width:      18em;  /* hero/display leads - em tracks size */
   --ll-radius:         2px;
   --ll-section-gap:    60px;
   --ll-nav-height:     80px;
@@ -464,3 +467,16 @@
     padding: 0;
   }
 }
+
+/* -- Measure ---------------------------------------------------
+   Never hand-pick a prose width, and never use `ch` outside a
+   monospace block. `ch` is the width of the digit "0" -- on Source
+   Sans that is ~0.5em, so `60ch` renders ~447px (about 45 real
+   characters), not 60. `rem` is no safer: it inherits the visitor's
+   browser font-size setting, which is not 16px for everyone.
+   Use these tokens for every block of running text.            */
+
+.ll-measure         { max-width: var(--ll-body-max-width); }
+.ll-measure-narrow  { max-width: var(--ll-body-max-width-narrow); }
+.ll-measure-wide    { max-width: var(--ll-body-max-width-wide); }
+.ll-measure-display { max-width: var(--ll-display-max-width); }

@@ -161,7 +161,7 @@ body {
     line-height: 1.45;
     color: var(--ll-text-sec);
     margin: 0;
-    max-width: 72ch;
+    max-width: var(--ll-body-max-width, 720px);
 }
 
 .js-plotly-plot .plotly .main-svg {
@@ -340,7 +340,7 @@ body {
     font-size: 15px;
     margin: 4px 0 8px;
     line-height: 1.6;
-    max-width: 660px;
+    max-width: var(--ll-body-max-width, 720px);
 }
 
 .dh-caption {
