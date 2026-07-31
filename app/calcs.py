@@ -89,6 +89,20 @@ def _promo_unit_cost(df: pd.DataFrame) -> pd.Series:
     return cost.where(cost.notna(), fallback)
 
 
+def promo_duration_weeks(start_week: pd.Series, end_week: pd.Series) -> pd.Series:
+    """Number of weekly scans a promo spans, inclusive of both endpoints.
+
+    The promo-window velocity averages ``week_ending BETWEEN start_week AND
+    end_week`` (inclusive), which is ``(end - start) / 7 + 1`` weeks. The bare
+    ``(end - start) / 7`` undercounts by one: it understates every
+    duration-scaled dollar total by a week and collapses single-week promos
+    (start == end) to zero units, zero markdown, and a NaN ROI.
+    """
+    start = pd.to_datetime(start_week, errors="coerce")
+    end = pd.to_datetime(end_week, errors="coerce")
+    return ((end - start).dt.days // 7 + 1).astype("Int64")
+
+
 def apply_promo_calcs(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Baseline guard, lift/dip, incremental units, and MARGIN-based promo ROI.
 

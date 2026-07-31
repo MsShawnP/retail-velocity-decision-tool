@@ -24,6 +24,7 @@ from calcs import (
     apply_promo_calcs,
     classify_launch,
     classify_shelf_status,
+    promo_duration_weeks,
 )
 from constants import (
     ALL_PHYSICAL_OR_AGG,
@@ -586,6 +587,17 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
     if sku_filter is None:
         baked = _load_baked_df(_baked_key("promo_roi", retailer))
         if baked is not None:
+            # Baked snapshots were computed with the old off-by-one
+            # duration_weeks (undercounted the inclusive promo window by a
+            # week). Correct the duration and recompute the duration-scaled
+            # dollar columns from the baked raw velocities, so served numbers
+            # are right without needing a re-bake.
+            if {"start_week", "end_week"}.issubset(baked.columns):
+                baked = baked.copy()
+                baked["duration_weeks"] = promo_duration_weeks(
+                    baked["start_week"], baked["end_week"]
+                )
+                return apply_promo_calcs(baked)
             return baked, 0
     ret_sql, ret_params = retailer_clause(retailer)
 
@@ -611,7 +623,9 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
             SELECT promo_id, sku,
                    p.retailer,
                    start_week, end_week,
-                   ((end_week::date - start_week::date) / 7) AS duration_weeks,
+                   -- inclusive of both endpoints: the promo-window velocity
+                   -- averages week_ending BETWEEN start AND end, i.e. N+1 weeks.
+                   (((end_week::date - start_week::date) / 7) + 1) AS duration_weeks,
                    discount_depth_pct, promo_type,
                    'All Stores' AS store_scope
             FROM fct_promotions p

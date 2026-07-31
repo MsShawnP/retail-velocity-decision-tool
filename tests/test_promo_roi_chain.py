@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from calcs import apply_promo_calcs as _raw_apply_promo_calcs
+from calcs import promo_duration_weeks
 from constants import THRESHOLDS
 from decisions.promo_roi import _roi_tier
 
@@ -168,6 +169,65 @@ class TestROI:
             _promo_row(baseline_v=10.0, promo_v=15.0, discount_depth_pct=0.0)
         ]))
         assert pd.isna(df["roi_pct"].iloc[0])
+
+
+class TestPromoDurationWeeks:
+    """The promo window is averaged inclusively (BETWEEN start AND end), so
+    duration must be (end - start)/7 + 1 weeks. The old (end - start)/7
+    undercounted by a week and collapsed single-week promos to zero.
+    """
+
+    def test_single_week_promo_is_one_week(self):
+        # start == end: one weekly scan, not zero.
+        weeks = promo_duration_weeks(
+            pd.Series(["2025-01-06"]), pd.Series(["2025-01-06"])
+        )
+        assert int(weeks.iloc[0]) == 1
+
+    def test_inclusive_window_counts_all_scans(self):
+        # 2025-01-06, -13, -20 -> three weekly scans.
+        weeks = promo_duration_weeks(
+            pd.Series(["2025-01-06"]), pd.Series(["2025-01-20"])
+        )
+        assert int(weeks.iloc[0]) == 3
+
+    def test_single_week_promo_yields_nonzero_dollars(self):
+        # With the corrected duration of 1, a single-week promo produces real
+        # incremental units and markdown instead of $0 / NaN ROI.
+        df = _apply_promo_calcs(pd.DataFrame([
+            _promo_row(start_week="2025-01-06", end_week="2025-01-06",
+                       duration_weeks=1, baseline_v=10.0, promo_v=15.0,
+                       doors=100, discount_depth_pct=0.20)
+        ]))
+        assert df["incremental_units"].iloc[0] == (15.0 - 10.0) * 100 * 1
+        assert df["promo_cost"].iloc[0] > 0
+
+
+class TestBakedPromoDurationCorrection:
+    """The baked serving path must correct the stored off-by-one duration and
+    recompute duration-scaled dollars, so served numbers are right without a
+    re-bake.
+    """
+
+    def test_baked_single_week_promo_recomputed_nonzero(self):
+        from unittest.mock import patch
+
+        baked = pd.DataFrame([{
+            "promo_id": "P1", "sku": "SKU-1", "retailer": "Walmart",
+            "start_week": "2025-01-06", "end_week": "2025-01-06",
+            "duration_weeks": 0,  # the old, wrong value baked into the snapshot
+            "discount_depth_pct": 0.20, "promo_type": "pct", "store_scope": "all",
+            "product_name": "X", "product_line": "Sauces",
+            "wholesale_price": 5.0, "cogs_per_unit": 3.0, "margin_per_unit": 2.0,
+            "baseline_v": 10.0, "promo_v": 15.0, "post_v": 9.0, "doors": 100,
+        }])
+        with patch("data._load_baked_df", return_value=baked):
+            from data import get_promo_roi_data
+            df, _ = get_promo_roi_data.__wrapped__("Walmart", None)
+
+        assert int(df["duration_weeks"].iloc[0]) == 1  # corrected from 0
+        assert df["incremental_units"].iloc[0] == (15.0 - 10.0) * 100 * 1
+        assert df["promo_cost"].iloc[0] > 0
 
 
 class TestROITier:
