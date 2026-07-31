@@ -7,6 +7,9 @@ All run without a database — operates on synthetic DataFrames.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -85,6 +88,50 @@ class TestForecast:
         sf = 1.5
         expected = round(weekly * sf * 4)
         assert df["forecast_4w_units"].iloc[0] == expected
+
+
+class TestSeasonalWindowAlignment:
+    """The LY windows in get_production_data's SQL must be the exact 52-week
+    (364-day) alias of the windows they scale. Weekly scans land on a 7-day
+    grid aligned to the latest week, so:
+
+        recent 4 weeks = days 0-27   -> ly_current must be days 364-391
+        next 4 weeks   = days -28..-1 -> ly_forward must be days 336-363
+
+    Guards two past regressions: 364-392/336-364 double-counted day 364 in
+    both sums, and the 365-392/337-364 fix removed the overlap but sat one
+    week too old — misassigning the year-ago week of the latest week (the
+    seasonal peak when latest is late December) from ly_current into
+    ly_forward, inflating the seasonal factor. The SQL is inline, so this
+    inspects the source rather than executing the query.
+    """
+
+    @staticmethod
+    def _window(name: str) -> tuple[int, int]:
+        src = (
+            Path(__file__).resolve().parent.parent / "app" / "data.py"
+        ).read_text(encoding="utf-8")
+        m = re.search(
+            rf"BETWEEN (\d+) AND (\d+)\s+THEN d\.units_sold END\) AS {name}", src
+        )
+        assert m, f"could not locate the {name} window in app/data.py"
+        return int(m.group(1)), int(m.group(2))
+
+    def test_ly_current_is_exact_alias_of_recent_window(self):
+        # recent = days 0-27; + 364 -> 364-391
+        assert self._window("sum_ly_current") == (364, 391)
+
+    def test_ly_forward_is_exact_alias_of_next_4_weeks(self):
+        # next 4 weeks = days -28..-1; + 364 -> 336-363
+        assert self._window("sum_ly_forward") == (336, 363)
+
+    def test_windows_span_4_weeks_each_and_do_not_overlap(self):
+        c_lo, c_hi = self._window("sum_ly_current")
+        f_lo, f_hi = self._window("sum_ly_forward")
+        assert c_hi - c_lo == 27  # 28 days inclusive = exactly 4 weekly scans
+        assert f_hi - f_lo == 27
+        assert f_hi < c_lo  # forward block strictly newer, no shared day
+        assert c_lo - f_lo == 28  # contiguous: forward is current shifted 4 weeks
 
 
 class TestTrendPct:

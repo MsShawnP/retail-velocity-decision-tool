@@ -598,16 +598,22 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
             SELECT d.sku,
               SUM(CASE WHEN (%s::date - d.week_ending::date) < 28
                        THEN d.units_sold END) AS sum_recent,
-              -- Two non-overlapping 4-week windows a year back. The prior
-              -- 364/336-364 pair shared day 364 (BETWEEN is inclusive), so the
-              -- week exactly 52 weeks ago was double-counted in both sums.
-              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 365 AND 392
+              -- Exact 52-week (364-day) aliases of the windows they scale:
+              --   recent 4 weeks = days 0-27  -> year-ago alias days 364-391
+              --   next 4 weeks   = days -28..-1 -> year-ago alias days 336-363
+              -- Non-overlapping, 28 days each, so each catches exactly 4 weekly
+              -- scans. The earlier 365-392/337-364 pair fixed the day-364
+              -- double-count but sat one week too old: it pushed the year-ago
+              -- peak week (w/e 2024-12-28 when latest is 2025-12-27) out of
+              -- ly_current and into ly_forward, inflating the seasonal factor
+              -- (~+4% portfolio forecast on the current dataset).
+              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 364 AND 391
                        THEN d.units_sold END) AS sum_ly_current,
-              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 337 AND 364
+              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 336 AND 363
                        THEN d.units_sold END) AS sum_ly_forward
             FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
-            WHERE (%s::date - d.week_ending::date) < 393
+            WHERE (%s::date - d.week_ending::date) < 392
             GROUP BY d.sku
         )
         SELECT pm.sku, pm.product_name, pm.product_line, pm.case_pack_qty,
