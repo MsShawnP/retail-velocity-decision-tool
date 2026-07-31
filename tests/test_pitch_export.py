@@ -53,6 +53,21 @@ class TestDisplayRationalization:
         assert "Quadrant" in result.columns
         assert result["Velocity"].iloc[0] == 3.5
 
+    def test_store_week_margin_labeled_correctly(self):
+        # The column holds margin_per_sw (a store-week figure). It must be
+        # labeled "Margin/Store/Week" -- matching the interactive view -- not
+        # "Margin/Unit", which would mislabel a store-week number as per-unit
+        # in the buyer-facing export.
+        df = pd.DataFrame([{
+            "sku": "SKU-001", "product_name": "Test",
+            "velocity": 3.5, "margin_per_sw": 1.25, "weekly_total_margin": 62.5,
+            "quadrant": "Winner",
+        }])
+        result = _display_rationalization(df)
+        assert "Margin/Store/Week" in result.columns
+        assert "Margin/Unit" not in result.columns
+        assert result["Margin/Store/Week"].iloc[0] == 1.25
+
 
 class TestDisplayLaunch:
     def test_columns_present(self):

@@ -105,7 +105,7 @@ def _display_rationalization(df: pd.DataFrame) -> pd.DataFrame:
         "SKU": df["sku"],
         "Product Name": df["product_name"],
         "Velocity": df["velocity"].round(2),
-        "Margin/Unit": df["margin_per_sw"].round(2),
+        "Margin/Store/Week": df["margin_per_sw"].round(2),
         "Weekly Total Margin": df["weekly_total_margin"].round(2),
         "Quadrant": df["quadrant"],
     })
