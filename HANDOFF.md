@@ -1,5 +1,23 @@
 # Handoff — Retail Velocity Decision Tool
 
+## 2026-07-31 — /improve + /ce review + /ui review
+
+**Started from:** User asked to run /improve, /ce code review, /ui review. Mid-session goal clarified: make it trustworthy for a cold CEO/CFO who grasps the purpose in <30s; Claude wrote all of this (verify, don't assume); DO NOT touch the Postgres SSOT.
+
+**Did:** 4-agent ce review + ui-review-skill (live site) + 30s comprehension read. Fixed 16 commits, all with regression tests, 172→183 tests green, ruff clean, pre-commit secret scan clean. Confirmed the 2026-07-18 hardcoded-DB-password concern is already resolved (bake_views.py reads DATABASE_URL from env). Theme of the fixes: the tool leads with dollar figures and several were wrong (overstated at-risk headline; promo totals ~25% low; single-week promos $0; pricing mislabeling recent promos as failures). Also: Expansion crash on tied scores, pitch-export margin mislabel, seasonal double-count, pruning mislabel, UI AA contrast + on-brand dropdowns, demo-dataset labeling, and unified the duplicated at-risk classification into data._shelf_risk_breakdown.
+
+**56% at-risk:** Investigated read-only from baked views — it's a truthful cross-retailer union (per-retailer rates 6-32%, avg ~17%). Per user: kept the number, did NOT tune thresholds, documented in DECISIONS 2026-07-31.
+
+**State:** Working tree has PLAN.md/HANDOFF.md/review.yaml/.gitignore updates to commit. All 16 fix commits are LOCAL — nothing deployed. The live site (velocity.lailarallc.com) still shows the OLD behavior including the wrong dollar figures.
+
+**Next:**
+1. **DEPLOY** — push to main triggers CI auto-deploy to Fly. Until then the CFO sees none of these fixes. This is the top action.
+2. After deploy, re-run `/ui review` against live to confirm the AA contrast + dropdown warnings clear (the tool audits the live site).
+3. Deferred (own decisions): Launch Health N+1 seq-scans (bites when launches exist), get_pricing_data correlated-EXISTS on filtered path, fct_scan_data index (SSOT — out of scope this session).
+4. Promo/portfolio baked views recompute duration+revenue correctly on load now, so no re-bake needed for those fixes; seasonal boundary fix is live-path only (minor, baked unaffected until next bake).
+
+---
+
 ## 2026-06-03 22:20 (wrapped)
 
 **Started from:** Tool reading staging tables directly; reload_postgres.py could overwrite canonical platform tables.

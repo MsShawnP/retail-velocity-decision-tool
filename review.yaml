@@ -1,0 +1,44 @@
+project: retail-velocity-decision-tool
+base_url: https://velocity.lailarallc.com
+
+# Dash single-page app: all decision modes render at / via callbacks.
+routes:
+  - path: /
+    name: Portfolio Health (landing)
+
+forbidden_content:
+  - pattern: "TODO|FIXME|HACK|XXX"
+    severity: warning
+    reason: Dev markers in production code
+  - pattern: "password\\s*=|api_key\\s*=|secret\\s*="
+    severity: fail
+    reason: Possible hardcoded credentials
+    exclude:
+      - "*.md"
+
+dom_checks:
+  - route: /
+    elements:
+      - selector: h1.hero-title
+        label: Hero title present
+      - selector: .dh-headline
+        label: Headline finding present
+      - selector: .dash-footer
+        label: Lailara footer present
+    absent:
+      - selector: .error-state
+        label: No error state shown
+
+layout:
+  - route: /
+    checks:
+      - name: No horizontal scroll
+        assert: no_horizontal_scroll
+
+# Lailara subdomain — audit live-rendered brand tokens.
+design_system:
+  exclude_selectors:
+    - ".js-plotly-plot"
+    - ".plotly"
+    - "svg"
+  max_reported: 25

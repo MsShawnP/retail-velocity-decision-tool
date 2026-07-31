@@ -39,3 +39,6 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# UI review screenshots (build artifacts)
+screenshots/

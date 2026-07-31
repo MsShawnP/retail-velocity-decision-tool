@@ -150,7 +150,64 @@ Done when: No stg_* reads for shared data, margin from mart, verified parity. �
 
 ---
 
+## Improvement Arc (2026-07-31) — CEO/CFO readiness
+
+**Goal:** Make the tool trustworthy to a cold-landing CEO/CFO who must grasp
+the purpose in <30s. Triggered by `/improve` + `/ce` code review + `/ui review`.
+Constraint: no Postgres SSOT changes — code/CSS only.
+
+**Why now:** Three combined reviews (4-agent ce code review, ui-review tool,
+30s comprehension read). Theme: the tool leads with dollar figures and several
+are wrong — the real risk to CEO trust, not layout.
+
+### Phase 1 — Confirmed bugs — DONE ✓
+- [x] C1: Expansion mode crashes (NameError on tied/single-store scores)
+- [x] C2: Headline "$X/week at risk" overstated — sums cross-retailer revenue
+- [x] Pitch export mislabels store-week margin as "Margin/Unit"
+- [x] 28-vs-29 headline/subhead reads as a bug
+- [x] Launch Health wall-of-zeros → empty state
+
+### Phase 2 — Agent-found — DONE ✓
+- [x] Promo duration_weeks off-by-one (~25% understated) + single-week $0
+- [x] Pricing "Stop promoting" false-fail when post_v is NaN (no data yet)
+- [x] Rationalization headline cut-count ≠ Cut-candidates tab count (renamed to "discontinuation candidates")
+- [x] Duplicate at-risk classification unified into data._shelf_risk_breakdown
+- [x] Seasonal YoY window overlaps day 364 (double-counted week)
+- [x] Pruning shelf_cost labeled "margin" but uses wholesale price (relabeled revenue + clamp)
+
+### Phase 3 — Lower stakes / polish — DONE ✓
+- [x] Contrast fail on .ph-bar-segment (dropped redundant in-bar number)
+- [x] Dash dropdowns off-brand (CSS override block)
+- [x] "cs" → "cases"
+- [x] Demo label ("Demo · synthetic sample data" in sidebar + footer)
+- [x] 56% at-risk: investigated — data-real (cross-retailer union), thresholds NOT tuned, documented in DECISIONS 2026-07-31
+- [x] Test gaps: classify_quadrant now imported not copied; expansion tie, single-week promo, NaN post_v covered
+
+**Definition of done:** Met — every fix has a regression test; 183 tests green;
+dollar figures corrected; no NameError; AA contrast passes (once deployed).
+
+### Out of scope (not done — need separate decision)
+- Postgres SSOT / schema / reseeds (user constraint)
+- fct_scan_data indexing (SSOT change; noted in DECISIONS 2026-07-18)
+- Launch Health N+1 seq-scan perf fix (0 launches today; will bite when launches exist) — data.py get_launch_velocity_curve
+- get_pricing_data correlated-EXISTS on filtered path (perf; extends the known zero-index issue)
+- **DEPLOY: all 16 commits are local; the live site still shows old behavior until pushed to main (CI auto-deploys)**
+
+---
+
 ## Improvement History
+
+### 2026-07-31 — Improvement pass (`/improve` + `/ce` review + `/ui review`)
+- **Trigger:** User-initiated combined review. Goal: CEO/CFO-ready, purpose clear in <30s. Constraint: no Postgres SSOT changes.
+- **What was reviewed:** 4-agent ce code review (correctness/calc, maintainability/Python, performance, testing), ui-review-skill against live site, 30-second comprehension read of the rendered landing page.
+- **What was fixed (16 commits, 172→183 tests):**
+  - 5 confirmed bugs: Expansion NameError crash; overstated headline $ (cross-retailer leak); pitch-export margin mislabel; 28-vs-29 wording; Launch Health empty state.
+  - 6 agent-found: promo ~25% $ understatement + single-week $0; pricing "Stop promoting" false-fail; rationalization naming collision; seasonal 364-day double-count; pruning revenue/margin mislabel; unified duplicate at-risk classification.
+  - Polish: AA contrast; on-brand dropdowns; "cases"; demo-dataset label; classify_quadrant tested against shipped code.
+- **56% at-risk:** Investigated (read-only) — data-real cross-retailer union, per-retailer rates healthy (~17% avg). Kept the number, thresholds untouched, documented in DECISIONS.md per user decision.
+- **Deferred:** Launch Health N+1 perf (0 launches now); get_pricing_data correlated-EXISTS; fct_scan_data index (SSOT).
+- **NOT DEPLOYED:** all commits local; push to main to reach production.
+- **Next review:** 2026-08-30
 
 ### 2026-05-22 — Improvement pass
 - **Trigger:** User-initiated `/improve` focused on data reconciliation and calculation correctness
