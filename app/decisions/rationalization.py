@@ -167,7 +167,8 @@ def layout(
     if n_cut_candidates > 0:
         insight = (
             f"The portfolio generates ${total_margin:,}/week in gross margin. "
-            f"The {n_cut_candidates} cut candidate{'s' if n_cut_candidates != 1 else ''} "
+            f"The {n_cut_candidates} discontinuation "
+            f"candidate{'s' if n_cut_candidates != 1 else ''} "
             f"contribute{'s' if n_cut_candidates == 1 else ''} only "
             f"${cut_margin:,}/week — discontinuing them frees resources "
             f"for the {n_winners} winners."
@@ -175,8 +176,8 @@ def layout(
     else:
         insight = (
             f"${total_margin:,}/week total gross margin across {len(df)} SKUs. "
-            f"No clear cut candidates — every low-margin SKU still pulls enough "
-            f"velocity to justify its shelf space."
+            f"No clear discontinuation candidates — every low-margin SKU still "
+            f"pulls enough velocity to justify its shelf space."
         )
 
     df["quadrant"] = df.apply(classify_quadrant, axis=1)
