@@ -149,3 +149,27 @@ class TestShelfAtRiskDollarsScoping:
         assert n_risk == 1  # SKU A, unique across retailers
         # Sprouts only: 3.0 * 10 = 30. NOT Walmart's 20.0 * 500 = 10_000.
         assert revenue == pytest.approx(30.0)
+
+
+class TestRiskCardEmptyState:
+    """A risk card with total == 0 (e.g. no active launches) must show a
+    neutral empty state, not a red '0 of 0 SKUs (0%)' that reads as broken.
+    """
+
+    def test_zero_total_shows_empty_state(self):
+        from decisions.portfolio_health import _risk_card
+
+        card = _risk_card("Launch Health", 0, 0, "#c00", "No SKUs launched.", "launch")
+        # children: [title, count, subtitle, detail]
+        count_div, subtitle_div = card.children[1], card.children[2]
+        assert count_div.children == "—"
+        assert "0 of 0" not in subtitle_div.children
+        assert subtitle_div.children == "None to track"
+
+    def test_nonzero_total_shows_count(self):
+        from decisions.portfolio_health import _risk_card
+
+        card = _risk_card("Shelf Risk", 28, 50, "#c00", "detail", "shelf")
+        count_div, subtitle_div = card.children[1], card.children[2]
+        assert count_div.children == "28"
+        assert subtitle_div.children == "of 50 SKUs (56%)"

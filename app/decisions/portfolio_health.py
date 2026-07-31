@@ -16,6 +16,7 @@ from components import error_card, metric_card
 from constants import (
     BAR_RED,
     CHICAGO,
+    GREY,
     ORANGE,
     PHYSICAL_RETAILERS,
     RED,
@@ -71,20 +72,30 @@ def _risk_card(
     detail: str,
     decision_value: str,
 ) -> html.Div:
-    """Single risk-indicator card. Shows count / total with a color accent."""
-    pct = round(count / total * 100) if total else 0
+    """Single risk-indicator card. Shows count / total with a color accent.
+
+    When ``total`` is 0 (e.g. no active launches to track) the card shows a
+    neutral em-dash and an empty-state subtitle instead of a red ``0 of 0
+    SKUs (0%)``, which reads as a broken/unfinished panel.
+    """
+    if total == 0:
+        count_display, count_color, subtitle = "—", GREY, "None to track"
+    else:
+        pct = round(count / total * 100)
+        count_display, count_color = f"{count}", color
+        subtitle = f"of {total} SKUs ({pct}%)"
     return html.Div(
         className="ph-risk-card",
         id={"type": "ph-risk-card", "decision": decision_value},
         children=[
             html.Div(title, className="ph-risk-title"),
             html.Div(
-                f"{count}",
+                count_display,
                 className="ph-risk-count",
-                style={"color": color},
+                style={"color": count_color},
             ),
             html.Div(
-                f"of {total} SKUs ({pct}%)",
+                subtitle,
                 className="ph-risk-subtitle",
             ),
             html.Div(detail, className="ph-risk-detail"),
@@ -151,6 +162,18 @@ def layout() -> html.Div:
         + s["launches_failing"]
     )
 
+    # Spell out what the attention count is made of, so it visibly reconciles
+    # with the dollarized headline's at-risk SKU count instead of reading as
+    # an off-by-one typo (e.g. "29 items ... (28 at delisting risk, 1 ...)").
+    attention_parts = []
+    if s["shelf_at_risk"]:
+        attention_parts.append(f"{s['shelf_at_risk']} at delisting risk")
+    if s["prod_decelerating"]:
+        attention_parts.append(f"{s['prod_decelerating']} decelerating")
+    if s["launches_failing"]:
+        attention_parts.append(f"{s['launches_failing']} failing launches")
+    attention_breakdown = ", ".join(attention_parts)
+
     # Lead with the finding, dollarized; the inventory line demotes to subhead.
     n_risk, risk_revenue = _shelf_at_risk_dollars()
     if n_risk and risk_revenue > 0:
@@ -159,14 +182,14 @@ def layout() -> html.Div:
             f"${risk_revenue:,.0f}/week of shelf revenue at risk."
         )
         subhead = (
-            f"{inventory_line} {attention_items} items need attention "
-            f"this week — drill into a decision area below."
+            f"{inventory_line} {attention_items} items need attention this "
+            f"week ({attention_breakdown}) — drill into a decision area below."
         )
     elif attention_items > 0:
         headline = inventory_line
         subhead = (
-            f"{attention_items} items need attention this week — "
-            f"drill into a decision area below."
+            f"{attention_items} items need attention this week "
+            f"({attention_breakdown}) — drill into a decision area below."
         )
     else:
         headline = inventory_line
@@ -254,7 +277,9 @@ def layout() -> html.Div:
             ORANGE if s["launches_failing"] > 0 else TEAL,
             (f"{s['launches_on_track']} on track, "
              f"{s['launches_attention']} need attention, "
-             f"{s['launches_failing']} failing"),
+             f"{s['launches_failing']} failing")
+            if s["launches_total"]
+            else "No SKUs launched in the last 52 weeks.",
             "launch",
         ),
     ], className="ph-risk-row")
