@@ -33,26 +33,31 @@ from data import (
 def _shelf_at_risk_dollars() -> tuple[int, float]:
     """Unique at-risk SKUs and their weekly wholesale revenue on shelf.
 
-    Same per-retailer classification the portfolio summary uses; dollars come
-    from the rationalization view (velocity x doors x wholesale = revenue_per_sw
-    x doors, per SKU, latest 13-week velocity). Returns (0, 0.0) on any failure
-    so the headline can degrade to the inventory line.
+    Same per-retailer classification the portfolio summary uses. Dollars are
+    scoped to the retailer where each SKU is at risk: a SKU below threshold at
+    Sprouts (10 doors) but healthy at Walmart (500 doors) contributes only its
+    Sprouts revenue, not its full cross-retailer revenue. Revenue at a retailer
+    is revenue_per_sw x doors (13-week velocity x wholesale x that retailer's
+    doors). Returns (0, 0.0) on any failure so the headline can degrade to the
+    inventory line.
     """
     try:
         at_risk: set[str] = set()
+        weekly_revenue = 0.0
         for ret in PHYSICAL_RETAILERS:
             shelf = get_shelf_defense_data(ret, None)
             if shelf.empty:
                 continue
             shelf = classify_shelf_status(shelf, RETAILER_THRESHOLDS.get(ret, 2.0))
-            at_risk |= set(shelf.loc[shelf["status"] == "At Risk", "sku"])
-        if not at_risk:
-            return 0, 0.0
-        rat = get_rationalization_data("All Retailers", None)
-        if rat.empty:
-            return len(at_risk), 0.0
-        rows = rat[rat["sku"].isin(at_risk)]
-        weekly_revenue = float((rows["revenue_per_sw"] * rows["doors"]).sum())
+            ret_at_risk = set(shelf.loc[shelf["status"] == "At Risk", "sku"])
+            if not ret_at_risk:
+                continue
+            at_risk |= ret_at_risk
+            rat = get_rationalization_data(ret, None)
+            if rat.empty:
+                continue
+            rows = rat[rat["sku"].isin(ret_at_risk)]
+            weekly_revenue += float((rows["revenue_per_sw"] * rows["doors"]).sum())
         return len(at_risk), weekly_revenue
     except Exception:
         return 0, 0.0

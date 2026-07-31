@@ -111,3 +111,41 @@ class TestPortfolioSummaryCounts:
 
     def test_total_weekly_margin(self, portfolio_summary):
         assert portfolio_summary["total_weekly_margin"] == 800
+
+
+class TestShelfAtRiskDollarsScoping:
+    """The headline '$X/week of shelf revenue at risk' must scope each SKU's
+    revenue to the retailer where it is actually at risk. A SKU healthy at
+    Walmart (many doors) but below threshold only at Sprouts (few doors) must
+    contribute only its Sprouts revenue, not its full cross-retailer revenue.
+    """
+
+    @staticmethod
+    def _shelf(ret, _pl):
+        # SKU A: healthy at Walmart (10.0 >= 2.5), at risk at Sprouts (0.5 < 1.5).
+        if ret == "Walmart":
+            return pd.DataFrame([{"sku": "A", "current_v": 10.0, "trailing_v": 10.0}])
+        if ret == "Sprouts":
+            return pd.DataFrame([{"sku": "A", "current_v": 0.5, "trailing_v": 1.0}])
+        return pd.DataFrame(columns=["sku", "current_v", "trailing_v"])
+
+    @staticmethod
+    def _rat(ret, _pl):
+        # Walmart revenue is large (500 doors) and MUST be excluded; A is safe there.
+        if ret == "Walmart":
+            return pd.DataFrame([{"sku": "A", "revenue_per_sw": 20.0, "doors": 500}])
+        if ret == "Sprouts":
+            return pd.DataFrame([{"sku": "A", "revenue_per_sw": 3.0, "doors": 10}])
+        return pd.DataFrame(columns=["sku", "revenue_per_sw", "doors"])
+
+    def test_revenue_scoped_to_at_risk_retailer(self):
+        with (
+            patch("decisions.portfolio_health.get_shelf_defense_data", side_effect=self._shelf),
+            patch("decisions.portfolio_health.get_rationalization_data", side_effect=self._rat),
+        ):
+            from decisions.portfolio_health import _shelf_at_risk_dollars
+            n_risk, revenue = _shelf_at_risk_dollars()
+
+        assert n_risk == 1  # SKU A, unique across retailers
+        # Sprouts only: 3.0 * 10 = 30. NOT Walmart's 20.0 * 500 = 10_000.
+        assert revenue == pytest.approx(30.0)
