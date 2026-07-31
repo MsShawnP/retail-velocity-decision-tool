@@ -546,9 +546,12 @@ def get_production_data(retailer: str, product_line: str | None) -> pd.DataFrame
             SELECT d.sku,
               SUM(CASE WHEN (%s::date - d.week_ending::date) < 28
                        THEN d.units_sold END) AS sum_recent,
-              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 364 AND 392
+              -- Two non-overlapping 4-week windows a year back. The prior
+              -- 364/336-364 pair shared day 364 (BETWEEN is inclusive), so the
+              -- week exactly 52 weeks ago was double-counted in both sums.
+              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 365 AND 392
                        THEN d.units_sold END) AS sum_ly_current,
-              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 336 AND 364
+              SUM(CASE WHEN (%s::date - d.week_ending::date) BETWEEN 337 AND 364
                        THEN d.units_sold END) AS sum_ly_forward
             FROM fct_scan_data d
             JOIN ret_stores rs ON d.store_id = rs.store_id
