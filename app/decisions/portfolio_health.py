@@ -11,57 +11,19 @@ from dash import html
 
 import pandas as pd
 
-from calcs import classify_shelf_status
 from components import error_card, metric_card
 from constants import (
     BAR_RED,
     CHICAGO,
     GREY,
     ORANGE,
-    PHYSICAL_RETAILERS,
     RED,
-    RETAILER_THRESHOLDS,
     TEAL,
 )
 from data import (
     get_category_benchmark,
     get_portfolio_summary,
-    get_rationalization_data,
-    get_shelf_defense_data,
 )
-
-
-def _shelf_at_risk_dollars() -> tuple[int, float]:
-    """Unique at-risk SKUs and their weekly wholesale revenue on shelf.
-
-    Same per-retailer classification the portfolio summary uses. Dollars are
-    scoped to the retailer where each SKU is at risk: a SKU below threshold at
-    Sprouts (10 doors) but healthy at Walmart (500 doors) contributes only its
-    Sprouts revenue, not its full cross-retailer revenue. Revenue at a retailer
-    is revenue_per_sw x doors (13-week velocity x wholesale x that retailer's
-    doors). Returns (0, 0.0) on any failure so the headline can degrade to the
-    inventory line.
-    """
-    try:
-        at_risk: set[str] = set()
-        weekly_revenue = 0.0
-        for ret in PHYSICAL_RETAILERS:
-            shelf = get_shelf_defense_data(ret, None)
-            if shelf.empty:
-                continue
-            shelf = classify_shelf_status(shelf, RETAILER_THRESHOLDS.get(ret, 2.0))
-            ret_at_risk = set(shelf.loc[shelf["status"] == "At Risk", "sku"])
-            if not ret_at_risk:
-                continue
-            at_risk |= ret_at_risk
-            rat = get_rationalization_data(ret, None)
-            if rat.empty:
-                continue
-            rows = rat[rat["sku"].isin(ret_at_risk)]
-            weekly_revenue += float((rows["revenue_per_sw"] * rows["doors"]).sum())
-        return len(at_risk), weekly_revenue
-    except Exception:
-        return 0, 0.0
 
 
 def _risk_card(
@@ -179,7 +141,10 @@ def layout() -> html.Div:
     attention_breakdown = ", ".join(attention_parts)
 
     # Lead with the finding, dollarized; the inventory line demotes to subhead.
-    n_risk, risk_revenue = _shelf_at_risk_dollars()
+    # Count and revenue come from the same portfolio-summary computation, so the
+    # headline count can't drift from the Shelf Risk card.
+    n_risk = s["shelf_at_risk"]
+    risk_revenue = s.get("shelf_at_risk_revenue", 0.0)
     if n_risk and risk_revenue > 0:
         headline = (
             f"{n_risk} SKUs below the delisting threshold — "

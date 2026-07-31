@@ -18,6 +18,7 @@ EXPECTED_KEYS = {
     "forecast_4w_cases",
     "shelf_at_risk",
     "shelf_warning",
+    "shelf_at_risk_revenue",
     "prod_accelerating",
     "prod_decelerating",
     "prod_stable",
@@ -53,8 +54,8 @@ def _fake_launch_df():
 
 def _fake_rat_df():
     return pd.DataFrame([
-        {"weekly_total_margin": 500.0},
-        {"weekly_total_margin": 300.0},
+        {"sku": "A", "weekly_total_margin": 500.0, "revenue_per_sw": 20.0, "doors": 10},
+        {"sku": "B", "weekly_total_margin": 300.0, "revenue_per_sw": 15.0, "doors": 10},
     ])
 
 
@@ -113,11 +114,12 @@ class TestPortfolioSummaryCounts:
         assert portfolio_summary["total_weekly_margin"] == 800
 
 
-class TestShelfAtRiskDollarsScoping:
-    """The headline '$X/week of shelf revenue at risk' must scope each SKU's
-    revenue to the retailer where it is actually at risk. A SKU healthy at
-    Walmart (many doors) but below threshold only at Sprouts (few doors) must
-    contribute only its Sprouts revenue, not its full cross-retailer revenue.
+class TestShelfRiskBreakdownScoping:
+    """data._shelf_risk_breakdown is the single source for the at-risk count
+    (Shelf Risk card) and the dollarized headline. Revenue must be scoped to
+    the retailer where each SKU is at risk: a SKU healthy at Walmart (many
+    doors) but below threshold only at Sprouts (few doors) contributes only its
+    Sprouts revenue, not its full cross-retailer revenue.
     """
 
     @staticmethod
@@ -140,13 +142,13 @@ class TestShelfAtRiskDollarsScoping:
 
     def test_revenue_scoped_to_at_risk_retailer(self):
         with (
-            patch("decisions.portfolio_health.get_shelf_defense_data", side_effect=self._shelf),
-            patch("decisions.portfolio_health.get_rationalization_data", side_effect=self._rat),
+            patch("data.get_shelf_defense_data", side_effect=self._shelf),
+            patch("data.get_rationalization_data", side_effect=self._rat),
         ):
-            from decisions.portfolio_health import _shelf_at_risk_dollars
-            n_risk, revenue = _shelf_at_risk_dollars()
+            from data import _shelf_risk_breakdown
+            at_risk, _warning, revenue = _shelf_risk_breakdown()
 
-        assert n_risk == 1  # SKU A, unique across retailers
+        assert at_risk == {"A"}  # unique across retailers
         # Sprouts only: 3.0 * 10 = 30. NOT Walmart's 20.0 * 500 = 10_000.
         assert revenue == pytest.approx(30.0)
 

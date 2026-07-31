@@ -183,6 +183,37 @@ def get_promo_skus(retailer: str) -> list[str]:
 # Portfolio-level aggregation
 # ============================================================
 
+def _shelf_risk_breakdown() -> tuple[set[str], set[str], float]:
+    """At-risk SKUs, warning SKUs, and weekly wholesale revenue at risk.
+
+    Single source for both the portfolio-summary counts and the dollarized
+    landing-page headline, so the headline SKU count and the risk card can't
+    drift apart. Revenue is scoped to the retailer where each SKU is at risk
+    (a SKU below threshold only at a small retailer contributes only that
+    retailer's revenue, not its cross-retailer total).
+    """
+    at_risk: set[str] = set()
+    warning: set[str] = set()
+    revenue = 0.0
+    for ret in PHYSICAL_RETAILERS:
+        shelf = get_shelf_defense_data(ret, None)
+        if shelf.empty:
+            continue
+        shelf = classify_shelf_status(shelf, RETAILER_THRESHOLDS.get(ret, 2.0))
+        ret_at_risk = set(shelf.loc[shelf["status"] == "At Risk", "sku"])
+        warning |= set(shelf.loc[shelf["status"] == "Warning", "sku"])
+        if not ret_at_risk:
+            continue
+        at_risk |= ret_at_risk
+        rat = get_rationalization_data(ret, None)
+        if rat.empty or not {"revenue_per_sw", "doors"}.issubset(rat.columns):
+            continue
+        rows = rat[rat["sku"].isin(ret_at_risk)]
+        revenue += float((rows["revenue_per_sw"] * rows["doors"]).sum())
+    warning -= at_risk
+    return at_risk, warning, revenue
+
+
 @cache.memoize(timeout=3600)
 def get_portfolio_summary() -> dict:
     """Aggregate portfolio-wide metrics by composing decision-mode queries.
@@ -193,6 +224,13 @@ def get_portfolio_summary() -> dict:
     Serves from baked JSON if available.
     """
     baked = _load_baked_json("portfolio_summary")
+    if baked is not None and "shelf_at_risk_revenue" not in baked:
+        # Older snapshot predates the dollarized headline; derive the revenue
+        # without a re-bake so the landing page has one consistent source.
+        try:
+            baked["shelf_at_risk_revenue"] = int(round(_shelf_risk_breakdown()[2]))
+        except Exception:
+            baked["shelf_at_risk_revenue"] = 0
     if baked is not None:
         return baked
     latest = get_latest_week()
@@ -212,21 +250,9 @@ def get_portfolio_summary() -> dict:
     weekly_units = int(prod["weekly_units"].sum())
     forecast_4w_cases = int(prod["forecast_4w_cases"].sum().round(0))
 
-    # -- Shelf risk: per-retailer classification, count unique at-risk SKUs --
-    at_risk_skus: set[str] = set()
-    warning_skus: set[str] = set()
-    for ret in PHYSICAL_RETAILERS:
-        shelf = get_shelf_defense_data(ret, None)
-        if shelf.empty:
-            continue
-        thr = RETAILER_THRESHOLDS.get(ret, 2.0)
-        shelf = classify_shelf_status(shelf, thr)
-        for _, row in shelf.iterrows():
-            if row["status"] == "At Risk":
-                at_risk_skus.add(row["sku"])
-            elif row["status"] == "Warning":
-                warning_skus.add(row["sku"])
-    warning_skus -= at_risk_skus
+    # -- Shelf risk: per-retailer classification, count unique at-risk SKUs,
+    #    and the weekly revenue at risk (single source for the headline too) --
+    at_risk_skus, warning_skus, shelf_at_risk_revenue = _shelf_risk_breakdown()
 
     # -- Launch health --
     launches = get_launch_data()
@@ -259,6 +285,7 @@ def get_portfolio_summary() -> dict:
         "forecast_4w_cases": forecast_4w_cases,
         "shelf_at_risk": len(at_risk_skus),
         "shelf_warning": len(warning_skus),
+        "shelf_at_risk_revenue": int(round(shelf_at_risk_revenue)),
         "prod_accelerating": prod_accel,
         "prod_decelerating": prod_decel,
         "prod_stable": prod_stable,
