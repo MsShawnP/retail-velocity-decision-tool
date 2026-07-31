@@ -8,13 +8,13 @@
 
 **56% at-risk:** Investigated read-only from baked views — it's a truthful cross-retailer union (per-retailer rates 6-32%, avg ~17%). Per user: kept the number, did NOT tune thresholds, documented in DECISIONS 2026-07-31.
 
-**State:** Working tree has PLAN.md/HANDOFF.md/review.yaml/.gitignore updates to commit. All 16 fix commits are LOCAL — nothing deployed. The live site (velocity.lailarallc.com) still shows the OLD behavior including the wrong dollar figures.
+**State:** DEPLOYED and verified live. Pushed to main; Fly auto-deploy succeeded (33s). Live site (velocity.lailarallc.com) now matches HEAD — headline corrected $82,924→$11,864 (cross-retailer overstatement was ~7×), demo label, "cases", reconciled counts, Launch Health empty state all confirmed live. 183 tests green, tree clean.
 
 **Next:**
-1. **DEPLOY** — push to main triggers CI auto-deploy to Fly. Until then the CFO sees none of these fixes. This is the top action.
-2. After deploy, re-run `/ui review` against live to confirm the AA contrast + dropdown warnings clear (the tool audits the live site).
-3. Deferred (own decisions): Launch Health N+1 seq-scans (bites when launches exist), get_pricing_data correlated-EXISTS on filtered path, fct_scan_data index (SSOT — out of scope this session).
-4. Promo/portfolio baked views recompute duration+revenue correctly on load now, so no re-bake needed for those fixes; seasonal boundary fix is live-path only (minor, baked unaffected until next bake).
+1. Audit the other 3 pitch-export display mappers (`_display_shelf/_production/_launch`) for label/data mismatches — sibling of the `_display_rationalization` "Margin/Unit" fix, NOT checked this session.
+2. Optional: re-run `/ui review` against live to confirm AA contrast + dropdown warnings clear.
+3. Deferred perf (own decisions): Launch Health N+1 seq-scans (bites when launches exist — data.get_launch_velocity_curve), get_pricing_data correlated-EXISTS on filtered path, fct_scan_data index (SSOT — out of scope).
+4. Baked promo/portfolio views recompute duration+revenue on load (no re-bake needed); seasonal boundary fix is live-path only.
 
 ---
 

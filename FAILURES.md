@@ -99,3 +99,11 @@
 **Why it failed:** `public_marts.fct_scan_data` (1.3M rows, 97MB) has ZERO indexes. `get_promo_roi_data` runs three correlated subqueries per promo, each joining `fct_scan_data` on `(sku, store_id)` + a `week_ending` range — with no index every subquery seq-scans the whole table. One physical retailer didn't finish in 2 minutes, far past the pool's hardcoded 30s `statement_timeout` (`app/db.py:66`).
 
 **Lesson:** The committed baked views hide this fragility — they were baked successfully at some earlier point, but a fresh re-bake against current data volume fails. Add `CREATE INDEX CONCURRENTLY ON public_marts.fct_scan_data (sku, store_id, week_ending)` before relying on re-baking. Raising the bake timeout alone works but leaves a 20-60 min fragile bake.
+
+## 2026-07-31: A calc-layer fix does NOT reach the CFO — the app serves baked JSON
+
+**What happened:** Fixing the promo `duration_weeks` off-by-one, my first instinct was a one-character SQL change (`/7` → `/7 + 1`). That would have been a *no-op for what the user actually sees*: `get_promo_roi_data` (and `get_portfolio_summary`, shelf/production/etc.) short-circuit to a baked JSON snapshot (`data/baked_views/*.json`) that already contains the *post-calc* numbers. A SQL/calc fix only affects the live-query fallback (specific-SKU filters, cold cache), not the default served view.
+
+**Why it's a trap:** The baked snapshot was computed once with the old (buggy) logic and frozen. The correct served fix requires either a re-bake (which times out without the fct_scan_data index — an SSOT change, see 2026-07-18) or **recompute-on-load**: correct the input in the baked branch and re-run the pure calc from the baked raw columns. The promo fix stores raw velocities + start/end weeks in the bake, so `apply_promo_calcs` could be re-run on load; the portfolio summary derives its new key on load when absent.
+
+**Lesson:** Before "fixing" any number the UI shows, check whether that surface serves a baked view (`_load_baked_df` / `_load_baked_json` short-circuit at the top of the data function). If it does, a calc/SQL fix alone is invisible in production. Fix it so the served path recomputes on load from baked raw inputs, or flag that a re-bake is required. A green test on the pure calc proves nothing about what the CFO sees.

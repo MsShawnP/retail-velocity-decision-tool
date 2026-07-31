@@ -179,3 +179,13 @@
 **Revisit / superseded 2026-05-17 note:** The 2026-05-17 "~10–20% at-risk" target was calibrated per-retailer on the then-dataset and still roughly holds per-retailer. It was never a target for the cross-retailer union headline.
 
 **Do not:** Tune per-retailer thresholds to make the aggregate headline look smaller. If the cross-retailer union reads as alarming, clarify the label ("flagged at ≥1 of 6 retailers"), don't move the thresholds.
+
+## 2026-07-31: Fix baked-served numbers by recomputing on load, not only at the source
+
+**Decision:** When a calculation bug affects a data function that serves a baked JSON snapshot (`_load_baked_df` / `_load_baked_json` short-circuit), the fix must make the *served* path correct — either recompute the affected columns on load from the baked raw inputs, or explicitly require a re-bake. A source-only SQL/calc fix that leaves the frozen snapshot untouched is not a fix; it's invisible in production.
+
+**Why:** The app serves pre-computed baked views by default; live queries are only a filtered/cold-cache fallback. A snapshot computed with buggy logic stays buggy until re-baked, and re-baking currently times out without the fct_scan_data index (SSOT, out of scope). Recompute-on-load corrected the promo dollar totals and the portfolio at-risk revenue with no re-bake and no SSOT change (see the promo `duration_weeks` and `_shelf_risk_breakdown` commits, 2026-07-31).
+
+**Scope:** Any bug fix to a data function whose result the UI displays and which has a baked short-circuit — promo_roi, portfolio_summary, shelf_defense, production, rationalization, pruning, pricing, launch, category benchmarks.
+
+**Do not:** Ship a calc/SQL-only fix for a baked-served surface and call it done because the pure-calc test is green — the test proves nothing about the served snapshot. Verify against the live/deployed view or the baked JSON, not just the unit test.

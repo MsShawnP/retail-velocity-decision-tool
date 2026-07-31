@@ -42,3 +42,7 @@ Thumbs.db
 
 # UI review screenshots (build artifacts)
 screenshots/
+
+# deploy/staging artifacts
+.rv_stage.tgz
+*.tgz
