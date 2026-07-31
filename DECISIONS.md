@@ -167,3 +167,15 @@
 **Scope:** Any re-bake of serving views; the shared cinderhaven-db `fct_scan_data` table.
 
 **Do not:** Ship a "fix" that only bumps the bake's statement_timeout without adding the index — it masks the fragility and will regress at the next data-size increase.
+
+## 2026-07-31: The "56% of SKUs at risk" headline is data-real — keep it, don't tune thresholds
+
+**Decision:** Keep the portfolio "at-risk" figure (28 of 50 SKUs = 56% at the current data snapshot). Do NOT lower the per-retailer thresholds to force the headline back into the 10–20% band documented on 2026-05-17.
+
+**Why:** Investigation (read-only, from the baked serving views) showed the per-retailer at-risk rates are healthy and mostly inside the target band — Walmart 28%, Costco 32%, Whole Foods 8%, Kroger 22%, Sprouts 6%, Regional 8% (avg ~17%). The 56% is a **cross-retailer union**: the portfolio "Shelf Risk" count is unique SKUs at risk at ≥1 of the 6 physical retailers over 50 total SKUs, so modest per-retailer rates compound. The number is a truthful read of the synthetic dataset, not a miscalibrated threshold. Postgres/the mart layer is the source of truth; the thresholds are honest, so the number stays.
+
+**Context:** Cinderhaven Provisions is a fictional brand on a synthetic dataset built to demonstrate the tool's decision principles — the at-risk rate reflects that seeded data, not a real portfolio in distress.
+
+**Revisit / superseded 2026-05-17 note:** The 2026-05-17 "~10–20% at-risk" target was calibrated per-retailer on the then-dataset and still roughly holds per-retailer. It was never a target for the cross-retailer union headline.
+
+**Do not:** Tune per-retailer thresholds to make the aggregate headline look smaller. If the cross-retailer union reads as alarming, clarify the label ("flagged at ≥1 of 6 retailers"), don't move the thresholds.

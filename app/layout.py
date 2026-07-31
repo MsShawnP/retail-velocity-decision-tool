@@ -30,6 +30,18 @@ def _brand_header() -> html.Div:
         html.Div("Cinderhaven", className="brand-name"),
         html.Div("PROVISIONS", className="brand-sub"),
         html.Div("Velocity Tool", className="brand-tool"),
+        # Cold visitors need to know this is a demonstration on a fictional
+        # brand, not a real portfolio -- so they read it as "what this tool
+        # would do for my data".
+        html.Div(
+            "Demo · synthetic sample data",
+            style={
+                "fontSize": "0.7rem",
+                "color": "var(--ll-london-40)",
+                "marginTop": "0.2rem",
+                "letterSpacing": "0.02em",
+            },
+        ),
     ], style={"marginBottom": "1.25rem"})
 
 

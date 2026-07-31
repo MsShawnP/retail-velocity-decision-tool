@@ -63,7 +63,11 @@ app.layout = wrap(
     create_layout(),
     tool_name="Velocity Tool",
     no_container=True,
-    footer_note="Data: Cinderhaven Provisions. Trailing 52 weeks, 6 retail channels.",
+    footer_note=(
+        "Demo — Cinderhaven Provisions is a fictional brand on a synthetic "
+        "dataset, built to demonstrate the tool. Trailing 52 weeks, 6 retail "
+        "channels."
+    ),
 )
 register_callbacks(app)
 shelf_cbs(app)
