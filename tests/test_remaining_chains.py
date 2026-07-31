@@ -11,6 +11,7 @@ import pytest
 
 from calcs import apply_expansion_calcs as _apply_expansion_calcs
 from calcs import apply_pricing_calcs as _apply_pricing_calcs
+from calcs import classify_quadrant
 from constants import THRESHOLDS, VOLUME_TIER_MULT
 from decisions.pricing_power import _verdict
 
@@ -289,17 +290,9 @@ def _apply_rat_calcs(df: pd.DataFrame) -> pd.DataFrame:
     median_margin = df["margin_per_sw"].median()
     df["high_velocity"] = df["velocity"] > median_velocity
     df["high_margin"] = df["margin_per_sw"] > median_margin
-
-    def quadrant(row: pd.Series) -> str:
-        if row["high_velocity"] and row["high_margin"]:
-            return "Winner"
-        if row["high_velocity"] and not row["high_margin"]:
-            return "Volume play"
-        if not row["high_velocity"] and row["high_margin"]:
-            return "Niche / slow"
-        return "Cut candidate"
-
-    df["quadrant"] = df.apply(quadrant, axis=1)
+    # Use the shipped classifier, not a copy, so a drift in the real function
+    # is caught here instead of passing against a local reimplementation.
+    df["quadrant"] = df.apply(classify_quadrant, axis=1)
     return df
 
 

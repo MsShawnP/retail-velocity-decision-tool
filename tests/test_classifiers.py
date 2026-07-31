@@ -9,6 +9,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from calcs import classify_quadrant
 from constants import THRESHOLDS
 from decisions.launch_health import _classify_launch
 from decisions.shelf_defense import _classify_shelf_status
@@ -94,18 +95,15 @@ class TestLaunchClassifier:
 # ============================================================
 
 class TestQuadrantLabel:
-    """Quadrant logic is inline in rationalization.layout(), so we test
-    the logic directly rather than importing it."""
+    """Exercise the shipped calcs.classify_quadrant directly -- it is used by
+    rationalization.layout() and pitch_export. (Earlier this test reproduced
+    the logic inline, which passed even if the shipped function drifted.)"""
 
     @staticmethod
     def _label(high_velocity: bool, high_margin: bool) -> str:
-        if high_velocity and high_margin:
-            return "Winner"
-        if high_velocity and not high_margin:
-            return "Volume play"
-        if not high_velocity and high_margin:
-            return "Niche / slow"
-        return "Cut candidate"
+        return classify_quadrant(
+            pd.Series({"high_velocity": high_velocity, "high_margin": high_margin})
+        )
 
     def test_winner(self):
         assert self._label(True, True) == "Winner"
