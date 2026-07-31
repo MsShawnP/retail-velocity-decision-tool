@@ -81,7 +81,14 @@ def layout(
 
     pairs["below_threshold"] = pairs["velocity"] < threshold
     pairs["bottom_20"] = pairs["velocity"] <= p20
-    pairs["shelf_cost"] = ((median_v - pairs["velocity"]) * pairs["wholesale_price"]).round(2)
+    # Weekly wholesale-revenue shortfall vs the median velocity. Clip at 0 so a
+    # below-threshold pair that still sells above the median (possible when the
+    # retailer threshold exceeds the median) counts as no shortfall rather than
+    # a negative that silently offsets the total. This is a revenue gap
+    # (wholesale price), not a margin gap -- the insight text says so.
+    pairs["shelf_cost"] = (
+        ((median_v - pairs["velocity"]) * pairs["wholesale_price"]).clip(lower=0).round(2)
+    )
 
     n_pairs = len(pairs)
     n_below = int(pairs["below_threshold"].sum())
@@ -122,7 +129,7 @@ def layout(
         total_shelf_cost = int(pairs.loc[pairs["below_threshold"], "shelf_cost"].sum())
         insight = (
             f"Underperforming pairs represent ${total_shelf_cost:,}/week in "
-            f"unrealized margin vs the median. Pruning the weakest "
+            f"unrealized revenue vs the median. Pruning the weakest "
             f"frees shelf space for higher-velocity SKUs."
         )
     else:
