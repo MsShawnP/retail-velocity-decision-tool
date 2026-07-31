@@ -65,8 +65,8 @@ app.layout = wrap(
     no_container=True,
     footer_note=(
         "Demo — Cinderhaven Provisions is a fictional brand on a synthetic "
-        "dataset, built to demonstrate the tool. Trailing 52 weeks, 6 retail "
-        "channels."
+        "dataset, built to demonstrate the tool. Three years of weekly scan "
+        "data through 2025-12-27, 6 retail channels."
     ),
 )
 register_callbacks(app)

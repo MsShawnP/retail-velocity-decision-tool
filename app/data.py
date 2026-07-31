@@ -108,6 +108,23 @@ def retailer_clause(retailer: str) -> tuple[str, list]:
     return ("s.retailer = %s", [retailer])
 
 
+def promo_retailer_clause(retailer: str, column: str = "retailer") -> tuple[str, list]:
+    """Return (sql_clause, params) for an fct_promotions retailer filter.
+
+    Mirrors ``retailer_clause``: the UI label "Regional" maps to the
+    underlying chain names in ``REGIONAL_CHAINS`` (e.g. "Regional Group").
+    Without this mapping a literal ``retailer = 'Regional'`` matches nothing
+    and Regional promotions are silently dropped from Promo ROI, Pricing
+    Power, and the promo SKU list.
+    """
+    if retailer == "All Retailers":
+        return ("1=1", [])
+    if retailer == "Regional":
+        ph = ",".join("%s" for _ in REGIONAL_CHAINS)
+        return (f"{column} IN ({ph})", list(REGIONAL_CHAINS))
+    return (f"{column} = %s", [retailer])
+
+
 # ============================================================
 # Utility lookups
 # ============================================================
@@ -170,11 +187,12 @@ def get_latest_week() -> str:
 
 @cache.memoize(timeout=3600)
 def get_promo_skus(retailer: str) -> list[str]:
+    promo_sql, promo_params = promo_retailer_clause(retailer)
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT DISTINCT sku FROM fct_promotions WHERE retailer = %s ORDER BY sku",
-            (retailer,),
+            f"SELECT DISTINCT sku FROM fct_promotions WHERE {promo_sql} ORDER BY sku",  # noqa: S608
+            tuple(promo_params),
         )
         return [r[0] for r in cur.fetchall()]
 
@@ -668,12 +686,7 @@ def get_promo_roi_data(retailer: str, sku_filter: str | None) -> tuple[pd.DataFr
         sku_clause = "AND p.sku = %s"
         sku_params = [sku_filter]
 
-    if retailer == "All Retailers":
-        promo_where = "1=1"
-        promo_params: list = []
-    else:
-        promo_where = "p.retailer = %s"
-        promo_params = [retailer]
+    promo_where, promo_params = promo_retailer_clause(retailer, column="p.retailer")
 
     sql = f"""
         WITH ret_stores AS (
@@ -1001,12 +1014,7 @@ def get_pricing_data(retailer: str, sku_filter: str | None,
         sku_clause = "AND sd.sku = %s"
         sku_params = [sku_filter]
 
-    if retailer == "All Retailers":
-        pricing_promo_where = "1=1"
-        pricing_promo_params: list = []
-    else:
-        pricing_promo_where = "retailer = %s"
-        pricing_promo_params = [retailer]
+    pricing_promo_where, pricing_promo_params = promo_retailer_clause(retailer)
 
     sql = f"""
         WITH ret_stores AS (

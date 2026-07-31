@@ -106,7 +106,7 @@ def _display_rationalization(df: pd.DataFrame) -> pd.DataFrame:
         "Product Name": df["product_name"],
         "Velocity": df["velocity"].round(2),
         "Margin/Store/Week": df["margin_per_sw"].round(2),
-        "Weekly Total Margin": df["weekly_total_margin"].round(2),
+        "Total Weekly Margin": df["weekly_total_margin"].round(2),
         "Quadrant": df["quadrant"],
     })
 
@@ -203,7 +203,9 @@ def build_pitch_excel(
             ws.write(row, 1, n_decel)
             row += 1
             ws.write(row, 0, "4-Wk Forecast (total cases)")
-            ws.write(row, 1, int(data["production"]["forecast_4w_cases"].sum()))
+            # round() before int() so this foots with the Portfolio Health
+            # summary, which rounds the same total.
+            ws.write(row, 1, int(round(data["production"]["forecast_4w_cases"].sum())))
             row += 2
 
         if not data["rationalization"].empty:
