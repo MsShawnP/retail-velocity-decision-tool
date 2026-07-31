@@ -712,3 +712,35 @@ body {
         animation-duration: 0.01ms !important;
     }
 }
+
+/* ============================================================
+   Dash dropdown + number-input brand overrides
+   react-select v1 (dcc.Dropdown) and .form-control (dcc.Input)
+   ship stock styling: #ccc borders, 4-6px radius, a #aaa
+   placeholder (2.32:1 contrast, fails WCAG AA). Bring them onto
+   the Lailara tokens: 2px radius, London-85 hairline, London-40
+   placeholder (5.7:1, passes AA), Chicago focus ring.
+   ============================================================ */
+
+.Select-control,
+.form-control {
+    border: 1px solid var(--ll-london-85) !important;
+    border-radius: var(--ll-radius) !important;
+}
+
+.Select.is-focused:not(.is-open) > .Select-control,
+.form-control:focus {
+    border-color: var(--ll-chicago-40, #1f2e7a) !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+.Select-placeholder,
+.Select--single > .Select-control .Select-value {
+    color: var(--ll-london-40) !important;
+}
+
+.Select-menu-outer {
+    border: 1px solid var(--ll-london-85) !important;
+    border-radius: var(--ll-radius) !important;
+}

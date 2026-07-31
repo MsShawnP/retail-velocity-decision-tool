@@ -113,14 +113,18 @@ def _status_bar(
         if count == 0:
             continue
         pct = count / total * 100 if total else 0
+        # No inline count text: white-on-teal fails WCAG AA (4.02:1) and the
+        # exact counts are already in the accessible legend below. The segment
+        # conveys proportion by width + color; the tooltip carries the detail.
         segments.append(html.Div(
-            f"{count}",
+            "",
             className="ph-bar-segment",
             style={
                 "width": f"{pct}%",
                 "backgroundColor": color,
             },
             title=f"{count} {label} ({pct:.0f}%)",
+            **{"aria-label": f"{count} {label} ({pct:.0f}%)"},
         ))
     legend = html.Div(
         [html.Span([
@@ -227,7 +231,7 @@ def layout() -> html.Div:
             className="dh-metric",
         ),
         html.Div(
-            metric_card("4-Wk Forecast", f"{s['forecast_4w_cases']:,} cs"),
+            metric_card("4-Wk Forecast", f"{s['forecast_4w_cases']:,} cases"),
             className="dh-metric",
         ),
     ]
