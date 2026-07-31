@@ -183,18 +183,27 @@ def get_promo_skus(retailer: str) -> list[str]:
 # Portfolio-level aggregation
 # ============================================================
 
-def _shelf_risk_breakdown() -> tuple[set[str], set[str], float]:
-    """At-risk SKUs, warning SKUs, and weekly wholesale revenue at risk.
+def _shelf_risk_breakdown() -> tuple[set[str], set[str], float, bool]:
+    """At-risk SKUs, warning SKUs, weekly wholesale revenue at risk, and
+    whether that revenue figure is complete.
 
     Single source for both the portfolio-summary counts and the dollarized
     landing-page headline, so the headline SKU count and the risk card can't
     drift apart. Revenue is scoped to the retailer where each SKU is at risk
     (a SKU below threshold only at a small retailer contributes only that
     retailer's revenue, not its cross-retailer total).
+
+    ``revenue_complete`` is False when a retailer had at-risk SKUs but its
+    rationalization view was unavailable — the count is still right, but the
+    dollar figure is an undercount and must not be presented as a headline.
+    (An at-risk SKU merely absent from a *loaded* rationalization view is not
+    an undercount: no scans in the 13-week window means its weekly revenue at
+    that retailer genuinely rounds to zero.)
     """
     at_risk: set[str] = set()
     warning: set[str] = set()
     revenue = 0.0
+    revenue_complete = True
     for ret in PHYSICAL_RETAILERS:
         shelf = get_shelf_defense_data(ret, None)
         if shelf.empty:
@@ -207,11 +216,18 @@ def _shelf_risk_breakdown() -> tuple[set[str], set[str], float]:
         at_risk |= ret_at_risk
         rat = get_rationalization_data(ret, None)
         if rat.empty or not {"revenue_per_sw", "doors"}.issubset(rat.columns):
+            log.warning(
+                "shelf-risk breakdown: no rationalization data for %s "
+                "(%d at-risk SKUs); revenue is incomplete and the dollarized "
+                "headline will be suppressed",
+                ret, len(ret_at_risk),
+            )
+            revenue_complete = False
             continue
         rows = rat[rat["sku"].isin(ret_at_risk)]
         revenue += float((rows["revenue_per_sw"] * rows["doors"]).sum())
     warning -= at_risk
-    return at_risk, warning, revenue
+    return at_risk, warning, revenue, revenue_complete
 
 
 @cache.memoize(timeout=3600)
@@ -227,8 +243,11 @@ def get_portfolio_summary() -> dict:
     if baked is not None and "shelf_at_risk_revenue" not in baked:
         # Older snapshot predates the dollarized headline; derive the revenue
         # without a re-bake so the landing page has one consistent source.
+        # Serve 0 when the figure is incomplete — the landing page then falls
+        # back to the count-only headline instead of showing an undercount.
         try:
-            baked["shelf_at_risk_revenue"] = int(round(_shelf_risk_breakdown()[2]))
+            _, _, _rev, _rev_complete = _shelf_risk_breakdown()
+            baked["shelf_at_risk_revenue"] = int(round(_rev)) if _rev_complete else 0
         except Exception:
             baked["shelf_at_risk_revenue"] = 0
     if baked is not None:
@@ -252,7 +271,9 @@ def get_portfolio_summary() -> dict:
 
     # -- Shelf risk: per-retailer classification, count unique at-risk SKUs,
     #    and the weekly revenue at risk (single source for the headline too) --
-    at_risk_skus, warning_skus, shelf_at_risk_revenue = _shelf_risk_breakdown()
+    at_risk_skus, warning_skus, shelf_at_risk_revenue, revenue_complete = (
+        _shelf_risk_breakdown()
+    )
 
     # -- Launch health --
     launches = get_launch_data()
@@ -285,7 +306,11 @@ def get_portfolio_summary() -> dict:
         "forecast_4w_cases": forecast_4w_cases,
         "shelf_at_risk": len(at_risk_skus),
         "shelf_warning": len(warning_skus),
-        "shelf_at_risk_revenue": int(round(shelf_at_risk_revenue)),
+        # 0 when incomplete: the landing page falls back to the count-only
+        # headline rather than presenting an undercounted dollar figure.
+        "shelf_at_risk_revenue": (
+            int(round(shelf_at_risk_revenue)) if revenue_complete else 0
+        ),
         "prod_accelerating": prod_accel,
         "prod_decelerating": prod_decel,
         "prod_stable": prod_stable,

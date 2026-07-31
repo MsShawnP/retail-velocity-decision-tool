@@ -146,11 +146,89 @@ class TestShelfRiskBreakdownScoping:
             patch("data.get_rationalization_data", side_effect=self._rat),
         ):
             from data import _shelf_risk_breakdown
-            at_risk, _warning, revenue = _shelf_risk_breakdown()
+            at_risk, _warning, revenue, complete = _shelf_risk_breakdown()
 
         assert at_risk == {"A"}  # unique across retailers
         # Sprouts only: 3.0 * 10 = 30. NOT Walmart's 20.0 * 500 = 10_000.
         assert revenue == pytest.approx(30.0)
+        assert complete is True
+
+
+class TestShelfRiskRevenueCompleteness:
+    """If a retailer has at-risk SKUs but its rationalization view is
+    unavailable, the dollar figure is an undercount. The breakdown must flag
+    it incomplete, and get_portfolio_summary must serve 0 so the landing page
+    falls back to the count-only headline instead of a wrong dollar amount.
+    """
+
+    @staticmethod
+    def _shelf(ret, _pl):
+        # At risk at BOTH Walmart (1.0 < 2.5) and Sprouts (0.5 < 1.5).
+        if ret == "Walmart":
+            return pd.DataFrame([{"sku": "A", "current_v": 1.0, "trailing_v": 3.0}])
+        if ret == "Sprouts":
+            return pd.DataFrame([{"sku": "A", "current_v": 0.5, "trailing_v": 1.0}])
+        return pd.DataFrame(columns=["sku", "current_v", "trailing_v"])
+
+    @staticmethod
+    def _rat_walmart_missing(ret, _pl):
+        # Walmart's rationalization view failed to load; Sprouts is fine.
+        if ret == "Sprouts":
+            return pd.DataFrame([{"sku": "A", "revenue_per_sw": 3.0, "doors": 10}])
+        return pd.DataFrame(columns=["sku", "revenue_per_sw", "doors"])
+
+    def test_missing_view_flags_incomplete_keeps_count(self):
+        with (
+            patch("data.get_shelf_defense_data", side_effect=self._shelf),
+            patch("data.get_rationalization_data", side_effect=self._rat_walmart_missing),
+        ):
+            from data import _shelf_risk_breakdown
+            at_risk, _warning, revenue, complete = _shelf_risk_breakdown()
+
+        assert at_risk == {"A"}  # count unaffected by the missing view
+        assert revenue == pytest.approx(30.0)  # Sprouts still accumulated
+        assert complete is False
+
+    def test_absent_sku_in_loaded_view_is_not_incomplete(self):
+        # A loaded view that simply lacks the SKU means ~zero recent revenue
+        # there — a real $0, not missing data. Must NOT flag incomplete.
+        def rat_loaded_without_sku(ret, _pl):
+            return pd.DataFrame([{"sku": "OTHER", "revenue_per_sw": 9.0, "doors": 5}])
+
+        with (
+            patch("data.get_shelf_defense_data", side_effect=self._shelf),
+            patch("data.get_rationalization_data", side_effect=rat_loaded_without_sku),
+        ):
+            from data import _shelf_risk_breakdown
+            at_risk, _warning, revenue, complete = _shelf_risk_breakdown()
+
+        assert at_risk == {"A"}
+        assert revenue == pytest.approx(0.0)
+        assert complete is True
+
+    def test_portfolio_summary_serves_zero_when_incomplete(self):
+        with (
+            patch("data._load_baked_json", return_value=None),
+            patch("data.get_conn") as mock_conn,
+            patch("data.get_latest_week", return_value="2025-03-15"),
+            patch("data.get_production_data", return_value=_fake_prod_df()),
+            patch("data.get_shelf_defense_data", side_effect=self._shelf),
+            patch("data.get_launch_data", return_value=_fake_launch_df()),
+            patch("data.get_rationalization_data", side_effect=self._rat_walmart_missing),
+            patch("data.get_product_lines", return_value=["Condiments"]),
+        ):
+            cursor = MagicMock()
+            cursor.fetchone.return_value = (150,)
+            mock_conn.return_value.__enter__ = lambda s: MagicMock(cursor=lambda: cursor)
+            mock_conn.return_value.__exit__ = lambda s, *a: None
+
+            from data import get_portfolio_summary
+            summary = get_portfolio_summary.__wrapped__()
+
+        assert summary["shelf_at_risk"] == 1
+        # Suppressed, not the $30 partial sum: the landing page's dollarized
+        # headline branch requires revenue > 0, so 0 falls back to count-only.
+        assert summary["shelf_at_risk_revenue"] == 0
 
 
 class TestRiskCardEmptyState:
