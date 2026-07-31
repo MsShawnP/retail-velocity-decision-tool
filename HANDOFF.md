@@ -1,5 +1,12 @@
 # Handoff — Retail Velocity Decision Tool
 
+## OPS — Fly deploy-flake recovery (525 / "no machines")
+
+**Signature:** live site returns HTTP **525** (Cloudflare can't reach origin) AND `fly machines list` shows **"No machines are available"** AND `fly releases` shows the latest as **failed**. This is a Fly *infra* deploy flake — the rolling replace tears down the single machine and the replacement fails to come up, leaving zero machines despite `min_machines_running = 1`. It is NOT an app crash: the failed deploy's logs stop at "Configuring firecracker" with no Python traceback.
+
+**Recover:** re-run the deploy to recreate the machine —
+`fly deploy -a retail-velocity-decision-tool --remote-only` (or `fly scale count 1`). Confirm with `curl -so /dev/null -w "%{http_code}" https://velocity.lailarallc.com/health` (want 200) and `fly machines list` (want 1 machine `started`, checks 1/1). Happened 2026-07-31 (v172 failed → recovered on v173).
+
 ## 2026-07-31 — /improve + /ce review + /ui review
 
 **Started from:** User asked to run /improve, /ce code review, /ui review. Mid-session goal clarified: make it trustworthy for a cold CEO/CFO who grasps the purpose in <30s; Claude wrote all of this (verify, don't assume); DO NOT touch the Postgres SSOT.
