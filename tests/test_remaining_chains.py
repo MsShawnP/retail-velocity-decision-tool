@@ -153,6 +153,50 @@ class TestExpansionTiers:
         assert df["tier"].iloc[0] == "All equivalent"
 
 
+class TestExpansionLayoutRendersWithEqualScores:
+    """Regression: decisions.expansion.layout() reimplements the tier
+    bucketing and referenced tier floors (solid_floor / strongest_floor)
+    that were defined only when scores varied. A single qualifying store
+    -- or exact score ties -- made score_span == 0, so those names were
+    never bound and layout() raised NameError instead of rendering.
+    """
+
+    @staticmethod
+    def _scored_df(score: float, n: int) -> pd.DataFrame:
+        return pd.DataFrame([
+            {
+                "store_id": f"S{i}", "retailer": "Walmart", "region": "NE",
+                "state": "NY", "volume_tier": "B", "n_similar": 3,
+                "avg_velocity": 5.0, "score": score,
+            }
+            for i in range(n)
+        ])
+
+    def _patch(self, monkeypatch, df):
+        from decisions import expansion
+        monkeypatch.setattr(
+            expansion, "get_sku_meta",
+            lambda sku: ("Product A", "Artisan Sauces"),
+        )
+        monkeypatch.setattr(
+            expansion, "get_expansion_data",
+            lambda sku, ret: df,
+        )
+        return expansion
+
+    def test_single_qualifying_store_renders(self, monkeypatch):
+        from dash import html
+        expansion = self._patch(monkeypatch, self._scored_df(4.0, 1))
+        result = expansion.layout("Artisan Sauces", "CHP-0001", "Walmart")
+        assert isinstance(result, html.Div)  # renders, does not raise NameError
+
+    def test_tied_scores_render(self, monkeypatch):
+        from dash import html
+        expansion = self._patch(monkeypatch, self._scored_df(4.0, 3))
+        result = expansion.layout("Artisan Sauces", "CHP-0001", "Walmart")
+        assert isinstance(result, html.Div)
+
+
 # ============================================================
 # Pruning severity chain
 # ============================================================

@@ -124,8 +124,14 @@ def layout(
     score_span = score_max - score_min
 
     if score_span < 1e-9:
+        # All scores identical (a single qualifying store, or exact ties):
+        # every opportunity is an equally strong fit. Define the tier floors
+        # so the downstream legend / n_strongest references stay valid, and
+        # bucket everything into the top tier so the chart still draws bars.
+        solid_floor = strongest_floor = score_min
+
         def _tier_for_score(s: float) -> str:
-            return "All equivalent"
+            return "Strongest"
     else:
         solid_floor = score_min + score_span / 3.0
         strongest_floor = score_min + 2.0 * score_span / 3.0
