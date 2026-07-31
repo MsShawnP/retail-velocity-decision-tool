@@ -178,8 +178,12 @@ def apply_pricing_calcs(df: pd.DataFrame) -> pd.DataFrame:
     slow_floor = THRESHOLDS["pricing_slow_recovery"]
 
     def recovery_label(r: float) -> str:
+        # NaN means no post-promo scans exist yet (the post window is
+        # end_week+7..+21 days, so any promo ending within ~3 weeks of the
+        # latest week has none). That is unknown recovery, not slow recovery --
+        # labeling it "Slow" makes the verdict read a recent promo as a failure.
         if pd.isna(r):
-            return "Slow Recovery"
+            return "Recovery pending"
         if r >= full_floor:
             return "Full Recovery"
         if r >= slow_floor:

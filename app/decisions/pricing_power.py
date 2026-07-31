@@ -73,6 +73,9 @@ def _verdict(row: pd.Series) -> str:
     return {
         "Full Recovery":    "Promote again",
         "Partial Recovery": "Promote cautiously",
+        # Recovery can't be judged until post-promo scans exist; the lift was
+        # real (positive elasticity), so don't penalize a too-recent promo.
+        "Recovery pending": "Promote cautiously",
         "Slow Recovery":    "Stop promoting",
     }.get(row["recovery_status"], "Stop promoting")
 

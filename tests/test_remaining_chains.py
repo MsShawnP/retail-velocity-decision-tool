@@ -68,9 +68,11 @@ class TestRecoveryStatus:
         df = _apply_pricing_calcs(pd.DataFrame([_pricing_row(baseline_v=10.0, post_v=7.0)]))
         assert df["recovery_status"].iloc[0] == "Slow Recovery"
 
-    def test_nan_post_v_is_slow(self):
+    def test_nan_post_v_is_recovery_pending(self):
+        # No post-promo scans yet (too-recent promo) is unknown recovery, not
+        # slow recovery -- otherwise the verdict reads it as a failure.
         df = _apply_pricing_calcs(pd.DataFrame([_pricing_row(baseline_v=10.0, post_v=None)]))
-        assert df["recovery_status"].iloc[0] == "Slow Recovery"
+        assert df["recovery_status"].iloc[0] == "Recovery pending"
 
 
 class TestVerdict:
@@ -93,6 +95,12 @@ class TestVerdict:
     def test_nan_elasticity_returns_insufficient_data(self):
         row = pd.Series({"elasticity": float("nan"), "recovery_status": "Full Recovery"})
         assert _verdict(row) == "Insufficient data"
+
+    def test_recovery_pending_is_not_stop_promoting(self):
+        # A too-recent promo with real lift must not be labeled "Stop promoting"
+        # just because post-promo data does not exist yet.
+        row = pd.Series({"elasticity": 1.5, "recovery_status": "Recovery pending"})
+        assert _verdict(row) == "Promote cautiously"
 
 
 # ============================================================
