@@ -18,12 +18,23 @@ a smaller ROI-qualified subset (13) at query time — that is not drift.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "cinderhaven_product_master.db"
+ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = ROOT / "data" / "cinderhaven_product_master.db"
+
+# Canonical figures come from the vendored canon (refreshed from the platform by
+# scripts/refresh_canonical.py), not hardcoded here.
+CANON = json.loads((ROOT / "reference" / "canonical_values.json").read_text(encoding="utf-8"))
+CANON_SKUS = CANON["universe"]["skus_total"]["all_time"]
+CANON_LINES = CANON["universe"]["product_lines"]["all_time"]
+CANON_RETAILERS = CANON["universe"]["retailers"]["all_time"]
+CANON_AUTHORIZATIONS = CANON["distribution"]["authorizations"]["trailing_36m"]
+CANON_SCAN_CY2025 = CANON["revenue"]["retail_scan"]["cy2025"]
 
 
 @pytest.fixture(scope="module")
@@ -51,7 +62,7 @@ class TestCinderhavenCanonicalRegression:
     def test_sku_count(self, db):
         """Canonical: 50 SKUs."""
         (count,) = db.execute("SELECT COUNT(DISTINCT sku) FROM product_master").fetchone()
-        assert count == 50, f"Expected 50 SKUs (canonical), got {count}"
+        assert count == CANON_SKUS, f"Expected {CANON_SKUS} SKUs (canon), got {count}"
 
     # ------------------------------------------------------------------
     # Product lines
@@ -62,7 +73,7 @@ class TestCinderhavenCanonicalRegression:
         (count,) = db.execute(
             "SELECT COUNT(DISTINCT product_line) FROM product_master"
         ).fetchone()
-        assert count == 5, f"Expected 5 product lines (canonical), got {count}"
+        assert count == CANON_LINES, f"Expected {CANON_LINES} product lines (canon), got {count}"
 
     def test_product_line_names(self, db):
         rows = db.execute(
@@ -79,7 +90,7 @@ class TestCinderhavenCanonicalRegression:
     def test_retailer_count(self, db):
         """Stores table has 6 distinct retailer channels (canonical)."""
         (count,) = db.execute("SELECT COUNT(DISTINCT retailer) FROM stores").fetchone()
-        assert count == 6, f"Expected 6 retailers, got {count}"
+        assert count == CANON_RETAILERS, f"Expected {CANON_RETAILERS} retailers (canon), got {count}"
 
     def test_all_canonical_retailers_present(self, db):
         """All 6 canonical retailers must be present."""
@@ -141,7 +152,7 @@ class TestCinderhavenCanonicalRegression:
     def test_distribution_total(self, db):
         """Canonical: 9,992 distribution authorizations (9,943 cy2023 + 49 in 2025)."""
         (count,) = db.execute("SELECT COUNT(*) FROM distribution_log").fetchone()
-        assert count == 9992, f"Expected 9,992 distribution rows (canonical), got {count}"
+        assert count == CANON_AUTHORIZATIONS, f"Expected {CANON_AUTHORIZATIONS} distribution rows (canon), got {count}"
 
     # ------------------------------------------------------------------
     # Retailer requirements
@@ -167,6 +178,6 @@ class TestCinderhavenCanonicalRegression:
             "SELECT SUM(CAST(dollars_sold AS REAL)) FROM scan_data "
             "WHERE week_ending >= '2025-01-01'"
         ).fetchone()
-        assert abs(rev - 32_323_139.62) < 1.0, (
-            f"cy2025 scan revenue drift: got {rev:,.2f}, expected 32,323,139.62"
+        assert abs(rev - CANON_SCAN_CY2025) < 1.0, (
+            f"cy2025 scan revenue drift: got {rev:,.2f}, expected {CANON_SCAN_CY2025:,.2f}"
         )
