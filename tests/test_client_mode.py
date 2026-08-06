@@ -91,6 +91,42 @@ def test_no_rates_means_no_net_but_still_runs(tmp_path):
     assert res["n_proxy_disclosures"] == 0
 
 
+def test_window_label_tracks_scan_span_not_a_hardcode(tmp_path):
+    """The rendered Window label must be the ACTUAL scan-week span and move with
+    the data. The suite asserted at-risk counts and proxy notes, never the
+    window text — a hardcoded span matching the demo would pass, the failure
+    mode behind trade-spend quoting 26 weeks of data as 'trailing 52 weeks'.
+
+    Both halves: assert each distinct span's full window substring is present,
+    AND assert the other span's substring (a stand-in for a hardcode) is absent."""
+    sp, stp = _write(tmp_path)
+    cfg = _cfg(tmp_path)
+    scans = pd.read_csv(sp)
+    wk = pd.to_datetime(scans["week_ending"])
+    first_a, last = wk.min(), wk.max()
+    early_b = first_a - timedelta(weeks=20)          # still a Saturday, on-grid
+
+    def win(first):
+        return f"scan weeks {first.strftime('%b %d, %Y')} – {last.strftime('%b %d, %Y')}"
+
+    res_a = client_mode.run(str(cfg), str(tmp_path / "out_a"), _args(str(sp), str(stp)))
+    html_a = Path(res_a["report"]).read_text(encoding="utf-8")
+    assert win(first_a) in html_a and win(early_b) not in html_a
+
+    # Span B: one earlier scan week for store W1 -> window start moves back.
+    r0 = scans.iloc[0].to_dict()
+    r0["week_ending"] = early_b.strftime("%Y-%m-%d")
+    pd.concat([scans, pd.DataFrame([r0])], ignore_index=True).to_csv(sp, index=False)
+    res_b = client_mode.run(str(cfg), str(tmp_path / "out_b"), _args(str(sp), str(stp)))
+    html_b = Path(res_b["report"]).read_text(encoding="utf-8")
+    assert win(early_b) in html_b and win(first_a) not in html_b
+
+    for html in (html_a, html_b):
+        low = html.lower()
+        assert "trailing 52" not in low and "52-week" not in low and "52 weeks" not in low
+        assert "365d" not in low
+
+
 def test_missing_units_blocks(tmp_path):
     sp, stp = _write(tmp_path)
     pd.read_csv(sp).drop(columns=["units_sold"]).to_csv(sp, index=False)
