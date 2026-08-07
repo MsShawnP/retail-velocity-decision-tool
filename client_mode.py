@@ -158,7 +158,7 @@ def _deliverable_html(config, summary, rows, basis_word, window_label, limitatio
 <section class=ll-banner>
   <div class=ll-score>{summary['total_at_risk_skus']} at-risk item-retailer positions</div>
   <div>{_fmt_dollars(summary['total_revenue_at_risk'])} {esc(basis_word)} revenue at risk</div>
-  <div class=ll-basis>Basis: {esc(basis_word)} scan dollars on at-risk positions (velocity below the
+  <div class=ll-basis>Basis: {esc(basis_word)} dollars on at-risk positions (velocity below the
        retailer floor) · Window: {esc(window_label)}. Net at risk = revenue × (1 − trade rate).
        Rows marked * use a disclosed proxy rate — see below.</div>
 </section>
