@@ -37,7 +37,8 @@ def _world():
 def _write(d: Path):
     stores, scans = _world()
     sp, stp = d / "scans.csv", d / "stores.csv"
-    scans.to_csv(sp, index=False); stores.to_csv(stp, index=False)
+    scans.to_csv(sp, index=False)
+    stores.to_csv(stp, index=False)
     return sp, stp
 
 
@@ -50,7 +51,8 @@ def _cfg(d: Path, *, rates=True, columns=None):
     if rates:
         cfg["rates"] = {"trade_spend_proxy": {"Kroger": "Regional Group"},
                         "trade_spend_pct": {"Walmart": 0.11, "Regional Group": 0.09}}
-    p = d / "engagement.demo.yml"; p.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    p = d / "engagement.demo.yml"
+    p.write_text(yaml.safe_dump(cfg), encoding="utf-8")
     return p
 
 
@@ -136,7 +138,8 @@ def test_missing_units_blocks(tmp_path):
 
 def test_off_convention_week_blocks(tmp_path):
     sp, stp = _write(tmp_path)
-    df = pd.read_csv(sp); df.loc[0, "week_ending"] = "2025-12-29"  # Monday
+    df = pd.read_csv(sp)
+    df.loc[0, "week_ending"] = "2025-12-29"  # Monday
     df.to_csv(sp, index=False)
     res = client_mode.run(str(_cfg(tmp_path)), str(tmp_path / "out"), _args(str(sp), str(stp)))
     assert res["status"] == "blocked"
